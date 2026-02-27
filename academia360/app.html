@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mi panel — Academia de Mujeres</title>
+
+  <link rel="stylesheet" href="./styles.css" />
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Config + client + auth (antes que app.js) -->
+  <script src="./config.js"></script>
+  <script src="./supabaseClient.js"></script>
+  <script src="./auth.js"></script>
+
+  <script defer src="./app.js"></script>
+</head>
+
+<body class="campus-page">
+  <div id="top"></div>
+  <!-- Global Loader -->
+  <div id="globalLoader" class="loader" aria-hidden="true">
+    <div class="loader__spinner" role="status" aria-label="Cargando"></div>
+  </div>
+
+  <!-- HEADER -->
+  <header class="site-header" id="siteHeader">
+    <div class="container header-inner">
+      <div class="brand-left">
+        <a class="brand" href="./index.html" style="text-decoration:none">MARICEL CONSE</a>
+        <span id="userEmail" class="small"></span>
+      </div>
+
+      <nav class="header-actions" aria-label="Acciones">
+        <a class="btn campus-ghost" id="adminLink" href="./admin.html" style="display:none">Admin</a>
+        <a class="btn campus-ghost" id="profileBtn" type="button">Mi perfil<a>
+        <a class="btn campus-ghost" href="#" data-action="logout">Salir</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Mi Perfil (panel flotante) -->
+  <div id="profilePanel" class="card profile-panel" style="display:none">
+    <div class="row" style="justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap">
+      <div>
+        <div class="small" style="opacity:.8">Mi perfil</div>
+        <div id="profileEmail" class="small"></div>
+      </div>
+      <button class="btn campus-ghost" id="profileCloseBtn" type="button">Cerrar</button>
+    </div>
+
+    <div class="hr"></div>
+
+    <div class="small" style="opacity:.8">Estado de cuenta</div>
+    <div class="small" id="profilePlanLine" style="margin-top:6px"></div>
+    <div class="small" id="profilePaidLine" style="margin-top:6px"></div>
+
+    <div id="profileUpgradeBox" style="display:none; margin-top:12px">
+      <div class="small" style="margin-bottom:8px">¿Querés más acceso?</div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap">
+        <button class="btn campus-ghost" id="profileUpgradeMidBtn" type="button" style="display:none">Upgrade a Intermedio</button>
+        <button class="btn primary" id="profileUpgradeProBtn" type="button" style="display:none">Upgrade a Pro</button>
+      </div>
+    </div>
+
+    <div class="hr"></div>
+
+    <div class="small" style="opacity:.8">Datos personales</div>
+
+    <div class="form" style="margin-top:10px">
+      <label class="small" for="pfFullName">Nombre y apellido</label>
+      <input class="input" id="pfFullName" placeholder="Ej: María Pérez" />
+
+      <label class="small" for="pfPhone">Teléfono</label>
+      <input class="input" id="pfPhone" placeholder="+54..." />
+
+      <label class="small" for="pfAge">Edad</label>
+      <input class="input" id="pfAge" type="number" min="12" max="100" />
+
+      <label class="small" for="pfWeight">Peso (kg)</label>
+      <input class="input" id="pfWeight" type="number" min="20" max="300" step="0.1" />
+
+      <label class="small" for="pfHeight">Altura (cm)</label>
+      <input class="input" id="pfHeight" type="number" min="100" max="250" step="1" />
+
+      <label class="small" for="pfLevel">Nivel de entrenamiento</label>
+      <select class="input" id="pfLevel">
+        <option value="">(sin definir)</option>
+        <option value="beginner">Principiante</option>
+        <option value="intermediate">Intermedio</option>
+        <option value="advanced">Avanzado</option>
+      </select>
+
+      <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap">
+        <button class="btn primary" id="profileSaveBtn" type="button">Guardar cambios</button>
+        <span class="small" id="profileMsg"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- HERO / BANNER -->
+  <section class="hero-banner">
+    <div class="banner-full">
+      <div class="container banner-inner">
+        <div class="banner-card">
+          <div class="campus-mark" aria-hidden="true">
+            <video autoplay muted playsinline preload="auto">
+              <source src="media/isotipo.mp4" type="video/mp4" />
+            </video>
+          </div>
+
+          <div class="banner-text">
+            <div class="banner-title">CAMPUS VIRTUAL</div>
+            <div class="banner-subtitle">ACADEMIA DE MUJERES</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTENIDO -->
+  <main class="container page">
+
+    <!-- Encabezado “dashboard” -->
+    <section class="campus-head">
+      <div class="campus-head__left">
+        <h1 class="campus-title">Mi panel</h1>
+        <p class="small campus-sub">
+          Tu rutina, tus clases y tu biblioteca en un solo lugar.
+        </p>
+      </div>
+
+
+    </section>
+
+    <!-- Nav interna (premium: claridad + control) -->
+    <nav class="campus-nav" aria-label="Navegación del campus">
+      <a class="btn campus-ghost" href="#sec-rutina">Rutina</a>
+      <a class="btn campus-ghost" href="#sec-clases">Clases</a>
+      <a class="btn campus-ghost" href="#sec-biblioteca">Biblioteca</a>
+    </nav>
+
+    <section class="panel-main panel-two-col">
+
+      <!-- Frase de la semana -->
+      <div class="card panel-quote">
+        <div class="panel-quote__inner">
+          <div class="panel-quote__content">
+            <div class="small panel-quote__kicker">Frase de la semana</div>
+            <h2 class="panel-quote__title" id="weeklyQuoteTitle">“Disciplina &gt; motivación.”</h2>
+            <div class="small panel-quote__text" id="weeklyQuotePhrase">
+              Hacé lo mínimo posible, pero hacelo todos los días.
+            </div>
+          </div>
+
+          <div class="panel-quote__media" aria-hidden="true">
+            <img id="weeklyQuoteImg" src="imagenes/frase.png" alt="" loading="lazy" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Área de entrenamiento -->
+      <section id="sec-rutina" class="card panel-routine campus-tint">
+        <header class="campus-cardhead">
+          <div>
+            <div class="small" style="opacity:.8">Área de entrenamiento</div>
+            <h2 id="monthTitle" class="campus-h2">Mes —</h2>
+          </div>
+
+          <div class="campus-meta">
+            <div class="small campus-meta__hint">Elegí modalidad y explorá semanas/días.</div>
+          </div>
+        </header>
+
+        <div id="upgradeBox" class="campus-upgrade" style="display:none">
+          <div class="small" style="margin-bottom:8px">¿Querés más acceso?</div>
+          <div class="campus-upgrade__actions">
+            <button class="btn" id="upgradeMidBtn" type="button" style="display:none">Upgrade a Intermedio</button>
+            <button class="btn primary" id="upgradeProBtn" type="button" style="display:none">Upgrade a Premium</button>
+          </div>
+        </div>
+
+        <div class="campus-toolbar">
+          <div class="small">Modo de entrenamiento:</div>
+          <div class="track-switch">
+            <button class="btn" id="trackGymBtn" type="button">Gimnasio</button>
+            <button class="btn" id="trackHomeBtn" type="button">Casa</button>
+          </div>
+          <span class="small campus-toolbar__hint" id="trackHint"></span>
+        </div>
+
+        <div id="monthContent" class="month-content"></div>
+
+        <div class="hr"></div>
+
+        <footer class="campus-actions">
+          <button class="btn campus-ghost" id="downloadRoutineBtn" type="button">Descargar rutina</button>
+          <button class="btn primary" id="editObjectiveBtn" type="button">Modificar objetivos</button>
+        </footer>
+
+        <div id="objectivePanel" class="card campus-innercard" style="margin-top:12px; display:none">
+          <div class="small" style="margin-bottom:8px">
+            Elegí un objetivo y recargamos la rutina del mes vigente.
+          </div>
+
+          <div class="campus-inline">
+            <select class="input" id="objectiveSel" style="min-width:240px">
+              <option value="fat_loss">Perder peso</option>
+              <option value="muscle_gain">Ganar masa muscular</option>
+            </select>
+
+            <button class="btn primary" id="saveObjectiveBtn" type="button">Guardar</button>
+            <button class="btn campus-ghost" id="cancelObjectiveBtn" type="button">Cancelar</button>
+          </div>
+
+          <div id="objectiveMsg" class="small" style="margin-top:8px"></div>
+        </div>
+      </section>
+
+      <!-- Clases + Biblioteca -->
+      <aside id="sec-clases" class="card panel-classes campus-tint has-coaching-photo">
+
+        <div class="campus-splithead">
+          <div>
+            <div class="small" style="opacity:.8">Calendario</div>
+            <h2 class="campus-h2">Clases en vivo</h2>
+          </div>
+          <div class="small campus-pill">Premium</div>
+        </div>
+
+        <div id="classesMsg" class="small" style="margin-top:6px"></div>
+        <div class="hr"></div>
+        <div id="classesList" class="list"></div>
+
+        <div class="hr campus-softline"></div>
+
+        <div id="sec-biblioteca" class="campus-splithead" style="margin-top:6px">
+          <div>
+            <div class="small" style="opacity:.8">On demand</div>
+            <h3 class="campus-h3">Biblioteca</h3>
+          </div>
+        </div>
+
+        <div id="recordedMsg" class="small" style="margin-top:6px"></div>
+        <div class="hr"></div>
+        <div id="recordedList" class="list"></div>
+
+        <div class="campus-help">
+          <div class="small" style="opacity:.85">
+            ¿Necesitás ayuda con tu acceso o tu rutina? Escribinos.
+          </div>
+          <a class="btn campus-ghost" href="https://wa.me/5492964406552" target="_blank" rel="noopener">WhatsApp</a>
+        </div>
+        <div class="campus-help">
+        <a class="btn campus-ghost" href="#top">Volver arriba</a>
+        </div>
+      </aside>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer id="contacto" class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-title">Contacto</div>
+
+      <div class="socials" aria-label="Redes sociales">
+        <a class="social" href="https://www.facebook.com/profile.php?id=61579704266004&locale=es_LA#"
+           target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+          <img src="./imagenes/facebook.png" alt="Facebook" loading="lazy">
+        </a>
+
+        <a class="social" href="https://www.instagram.com/maricelconse/"
+           target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+          <img src="./imagenes/instagram.png" alt="Instagram" loading="lazy">
+        </a>
+
+        <a class="social" href="https://wa.me/5492964406552"
+           target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
+          <img src="./imagenes/whatsapp.png" alt="WhatsApp" loading="lazy">
+        </a>
+
+        <a class="social" href="https://www.tiktok.com/@maricelconse"
+           target="_blank" rel="noopener noreferrer" aria-label="TikTok">
+          <img src="./imagenes/tiktok.png" alt="TikTok" loading="lazy">
+        </a>
+
+        <a class="social" href="https://www.youtube.com/@maricelconse"
+           target="_blank" rel="noopener noreferrer" aria-label="YouTube">
+          <img src="./imagenes/youtube.png" alt="YouTube" loading="lazy">
+        </a>
+      </div>
+
+      <div class="small2" style="margin-top:14px;opacity:.8">
+        © <span id="year"></span> Maricel Conse · Academia de Mujeres
+      </div>
+    </div>
+  </footer>
+
+  <!-- Video modal -->
+  <div id="videoModalBackdrop" class="modal-backdrop" aria-hidden="true"></div>
+
+  <div id="videoModal" class="modal" aria-hidden="true">
+    <div class="modal-head">
+      <div class="modal-title" id="videoModalTitle">Video</div>
+      <button class="btn" id="videoModalClose" type="button">Cerrar</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="video-wrap is-vertical">
+        <iframe
+          id="videoModalFrame"
+          src=""
+          title="Video"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen
+        ></iframe>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Año footer
+    const y = document.getElementById("year");
+    if (y) y.textContent = new Date().getFullYear();
+
+    // Header scroll
+    const header = document.getElementById("siteHeader");
+    const onScroll = () => {
+      if (!header) return;
+      if (window.scrollY > 16) header.classList.add("is-scrolled");
+      else header.classList.remove("is-scrolled");
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    // Duplicar acceso al perfil desde el nav interno (sin tocar app.js)
+    const p1 = document.getElementById("profileBtn");
+    const p2 = document.getElementById("profileBtn2");
+    if (p1 && p2){
+      p2.addEventListener("click", () => p1.click());
+    }
+  </script>
+
+  <script src="./loader.js"></script>
+</body>
+</html>

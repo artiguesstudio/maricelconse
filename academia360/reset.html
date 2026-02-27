@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Recuperar contraseña — Academia de Mujeres</title>
+  <link rel="stylesheet" href="./styles.css" />
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./config.js"></script>
+  <script src="./supabaseClient.js"></script>
+  <script defer src="./reset.js"></script>
+</head>
+
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="./index.html" style="text-decoration:none">MARICEL CONSE</a>
+      <nav class="header-actions">
+        <a class="btn" href="./login.html">Volver</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container page" style="max-width:520px">
+    <div class="card">
+      <h2 style="margin:0">Recuperar contraseña</h2>
+      <div class="small" style="margin-top:6px;opacity:.85">
+        Te vamos a enviar un email con un link para crear una nueva contraseña.
+      </div>
+
+      <div class="form" style="margin-top:14px">
+        <label class="small" for="resetEmail">Email</label>
+        <input class="input" id="resetEmail" type="email" placeholder="tu@email.com" />
+
+        <button class="btn primary" id="resetBtn" type="button" style="margin-top:10px">
+          Enviar link de recuperación
+        </button>
+
+        <div id="resetMsg" class="small" style="margin-top:10px"></div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

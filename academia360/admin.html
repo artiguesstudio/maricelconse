@@ -1,0 +1,825 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <link rel="icon" href="data:,">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin — Academia de Mujeres</title>
+
+  <link rel="stylesheet" href="./styles.css" />
+
+  <style>
+    /* ===== Admin: Accordion ===== */
+    .admin-acc{
+      border: 1px solid rgba(0,0,0,.10);
+      border-radius: 16px;
+      overflow: hidden;
+      margin-top: 12px;
+      background: rgba(255,255,255,.65);
+    }
+    .admin-acc > summary{
+      list-style: none;
+      cursor: pointer;
+      padding: 12px 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      user-select: none;
+    }
+    .admin-acc > summary::-webkit-details-marker{ display:none; }
+    .admin-acc > summary::after{
+      content: "▾";
+      opacity: .7;
+      transition: transform .2s ease;
+    }
+    .admin-acc[open] > summary::after{ transform: rotate(180deg); }
+    .admin-acc .acc-body{
+      padding: 14px;
+      border-top: 1px solid rgba(0,0,0,.08);
+    }
+
+    /* Índice sticky */
+    .admin-index{
+      position: sticky;
+      top: 88px;
+      z-index: 5;
+    }
+    .admin-index a{ text-decoration:none; }
+
+    /* Anclas con header fijo */
+    .admin-anchor{ scroll-margin-top: 110px; }
+
+    /* ===== Menú hamburguesa (meses) ===== */
+    .ham-wrap{ position:relative; display:inline-flex; align-items:center; gap:8px; }
+    .ham-btn{
+      width:44px; height:44px; border-radius:14px;
+      border:1px solid rgba(0,0,0,.10);
+      background: rgba(255,255,255,.70);
+      display:inline-flex; align-items:center; justify-content:center;
+      cursor:pointer;
+    }
+    .ham-btn:active{ transform: translateY(1px); }
+    .ham-icon{ width:18px; height:12px; display:grid; gap:3px; }
+    .ham-icon span{ height:2px; background: rgba(0,0,0,.65); border-radius:999px; display:block; }
+    .ham-menu{
+      position:absolute; top:52px; right:0;
+      min-width: 280px;
+      max-height: 360px;
+      overflow:auto;
+      border-radius: 16px;
+      border:1px solid rgba(0,0,0,.10);
+      background: rgba(255,255,255,.92);
+      box-shadow: 0 14px 40px rgba(0,0,0,.12);
+      padding: 10px;
+      display:none;
+      z-index: 30;
+    }
+    .ham-menu.open{ display:block; }
+    .ham-menu .rowline{
+      display:flex; justify-content:space-between; gap:10px; align-items:center;
+      padding: 8px;
+      border-radius: 12px;
+      cursor:pointer;
+    }
+    .ham-menu .rowline:hover{ background: rgba(0,0,0,.04); }
+    .pill{
+      font-size:12px; padding:4px 8px; border-radius:999px;
+      border:1px solid rgba(0,0,0,.10);
+      opacity:.9;
+      white-space:nowrap;
+    }
+    .pill.pub{ border-color: rgba(40,140,90,.25); background: rgba(40,140,90,.10); }
+    .pill.sel{ border-color: rgba(20,70,200,.20); background: rgba(20,70,200,.10); }
+  /* ...tu CSS existente... */
+
+  /* ===== Admin: Weekly Quote ===== */
+  .wq-preview{
+    display:grid;
+    gap:10px;
+  }
+  .wq-preview img{
+    width:100%;
+    max-height:220px;
+    object-fit:cover;
+    border-radius:14px;
+    border:1px solid rgba(0,0,0,.10);
+    background: rgba(255,255,255,.6);
+  }
+
+  </style>
+
+  <!-- Supabase + config -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./config.js"></script>
+  <script src="./supabaseClient.js"></script>
+  <script src="./auth.js"></script>
+
+  <!-- Admin logic -->
+  <script defer src="./admin.js"></script>
+</head>
+
+<body>
+  <!-- Global Loader -->
+  <div id="globalLoader" class="loader" aria-hidden="true">
+    <div class="loader__spinner" role="status" aria-label="Cargando"></div>
+  </div>
+
+  <!-- HEADER -->
+  <header class="site-header" id="siteHeader">
+    <div class="container header-inner">
+      <div class="brand-left">
+        <a class="brand" href="./index.html" style="text-decoration:none">MARICEL CONSE</a>
+        <div class="brand-sub">Backoffice</div>
+      </div>
+
+      <nav class="header-actions">
+        <a class="btn" href="./app.html">Campus virtual</a>
+        <a class="btn" href="./index.html">Sitio</a>
+        <button class="btn" id="logoutBtn" type="button">Salir</button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- BANNER -->
+  <section class="hero-banner">
+    <div class="banner-full">
+      <div class="container banner-inner">
+        <div class="banner-card">
+          <a class="banner-logo" href="./index.html" aria-label="Volver al inicio">
+            <img src="./imagenes/Isotipo.png" alt="Maricel Conse" onerror="this.style.display='none'">
+          </a>
+
+          <div class="banner-text">
+            <div class="banner-title">ADMIN</div>
+            <div class="banner-subtitle">GESTIÓN DE RUTINAS</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTENIDO -->
+  <main class="container page">
+
+    <!-- KPIs -->
+    <div class="card" style="margin-top:18px">
+      <div class="row" style="justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
+        <div>
+          <div class="small" style="opacity:.8">Resumen</div>
+          <h3 style="margin:0">KPIs</h3>
+        </div>
+        <button class="btn primary" id="kpiRefreshBtn" type="button">Refrescar</button>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
+        <div class="card" style="background:rgba(255,255,255,.55)">
+          <div class="small" style="opacity:.8">Inscripciones</div>
+          <div style="font-weight:800;font-size:22px" id="kpiSignups">—</div>
+        </div>
+
+        <div class="card" style="background:rgba(255,255,255,.55)">
+          <div class="small" style="opacity:.8">Cuentas activas</div>
+          <div style="font-weight:800;font-size:22px" id="kpiActive">—</div>
+        </div>
+
+        <div class="card" style="background:rgba(255,255,255,.55)">
+          <div class="small" style="opacity:.8">MRR estimado (ARS)</div>
+          <div style="font-weight:800;font-size:22px" id="kpiMrr">—</div>
+          <div class="small" style="opacity:.7" id="kpiMrrHint"></div>
+        </div>
+
+        <div class="card" style="background:rgba(255,255,255,.55)">
+          <div class="small" style="opacity:.8">Recaudación total (ARS)</div>
+          <div style="font-weight:800;font-size:22px" id="kpiCollected">—</div>
+          <div class="small" style="opacity:.7" id="kpiCollectedHint"></div>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+      <div class="small" style="opacity:.8">Activos por plan</div>
+      <div id="kpiByPlan" class="list" style="margin-top:10px"></div>
+    </div>
+
+    <!-- Rutinas del mes publicado -->
+    <div class="card" style="margin-top:18px">
+      <div class="row" style="justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
+        <div style="min-width:220px">
+          <div class="small" style="opacity:.8">Rutinas</div>
+          <h3 id="activeMonthTitle" style="margin:0">Mes publicado</h3>
+          <div id="activeMonthSubtitle" class="small" style="opacity:.8;margin-top:4px"></div>
+        </div>
+
+        <div class="row" style="gap:10px;flex-wrap:wrap;align-items:center">
+          <button class="btn" id="activePrevBtn" type="button" title="Mes anterior">←</button>
+
+          <div style="position:relative">
+            <button class="btn" id="activeMonthMenuBtn" type="button" title="Elegir mes" aria-haspopup="true" aria-expanded="false">
+              ☰ Meses
+            </button>
+
+            <div id="activeMonthMenu" style="
+              display:none;
+              position:absolute;
+              right:0;
+              top:42px;
+              width:min(520px, 84vw);
+              max-height:360px;
+              overflow:auto;
+              background:rgba(255,255,255,.96);
+              border:1px solid rgba(0,0,0,.12);
+              border-radius:14px;
+              box-shadow:0 18px 60px rgba(0,0,0,.18);
+              padding:10px;
+              z-index:20;
+            ">
+              <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
+                <div class="small" style="opacity:.8">Elegí un mes</div>
+                <button class="btn" id="activeMonthMenuCloseBtn" type="button">Cerrar</button>
+              </div>
+
+              <div class="hr"></div>
+              <div id="activeMonthMenuList" style="display:grid;gap:8px"></div>
+            </div>
+          </div>
+
+          <button class="btn" id="activeNextBtn" type="button" title="Mes siguiente">→</button>
+
+          <select class="input" id="activeObjSel" style="min-width:170px">
+            <option value="fat_loss">Perder peso</option>
+            <option value="muscle_gain">Ganar masa muscular</option>
+          </select>
+
+          <select class="input" id="activeTrackSel" style="min-width:140px">
+            <option value="gym">Gimnasio</option>
+            <option value="home">Casa</option>
+          </select>
+
+          <button class="btn primary" id="activeRefreshBtn" type="button">Refrescar</button>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+      <div id="activeRoutinesMsg" class="small" style="opacity:.85"></div>
+
+      <!-- ✅ Semanas desplegables -->
+      <details class="admin-acc" open style="margin-top:12px">
+        <summary>Semana 1</summary>
+        <div class="acc-body">
+          <div style="overflow:auto">
+            <table style="width:100%;border-collapse:separate;border-spacing:0;min-width:720px">
+              <thead>
+                <tr style="text-align:left">
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Día</th>
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Etiqueta</th>
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Grupo</th>
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Foco</th>
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Items</th>
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Acciones</th>
+                </tr>
+              </thead>
+              <tbody data-week="1">
+                <tr><td colspan="6" class="small" style="padding:12px;opacity:.8">Cargando…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
+      <details class="admin-acc" style="margin-top:10px">
+        <summary>Semana 2</summary>
+        <div class="acc-body">
+          <div style="overflow:auto">
+            <table style="width:100%;border-collapse:separate;border-spacing:0;min-width:720px">
+              <thead>
+                <tr style="text-align:left">
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Día</th>
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Etiqueta</th>
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Grupo</th>
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Foco</th>
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Items</th>
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Acciones</th>
+                </tr>
+              </thead>
+              <tbody data-week="2">
+                <tr><td colspan="6" class="small" style="padding:12px;opacity:.8">Cargando…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
+      <details class="admin-acc" style="margin-top:10px">
+        <summary>Semana 3</summary>
+        <div class="acc-body">
+          <div style="overflow:auto">
+            <table style="width:100%;border-collapse:separate;border-spacing:0;min-width:720px">
+              <thead>
+                <tr style="text-align:left">
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Día</th>
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Etiqueta</th>
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Grupo</th>
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Foco</th>
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Items</th>
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Acciones</th>
+                </tr>
+              </thead>
+              <tbody data-week="3">
+                <tr><td colspan="6" class="small" style="padding:12px;opacity:.8">Cargando…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
+      <details class="admin-acc" style="margin-top:10px">
+        <summary>Semana 4</summary>
+        <div class="acc-body">
+          <div style="overflow:auto">
+            <table style="width:100%;border-collapse:separate;border-spacing:0;min-width:720px">
+              <thead>
+                <tr style="text-align:left">
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Día</th>
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Etiqueta</th>
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Grupo</th>
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Foco</th>
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Items</th>
+                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Acciones</th>
+                </tr>
+              </thead>
+              <tbody data-week="4">
+                <tr><td colspan="6" class="small" style="padding:12px;opacity:.8">Cargando…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
+      <div class="hr"></div>
+
+      <h3 style="margin:0">Duplicar mes</h3>
+      <div class="small" style="opacity:.85;margin-top:6px">
+        Copia rutinas del mes origen hacia el <b>mes publicado</b>. Podés copiar un solo contexto (objetivo+modalidad) o todos.
+      </div>
+
+      <div class="form" style="margin-top:10px">
+        <label class="small">Mes origen</label>
+        <select class="input" id="copyMonthSrcSel"></select>
+
+        <label class="small" style="display:flex;gap:10px;align-items:center;margin-top:8px">
+          <input type="checkbox" id="copyMonthAllCtx" />
+          Copiar todos los contextos (4 combinaciones)
+        </label>
+
+        <label class="small" style="display:flex;gap:10px;align-items:center;margin-top:6px">
+          <input type="checkbox" id="copyMonthOverwrite" checked />
+          Sobrescribir destino (recomendado)
+        </label>
+
+        <button class="btn primary" id="copyMonthBtn" type="button" style="margin-top:10px">Duplicar al mes publicado</button>
+        <div id="copyMonthMsg" class="small" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:18px">
+      <!-- LEFT -->
+      <div class="card">
+
+        <!-- Contenido Premium -->
+<!-- Frase de la semana -->
+<details class="admin-acc admin-anchor" id="sec-weekly-quote">
+  <summary>Frase de la semana</summary>
+  <div class="acc-body">
+
+    <div class="small" style="opacity:.85">
+      Gestioná el contenido que se muestra en la card del campus (app.html).
+    </div>
+
+    <div class="form" style="margin-top:10px">
+      <label class="small" for="wqTitle">Título</label>
+      <input class="input" id="wqTitle" placeholder="Ej: “Disciplina > motivación.”" />
+
+      <label class="small" for="wqCopy">Copy</label>
+      <textarea class="input" id="wqCopy" rows="3" placeholder="Ej: Hacé lo mínimo posible, pero hacelo todos los días."></textarea>
+
+      <label class="small" for="wqPhotoFile">Foto (archivo)</label>
+      <input class="input" id="wqPhotoFile" type="file" accept="image/*" />
+
+      <label class="small" for="wqPhotoUrl">o Foto (URL)</label>
+      <input class="input" id="wqPhotoUrl" placeholder="https://..." />
+
+      <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">
+        <button class="btn primary" id="wqSaveBtn" type="button">Guardar</button>
+        <button class="btn" id="wqRefreshBtn" type="button">Cargar actual</button>
+        <span class="small" id="wqMsg"></span>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="small" style="opacity:.8">Vista previa</div>
+      <div class="card wq-preview" style="background:rgba(255,255,255,.55)">
+        <div class="small" style="opacity:.8">Frase de la semana</div>
+        <div style="font-weight:800;font-size:18px;line-height:1.2" id="wqPreviewTitle">—</div>
+        <div class="small" style="opacity:.85" id="wqPreviewCopy">—</div>
+        <img id="wqPreviewImg" alt="" loading="lazy" style="display:none" />
+      </div>
+    </div>
+
+  </div>
+</details>
+
+        <details class="admin-acc admin-anchor" id="sec-premium">
+          <summary>Contenido Premium</summary>
+          <div class="acc-body">
+
+            <h3>Clases grabadas (Premium)</h3>
+            <div class="small">Subí clases como YouTube “No listado”.</div>
+
+            <div class="form" style="margin-top:10px">
+              <label class="small">Mes</label>
+              <select class="input" id="rcMonth">
+                <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+                <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+                <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+                <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+              </select>
+
+              <label class="small">Fecha</label>
+              <input class="input" id="rcDate" type="date" required />
+
+              <label class="small">Título</label>
+              <input class="input" id="rcTitle" placeholder="Ej: Identidad — Clase 1" required />
+
+              <label class="small">Temática</label>
+              <input class="input" id="rcTopic" placeholder="Ej: autoestima / hábitos / etc." required />
+
+              <label class="small">YouTube URL (no listado)</label>
+              <input class="input" id="rcYoutube" placeholder="https://www.youtube.com/watch?v=..." required />
+
+              <label class="small">Portada (archivo)</label>
+              <input class="input" id="rcCoverFile" type="file" accept="image/*" />
+
+              <label class="small">o Portada (URL)</label>
+              <input class="input" id="rcCoverUrl" placeholder="https://..." />
+
+              <textarea class="input" id="rcNotes" placeholder="Notas (opcional)"></textarea>
+
+              <button class="btn primary" id="rcSaveBtn" type="button">Guardar clase grabada</button>
+              <div id="rcMsg" class="small"></div>
+            </div>
+
+            <div class="row" style="margin-top:10px;justify-content:space-between;gap:10px">
+              <h3 style="margin:0">Listado</h3>
+              <button class="btn primary" id="rcRefreshBtn" type="button">Refrescar</button>
+            </div>
+            <div id="rcList" class="list" style="margin-top:10px"></div>
+
+            <div class="hr"></div>
+
+            <h3>Próxima clase en vivo (Zoom) — Premium</h3>
+            <div class="small">Se mostrará en app.html solo para Plan Pro.</div>
+
+            <div class="form" style="margin-top:10px">
+              <label class="small">Fecha y hora (Argentina)</label>
+              <input class="input" id="lcStartsAt" type="datetime-local" />
+
+              <label class="small">Título</label>
+              <input class="input" id="lcTitle" placeholder="Ej: Clase en vivo — Identidad" />
+
+              <label class="small">Temática</label>
+              <input class="input" id="lcTopic" placeholder="Ej: identidad / hábitos / etc." />
+
+              <label class="small">Link Zoom</label>
+              <input class="input" id="lcZoom" placeholder="https://zoom.us/j/..." />
+
+              <label class="small">Código (opcional)</label>
+              <input class="input" id="lcPasscode" placeholder="Ej: 1234" />
+
+              <label class="small">Recordatorio (minutos antes)</label>
+              <input class="input" id="lcReminderMin" type="number" min="5" max="1440" value="60" />
+
+              <button class="btn primary" id="lcSaveBtn" type="button">Publicar / actualizar</button>
+              <div id="lcMsg" class="small"></div>
+            </div>
+
+            <div class="row" style="margin-top:10px;justify-content:space-between;gap:10px">
+              <h3 style="margin:0">Próximas</h3>
+              <button class="btn primary" id="lcRefreshBtn" type="button">Refrescar</button>
+            </div>
+            <div id="lcList" class="list" style="margin-top:10px"></div>
+
+          </div>
+        </details>
+
+        <!-- Selector -->
+        <details class="admin-acc admin-anchor" id="sec-selector">
+          <summary>Rutinas · Selector de contexto</summary>
+          <div class="acc-body">
+
+            <div class="row" style="align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+              <h3 id="dayTitle" style="margin:0">Día</h3>
+              <span id="ctxBadge" class="badge" style="display:none"></span>
+            </div>
+
+            <div class="small" id="dayMeta">Cargá un día para editar.</div>
+            <div class="hr"></div>
+
+            <h3>Selector</h3>
+            <div class="small">Elegí el contexto para cargar la rutina.</div>
+            <div class="hr"></div>
+
+            <div class="form">
+              <label class="small" for="monthSel">Mes</label>
+              <select class="input" id="monthSel"></select>
+
+              <label class="small" for="objSel">Objetivo</label>
+              <select class="input" id="objSel">
+                <option value="fat_loss">Perder peso</option>
+                <option value="muscle_gain">Ganar masa muscular</option>
+              </select>
+
+              <label class="small" for="trackSel">Modalidad</label>
+              <select class="input" id="trackSel">
+                <option value="gym">Gimnasio</option>
+                <option value="home">Casa</option>
+              </select>
+
+       <label class="small" for="weekSel">Semana</label>
+<select class="input" id="weekSel"></select>
+
+              <label class="small" for="daySel">Día</label>
+              <select class="input" id="daySel">
+                <option value="1">Día 1 (Lunes)</option>
+                <option value="2">Día 2 (Martes)</option>
+                <option value="3">Día 3 (Miércoles)</option>
+                <option value="4">Día 4 (Jueves)</option>
+                <option value="5">Día 5 (Viernes)</option>
+              </select>
+
+              <button class="btn primary" id="loadBtn" type="button">Cargar día</button>
+              <div id="selMsg" class="small"></div>
+            </div>
+
+          </div>
+        </details>
+
+        <!-- Biblioteca -->
+        <details class="admin-acc" id="sec-create-exercise">
+  <summary>Cargar ejercicio</summary>
+
+  <div class="acc-body">
+    <div class="form">
+      <label class="small" for="exName">Nombre</label>
+      <input class="input" id="exName" placeholder="Ej: Sentadilla goblet" />
+
+      <label class="small" for="exVideo">Video URL</label>
+      <input class="input" id="exVideo" placeholder="https://..." />
+
+      <label class="small" for="exCues">Cues / técnica</label>
+      <textarea class="input" id="exCues" placeholder="Indicaciones de ejecución"></textarea>
+
+      <label class="small" for="exObjective">Objetivo</label>
+      <select class="input" id="exObjective">
+        <option value="fat_loss">Perder grasa</option>
+        <option value="muscle_gain">Ganar masa</option>
+        <option value="both">Ambos</option>
+      </select>
+
+      <label class="small" for="exTrack">Modalidad</label>
+      <select class="input" id="exTrack">
+        <option value="gym">Gimnasio</option>
+        <option value="home">Casa</option>
+        <option value="both">Ambos</option>
+      </select>
+
+      <label class="small" for="exGroup">Grupo muscular</label>
+      <select class="input" id="exGroup">
+        <option value="lower">Tren inferior</option>
+        <option value="upper">Tren superior</option>
+        <option value="abs">Abdominales</option>
+        <option value="activation">Activación</option>
+        <option value="cardio">Cardio</option>
+      </select>
+
+      <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap">
+        <button class="btn primary" id="createExerciseBtn" type="button">Guardar ejercicio</button>
+        <span class="small" id="exMsg"></span>
+      </div>
+    </div>
+  </div>
+</details>
+
+<details class="admin-acc" id="sec-exercise-library">
+  <summary>Biblioteca de ejercicios</summary>
+
+  <div class="acc-body">
+    <div class="row" style="margin-bottom:12px; gap:10px; flex-wrap:wrap">
+      <button class="btn" id="exRefreshBtn" type="button">Actualizar</button>
+      <span class="small" style="opacity:.8">Editar, reorganizar o desactivar ejercicios.</span>
+    </div>
+
+    <div id="exList" class="list"></div>
+  </div>
+</details>
+
+      </div>
+
+      <!-- RIGHT -->
+      <div class="card">
+
+        <!-- Editor -->
+        <details class="admin-acc admin-anchor" id="sec-editor">
+          <summary>Editor del día</summary>
+          <div class="acc-body">
+
+            <div id="dayPanel" style="display:none"></div>
+
+            <div id="dayEdit" style="display:none">
+
+              <h3>Metadata del día</h3>
+              <div class="form">
+                <label class="small" for="mgSel">Grupo muscular</label>
+                <select class="input" id="mgSel">
+                  <option>Tren inferior</option>
+                  <option>Tren superior</option>
+                  <option>Abdominales</option>
+                  <option>Activación</option>
+                  <option>Cardio</option>
+                </select>
+
+                <label class="small" for="focusInp">Subgrupo / foco (opcional)</label>
+                <input class="input" id="focusInp" type="text" placeholder="Ej: Pecho · Hombros · Glúteos" />
+
+                <button class="btn primary" id="saveDayMetaBtn" type="button">Guardar metadata</button>
+                <div id="metaMsg" class="small"></div>
+              </div>
+
+              <div class="hr"></div>
+
+              <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">
+                <button class="btn" id="seedOverrideBtn" type="button">Copiar global → alumno (este día)</button>
+                <button class="btn" id="clearOverrideDayBtn" type="button">Restaurar global (este día)</button>
+                <span class="small" id="overrideDayMsg"></span>
+              </div>
+
+              <div class="hr"></div>
+
+              <h3>Agregar ejercicio al día</h3>
+              <div class="form">
+                <label class="small" for="exerciseSel">Ejercicio</label>
+                <select class="input" id="exerciseSel"></select>
+
+                <label class="small" for="setsInp">Series</label>
+                <input class="input" id="setsInp" type="number" min="1" placeholder="Series" />
+
+                <label class="small" for="repsInp">Reps</label>
+                <input class="input" id="repsInp" type="text" placeholder="Reps (ej: 8-10)" />
+
+                <label class="small" for="notesInp">Notas</label>
+                <input class="input" id="notesInp" type="text" placeholder="Notas (opcional)" />
+
+                <button class="btn primary" id="addItemBtn" type="button">Agregar al día</button>
+                <div id="itemMsg" class="small"></div>
+              </div>
+
+              <div class="hr"></div>
+
+              <div class="row" style="align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                <h3 style="margin:0">Items cargados</h3>
+                <button class="btn primary" id="refreshItemsBtn" type="button">Refrescar</button>
+              </div>
+
+              <div id="itemsList" class="list"></div>
+            </div>
+
+          </div>
+        </details>
+
+        <!-- Alumnos -->
+        <details class="admin-acc admin-anchor" id="sec-alumnos">
+          <summary>Alumnos</summary>
+          <div class="acc-body">
+
+            <div class="small">Buscá por email para ver plan y abrir el caso.</div>
+
+            <div class="form" style="margin-top:10px">
+              <input class="input" id="studentEmail" placeholder="email@dominio.com" />
+              <button class="btn primary" id="findStudentBtn" type="button">Buscar</button>
+              <div id="studentMsg" class="small"></div>
+            </div>
+
+            <div id="studentCard" class="card" style="display:none;margin-top:10px">
+              <div><b id="studentEmailOut"></b></div>
+              <div class="small" id="studentPlanOut"></div>
+              <div class="small" id="studentStatusOut"></div>
+              <div class="small" id="studentPaidOut"></div>
+
+              <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">
+                <button class="btn primary" id="editStudentModeBtn" type="button">Editar rutina de este alumno</button>
+                <button class="btn" id="exitStudentModeBtn" type="button" style="display:none">Volver a global</button>
+                <span class="small" id="studentModeMsg"></span>
+              </div>
+
+              <div class="hr"></div>
+
+              <div class="small" style="opacity:.8">Override de rutina (V1)</div>
+
+              <label class="small" style="margin-top:10px">Objetivo forzado (opcional)</label>
+              <select class="input" id="ovObjective">
+                <option value="">(sin override)</option>
+                <option value="fat_loss">Perder peso</option>
+                <option value="muscle_gain">Ganar masa</option>
+              </select>
+
+              <label class="small" style="margin-top:10px">Modalidad forzada (opcional)</label>
+              <select class="input" id="ovTrack">
+                <option value="">(sin override)</option>
+                <option value="gym">Gimnasio</option>
+                <option value="home">Casa</option>
+              </select>
+
+              <label class="small" style="margin-top:10px">Motivo (opcional)</label>
+              <textarea class="input" id="ovReason" rows="3" placeholder="Ej: lesión hombro, adaptar empujes, etc."></textarea>
+
+              <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">
+                <button class="btn primary" id="saveOverrideBtn" type="button">Guardar override</button>
+                <button class="btn" id="clearOverrideStudentBtn" type="button">Desactivar override</button>
+                <span class="small" id="ovMsg"></span>
+              </div>
+
+              <button class="btn" id="openStudentCaseBtn" type="button">Abrir caso</button>
+            </div>
+
+            <div class="hr"></div>
+
+            <h3 style="margin:0">Rutina activa del alumno</h3>
+            <div class="small" id="stuRoutineMeta" style="margin-top:6px;opacity:.8"></div>
+            <div id="stuRoutineMsg" class="small" style="margin-top:8px"></div>
+            <div id="stuRoutineBox" style="margin-top:10px"></div>
+
+          </div>
+        </details>
+
+        <!-- Alertas -->
+        <details class="admin-acc admin-anchor" id="sec-alertas">
+          <summary>Alertas</summary>
+          <div class="acc-body">
+            <div class="small">Casos que requieren revisión manual.</div>
+            <div id="alertsMsg" class="small" style="margin-top:8px"></div>
+            <div id="alertsList" class="list" style="margin-top:10px"></div>
+          </div>
+        </details>
+
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="small2" style="opacity:.8">
+        © <span id="year"></span> Maricel Conse · Academia de Mujeres
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Año footer
+    const y = document.getElementById("year");
+    if (y) y.textContent = new Date().getFullYear();
+
+    // Header scroll
+    const header = document.getElementById("siteHeader");
+    const onScroll = () => {
+      if (window.scrollY > 16) header.classList.add("is-scrolled");
+      else header.classList.remove("is-scrolled");
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    // UX: si navegás por #hash, abrimos el acordeón correspondiente (solo por interacción)
+    const openByHash = () => {
+      const id = (location.hash || "").replace("#", "");
+      if (!id) return;
+      const el = document.getElementById(id);
+      if (el && el.tagName === "DETAILS") el.open = true;
+    };
+    window.addEventListener("hashchange", openByHash);
+  </script>
+
+  <script>
+  document.querySelectorAll('#sec-create-exercise, #sec-exercise-library').forEach((acc) => {
+    acc.addEventListener('toggle', () => {
+      if (!acc.open) return;
+      document.querySelectorAll('#sec-create-exercise, #sec-exercise-library').forEach((other) => {
+        if (other !== acc) other.open = false;
+      });
+    });
+  });
+</script>
+
+  <script src="./loader.js"></script>
+</body>
+</html>

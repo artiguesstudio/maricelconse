@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Registro — Academia de Mujeres</title>
+
+  <link rel="stylesheet" href="./styles.css" />
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Config + client + auth -->
+  <script src="./config.js"></script>
+  <script src="./supabaseClient.js"></script>
+  <script src="./auth.js"></script>
+
+  <!-- Page JS -->
+  <script defer src="./register.js"></script>
+</head>
+
+<body>
+<!-- Global Loader -->
+<div id="globalLoader" class="loader" aria-hidden="true">
+  <div class="loader__spinner" role="status" aria-label="Cargando"></div>
+</div>
+  <header class="site-header" id="siteHeader">
+    <div class="container header-inner">
+      <div class="brand-left">
+        <a class="brand" href="./index.html" style="text-decoration:none">MARICEL CONSE</a>
+        <div class="brand-sub">Registro</div>
+      </div>
+
+      <nav class="header-actions" style="gap:10px">
+        <a class="btn" href="./index.html">Volver</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero-banner">
+    <div class="banner-full">
+      <div class="container banner-inner">
+        <div class="banner-card">
+          <a class="banner-logo" href="./index.html" aria-label="Volver al inicio">
+            <img src="./imagenes/Isotipo.png" alt="Maricel Conse" onerror="this.style.display='none'">
+          </a>
+
+          <div class="banner-text">
+            <div class="banner-title">REGISTRO</div>
+            <div class="banner-subtitle">COMPLETÁ TU FICHA Y CREÁ TU CUENTA</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <main class="container page">
+
+    <div class="grid" style="margin-top:18px">
+
+      <div class="card">
+        <h3>Ficha de inscripción</h3>
+        <div class="small">Completá estos datos para iniciar tu suscripción.</div>
+        <div class="hr"></div>
+
+       <form id="registerForm" class="form" autocomplete="on">
+
+  <!-- PLAN (UNICO) -->
+  <label class="small">Plan al que te suscribiste</label>
+  <select class="input" id="planSelect" required>
+    <option value="">Seleccionar plan</option>
+    <option value="basic">Básico</option>
+    <option value="mid">Intermedio</option>
+    <option value="pro">Premium</option>
+  </select>
+
+  <div id="planLockHint" class="small" style="display:none;opacity:.75;margin-top:6px">
+    Este plan fue seleccionado desde la landing.
+  </div>
+
+  <div class="hr"></div>
+
+  <label class="small">Nombre y apellido</label>
+  <input class="input" id="fullName" type="text" placeholder="Ej: Ana Pérez" required />
+
+  <label class="small">Edad</label>
+  <input class="input" id="age" type="number" min="10" max="90" placeholder="Ej: 32" required />
+
+  <label class="small" for="regWeight">Peso (kg)</label>
+  <input class="input" id="regWeight" type="number" min="20" max="300" step="0.1" placeholder="Ej: 72.5" />
+
+  <label class="small" for="regHeight">Altura (cm)</label>
+  <input class="input" id="regHeight" type="number" min="100" max="250" step="1" placeholder="Ej: 172" />  
+
+  <label class="small">Email</label>
+  <input class="input" id="email" type="email" placeholder="tu@email.com" required />
+
+  <label class="small">Teléfono</label>
+  <input class="input" id="phone" type="tel" placeholder="Ej: 2964 123456" required />
+
+  <div class="hr"></div>
+
+  <label class="small">¿Cuál es tu principal objetivo en este momento?</label>
+  <select class="input" id="objective" required>
+    <option value="fat_loss">Perder peso</option>
+    <option value="muscle_gain">Ganar masa muscular</option>
+  </select>
+
+  <label class="small">¿Dónde vas a entrenar?</label>
+  <select class="input" id="track" required>
+    <option value="home">Casa</option>
+    <option value="gym">Gimnasio</option>
+  </select>
+
+  <label class="small">¿Cómo consideras tu nivel de entrenamiento?</label>
+  <select class="input" id="level" required>
+    <option value="beginner">Principiante</option>
+    <option value="intermediate">Intermedio</option>
+    <option value="advanced">Avanzado</option>
+  </select>
+
+  <label class="small">¿Tenés alguna lesión o condición física a tener en cuenta?</label>
+  <textarea class="input" id="notes" rows="4" placeholder="Especificar (opcional)"></textarea>
+
+  <div class="hr"></div>
+
+  <h3 style="margin:0">Crear contraseña</h3>
+  <div class="small">Usala para ingresar al campus virtual.</div>
+
+  <label class="small">Contraseña</label>
+  <input class="input" id="password" type="password" minlength="6" placeholder="Mínimo 6 caracteres" required />
+
+  <label class="small">Repetir contraseña</label>
+  <input class="input" id="password2" type="password" minlength="6" placeholder="Repetí la contraseña" required />
+
+  <button class="btn primary" id="createBtn" type="submit">Crear</button>
+
+  <!-- MENSAJE (UNICO) -->
+  <div id="regMsg" class="small" style="margin-top:10px"></div>
+
+  <!-- PAGO (UNICO) -->
+  <div id="payBox" style="display:none;margin-top:14px">
+    <div class="notice small" id="payHint">Debés realizar el pago para completar la suscripción.</div>
+    <div style="margin-top:10px">
+      <button class="btn primary" id="payBtn" type="button">Ir a pagar</button>
+    </div>
+  </div>
+
+</form>
+        <div class="hr"></div>
+        <div class="small" style="opacity:.8">
+          Importante: Tu rutina estará disponible dentro de las 48 horas posteriores a la confirmación del pago.
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- FOOTER con contacto -->
+  <footer id="contacto" class="site-footer">
+    <div class="container footer-inner">
+      <div>
+        <a class="footer-title">Contacto</a>
+      </div>
+
+      <div class="socials" aria-label="Redes sociales">
+  <a class="social" href="https://www.facebook.com/profile.php?id=61579704266004&locale=es_LA#" target="_blank" rel="noopener" aria-label="Facebook">
+    <img src="./imagenes/facebook.png" alt="Facebook" loading="lazy">
+  </a>
+
+  <a class="social" href="https://www.instagram.com/maricelconse/" target="_blank" rel="noopener" aria-label="Instagram">
+    <img src="./imagenes/instagram.png" alt="Instagram" loading="lazy">
+  </a>
+
+  <a class="social" href="https://wa.me/5492964406552" target="_blank" rel="noopener" aria-label="WhatsApp">
+    <img src="./imagenes/whatsapp.png" alt="WhatsApp" loading="lazy">
+  </a>
+
+  <a class="social" href="https://www.tiktok.com/@maricelconse" target="_blank" rel="noopener" aria-label="TikTok">
+    <img src="./imagenes/tiktok.png" alt="TikTok" loading="lazy">
+  </a>
+
+  <a class="social" href="https://www.youtube.com/@maricelconse" target="_blank" rel="noopener" aria-label="YouTube">
+    <img src="./imagenes/youtube.png" alt="YouTube" loading="lazy">
+  </a>
+</div>
+
+      <div class="small2" style="margin-top:14px;opacity:.8">
+        © <span id="year"></span> Maricel Conse · Academia de Mujeres
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    const y = document.getElementById("year");
+    if (y) y.textContent = new Date().getFullYear();
+
+    const header = document.getElementById("siteHeader");
+    const onScroll = () => {
+      if (window.scrollY > 16) header.classList.add("is-scrolled");
+      else header.classList.remove("is-scrolled");
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+  </script>
+<script src="./loader.js"></script>
+</body>
+</html>
