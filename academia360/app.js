@@ -1306,99 +1306,88 @@ async function resolveUserTrackPreference(session) {
   }
 
   function buildRoutineHTML({ json, monthNumber, objective, track }) {
-    const gen = new Date();
-    const title = `Rutina ${monthLabel(monthNumber)} — ${objectiveLabel(objective)} — ${labelTrack(track)}`;
+  const gen = new Date();
+  const title = `Rutina ${monthLabel(monthNumber)} — ${objectiveLabel(objective)} — ${labelTrack(track)}`;
 
-    const DAY_NAMES = {
-      1: "Lunes",
-      2: "Martes",
-      3: "Miércoles",
-      4: "Jueves",
-      5: "Viernes",
-    };
+  const DAY_NAMES = {
+    1: "Lunes",
+    2: "Martes",
+    3: "Miércoles",
+    4: "Jueves",
+    5: "Viernes",
+  };
 
-    const weeks = Array.isArray(json?.weeks) ? json.weeks : [];
+  const weeks = Array.isArray(json?.weeks) ? json.weeks : [];
 
-    const weeksHtml = weeks.map((week) => {
-      const weekTitle = String(week.title || "").trim();
-      const weekHead = weekTitle
-        ? `Semana ${week.week_number} — ${esc(weekTitle)}`
-        : `Semana ${week.week_number}`;
+  const weeksHtml = weeks.map((week) => {
+    const weekTitle = String(week.title || "").trim();
+    const weekHead = weekTitle
+      ? `Semana ${week.week_number} — ${esc(weekTitle)}`
+      : `Semana ${week.week_number}`;
 
-      const days = Array.isArray(week.days) ? week.days : [];
+    const days = Array.isArray(week.days) ? week.days : [];
 
-      const daysHtml = days.map((day) => {
-        const dayName = DAY_NAMES[day.day_number] || `Día ${day.day_number}`;
-        const mg =
-          day.muscle_group && String(day.muscle_group).trim()
-            ? String(day.muscle_group).trim()
-            : "";
+    const daysHtml = days.map((day) => {
+      const dayName = DAY_NAMES[day.day_number] || `Día ${day.day_number}`;
+      const mg = day.muscle_group && String(day.muscle_group).trim() ? String(day.muscle_group).trim() : "";
+      const focus = day.focus && String(day.focus).trim() ? String(day.focus).trim() : "";
 
-        const focus =
-          day.focus && String(day.focus).trim()
-            ? String(day.focus).trim()
-            : "";
+      const items = track === "gym" ? (day.items_gym || []) : (day.items_home || []);
 
-        const items = track === "gym" ? (day.items_gym || []) : (day.items_home || []);
+      const metaLine = [
+        mg && `Grupo: ${esc(mg)}`,
+        focus && `Foco: ${esc(focus)}`,
+      ].filter(Boolean).join(" · ");
 
-        const rows = (items || []).map((item) => {
-          const video = item.video_url
-            ? `<a href="${esc(item.video_url)}">${esc(item.video_url)}</a>`
-            : "—";
-
-          return `
-            <tr>
-              <td>${esc(item.exercise || "")}</td>
-              <td style="text-align:center">${esc(item.sets || "")}</td>
-              <td style="text-align:center">${esc(item.reps || "")}</td>
-              <td>${esc(item.notes || "")}</td>
-              <td>${video}</td>
-            </tr>
-          `;
-        }).join("");
-
-        const table = rows
-          ? `
-            <table>
-              <thead>
-                <tr>
-                  <th>Ejercicio</th>
-                  <th style="width:70px">Series</th>
-                  <th style="width:90px">Reps</th>
-                  <th>Notas</th>
-                  <th style="width:220px">Video</th>
-                </tr>
-              </thead>
-              <tbody>${rows}</tbody>
-            </table>
-          `
-          : `<div class="muted">Sin ejercicios cargados para este objetivo/modalidad.</div>`;
-
-        const metaLine = [
-          mg && `Grupo: ${esc(mg)}`,
-          focus && `Foco: ${esc(focus)}`,
-        ].filter(Boolean).join(" · ");
-
+      if (!items.length) {
         return `
           <section class="day">
             <h3>${esc(dayName)}</h3>
             ${metaLine ? `<div class="meta">${metaLine}</div>` : ""}
-            ${table}
+            <div class="muted">Sin ejercicios cargados para este objetivo/modalidad.</div>
           </section>
         `;
-      }).join("");
+      }
+
+      const rows = items.map((item) => `
+        <tr>
+          <td class="col-ex">${esc(item.exercise || "")}</td>
+          <td class="col-num">${esc(item.sets || "")}</td>
+          <td class="col-num">${esc(item.reps || "")}</td>
+          <td class="col-notes">${esc(item.notes || "")}</td>
+        </tr>
+      `).join("");
 
       return `
-        <section class="week">
-          <h2>${esc(weekHead)}</h2>
-          ${daysHtml || `<div class="muted">Semana sin días.</div>`}
+        <section class="day">
+          <h3>${esc(dayName)}</h3>
+          ${metaLine ? `<div class="meta">${metaLine}</div>` : ""}
+          <table>
+            <thead>
+              <tr>
+                <th>Ejercicio</th>
+                <th class="col-num">Series</th>
+                <th class="col-num">Reps</th>
+                <th>Notas</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
         </section>
       `;
     }).join("");
 
-    const body = weeksHtml || `<div class="muted">Este mes no tiene contenido cargado.</div>`;
+    return `
+      <section class="week">
+        <h2>${esc(weekHead)}</h2>
+        ${daysHtml || `<div class="muted">Semana sin días.</div>`}
+      </section>
+    `;
+  }).join("");
 
-    return `<!doctype html>
+  const body = weeksHtml || `<div class="muted">Este mes no tiene contenido cargado.</div>`;
+
+  return `<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
@@ -1406,32 +1395,116 @@ async function resolveUserTrackPreference(session) {
   <title>${esc(title)}</title>
   <style>
     :root{ color-scheme: light; }
-    body{ font-family: system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; margin: 24px; color:#111; }
-    h1{ font-size: 20px; margin:0 0 6px; }
-    .sub{ color:#444; font-size: 13px; margin:0 0 18px; }
-    h2{ margin: 22px 0 10px; font-size: 16px; }
-    h3{ margin: 14px 0 6px; font-size: 14px; }
+
+    body{
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
+      margin: 0;
+      color:#111;
+      background:#fff;
+    }
+
+    .page{
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 26px;
+    }
+
+    .head{
+      display:flex;
+      justify-content:space-between;
+      gap:14px;
+      align-items:flex-start;
+      border-bottom: 1px solid #e9e9e9;
+      padding-bottom: 14px;
+      margin-bottom: 16px;
+    }
+
+    .brand{
+      font-weight: 800;
+      letter-spacing: .04em;
+      font-size: 14px;
+      opacity: .85;
+    }
+
+    h1{ font-size: 18px; margin: 6px 0 0; line-height:1.25; }
+    .sub{ color:#555; font-size: 12px; margin: 6px 0 0; }
+
+    h2{ margin: 18px 0 10px; font-size: 14px; }
+    h3{ margin: 14px 0 6px; font-size: 13px; }
+
     .meta{ font-size: 12px; color:#555; margin-bottom: 8px; }
-    .muted{ font-size: 13px; color:#666; }
+    .muted{ font-size: 12px; color:#666; }
+
     .week{ page-break-inside: avoid; }
-    .day{ padding: 10px 0 6px; border-top: 1px solid #e6e6e6; }
-    table{ width:100%; border-collapse: collapse; margin-top: 8px; }
-    th,td{ border:1px solid #e6e6e6; padding: 8px; font-size: 12px; vertical-align: top; }
-    th{ background:#fafafa; text-align:left; }
-    a{ color:#0b57d0; word-break: break-all; }
+    .day{ padding: 10px 0 8px; border-top: 1px solid #efefef; }
+
+    table{
+      width:100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      border: 1px solid #e7e7e7;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    th, td{
+      border-bottom: 1px solid #ededed;
+      padding: 10px 10px;
+      font-size: 12px;
+      vertical-align: top;
+    }
+
+    th{
+      background:#fafafa;
+      text-align:left;
+      font-weight: 700;
+    }
+
+    tr:last-child td{ border-bottom: none; }
+
+    .col-num{
+      width: 72px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .col-ex{ width: 42%; }
+    .col-notes{ width: auto; }
+
+    .footnote{
+      margin-top: 18px;
+      font-size: 12px;
+      color:#666;
+      border-top: 1px solid #e9e9e9;
+      padding-top: 12px;
+    }
+
     @media print{
+      .page{ padding: 0; }
       body{ margin: 10mm; }
-      a{ color:#000; text-decoration:none; }
+      table{ break-inside: avoid; }
     }
   </style>
 </head>
 <body>
-  <h1>${esc(title)}</h1>
-  <p class="sub">Generado: ${esc(gen.toLocaleString("es-AR"))}</p>
-  ${body}
+  <div class="page">
+    <div class="head">
+      <div>
+        <div class="brand">MARICEL CONSE · ACADEMIA DE MUJERES</div>
+        <h1>${esc(title)}</h1>
+        <p class="sub">Generado: ${esc(gen.toLocaleString("es-AR"))}</p>
+      </div>
+    </div>
+
+    ${body}
+
+    <div class="footnote">
+      Nota: Los videos y explicaciones de cada ejercicio están disponibles dentro del campus virtual.
+    </div>
+  </div>
 </body>
 </html>`;
-  }
+}
 
   async function downloadRoutine() {
     try {
