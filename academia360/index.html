@@ -7,6 +7,7 @@
 
   <link rel="stylesheet" href="./styles.css" />
 
+  <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
   <script src="./supabaseClient.js"></script>
@@ -14,7 +15,6 @@
 </head>
 
 <body class="has-promo">
-
   <!-- Global Loader -->
   <div id="globalLoader" class="loader" aria-hidden="true">
     <div class="loader__spinner" role="status" aria-label="Cargando"></div>
@@ -32,13 +32,12 @@
   <header class="site-header" id="siteHeader">
     <div class="container header-inner">
       <div class="brand-left">
-        <div class="brand-sub">Bienvenida amor !</div>
+        <div class="brand-sub">Bienvenida, amor!</div>
       </div>
 
-      <nav class="header-actions">
-        <span class="sep"></span>
-
-        <a class="btn" id="goAppBtn" href="./app.html" style="display:none;">Iniciar sesión</a>
+      <nav class="header-actions" aria-label="Acciones">
+        <span class="sep" aria-hidden="true"></span>
+        <a class="btn" id="goAppBtn" href="./app.html" style="display:none">Mi panel</a>
         <a class="btn primary" id="loginBtn" href="./login.html">Iniciar sesión</a>
         <!-- <a class="btn primary" id="registerBtn" href="./register.html">Registrate</a> -->
       </nav>
@@ -56,7 +55,7 @@
 
           <div class="banner-text">
             <div class="banner-title">ACADEMIA DE MUJERES</div>
-            <div class="banner-subtitle">COACHING&FITNESS</div>
+            <div class="banner-subtitle">COACHING &amp; FITNESS</div>
           </div>
         </div>
       </div>
@@ -65,12 +64,9 @@
 
   <!-- CONTENIDO -->
   <main class="container page">
-
     <!-- Intro -->
     <section class="intro-strip">
-      <p class="intro-text">
-        Un espacio para mujeres que deciden fortalecerse por dentro y por fuera
-      </p>
+      <p class="intro-text">Un espacio para mujeres que deciden fortalecerse por dentro y por fuera</p>
 
       <p class="intro-sub">
         No solo vas a entrenar el cuerpo.<br>
@@ -91,17 +87,20 @@
             <img src="./imagenes/sesiones.jpg" alt="Sesiones 1 a 1 con Maricel" loading="lazy" />
           </div>
 
-          <div style="flex:1;min-width:240px; padding: 6px 0;">
+          <div style="flex:1;min-width:240px;padding:6px 0;">
             <div class="small coaching-copy">
-              Sesiones online de coaching motivacional 1:1 para mujeres cansadas de dudar, achicarse y sabotear lo que empiezan. <br>
+              Sesiones online de coaching motivacional 1:1 para mujeres cansadas de dudar, achicarse y sabotear lo que empiezan.<br>
               Trabajamos directo sobre heridas, límites y decisiones postergadas. Un proceso del que te vas con más seguridad<br>
-              y una mentalidad firme para ir por lo que queres sin pedir permiso. Si queres dejar de frenarte sola, escribime.
+              y una mentalidad firme para ir por lo que querés sin pedir permiso. Si querés dejar de frenarte sola, escribime.
             </div>
+
             <a class="btn primary coaching-btn"
-   href="https://wa.me/5492964406552"
-   style="margin-top:12px; display:inline-flex;">
-  Agenda tu sesión online
-</a>
+               href="https://wa.me/5492964406552"
+               style="margin-top:12px;display:inline-flex"
+               target="_blank"
+               rel="noopener">
+              Agenda tu sesión online
+            </a>
           </div>
         </div>
       </div>
@@ -113,16 +112,23 @@
         <h3>PLANES DE ENTRENAMIENTO</h3>
         <span class="badge">Suscripción mensual</span>
       </div>
-      <div class="small">Elegí el nivel de acompañamiento que necesitas.<br>Rutinas adaptadas para entrenar en tu casa o gimnasio.</div>
+
+      <div class="small">
+        Elegí el nivel de acompañamiento que necesitás.<br>
+        Rutinas adaptadas para entrenar en tu casa o gimnasio.
+      </div>
+
       <div class="hr"></div>
 
       <div class="plans-grid">
-
         <!-- Básico -->
         <div class="card plan" style="box-shadow:none">
           <h3>Básico</h3>
-          <div class="small">Entrena con una rutina pensada para vos, según tu realidad actual.
-Este plan está diseñado para mujeres que quieren entrenar con autonomía, sin depender de seguimientos ni acompañamiento mensual.</div>
+          <div class="small">
+            Entrená con una rutina pensada para vos, según tu realidad actual.
+            Este plan está diseñado para mujeres que quieren entrenar con autonomía, sin depender de seguimientos ni acompañamiento mensual.
+          </div>
+
           <div class="hr"></div>
 
           <ul class="small" style="margin:0;padding-left:18px;line-height:1.7">
@@ -131,31 +137,37 @@ Este plan está diseñado para mujeres que quieren entrenar con autonomía, sin 
             <li>ORGANIZACIÓN DEL ENTRENAMIENTO</li>
           </ul>
 
-<div class="plan-media">
-  <video class="plan-video"
-         data-plan-media="mid"
-         controls
-         controlslist="nodownload"
-         playsinline
-         preload="auto"
-         poster="./imagenes/plan1.png">
-  </video>
-</div>
+          <div class="plan-media">
+            <video class="plan-video"
+                   data-plan-media="basic"
+                   controls
+                   controlslist="nodownload"
+                   playsinline
+                   preload="auto"
+                   poster="./imagenes/plan1.png">
+            </video>
+          </div>
+
           <div class="hr"></div>
+
           <div class="plan-cta">
             <div class="plan-pricing">
               <div class="plan-was">Antes <s>$31.250.-</s> <span class="plan-cur">ARS</span></div>
               <div class="plan-now"><span class="plan-off-tag">-20%</span> $25.000.- <span class="plan-cur">ARS</span></div>
               <div class="plan-note">Precio lanzamiento</div>
             </div>
-            <button class="btn primary" data-plan="basic">Suscribirme</button>
+            <button class="btn primary" type="button" data-plan="basic">Suscribirme</button>
           </div>
         </div>
 
         <!-- Intermedio -->
         <div class="card plan" style="box-shadow:none">
           <h3>Intermedio</h3>
-          <div class="small">Plan de entrenamiento personalizado con acompañamiento mensual vía WhatsApp. Incluye seguimiento durante el mes, ajustes según tu evolución y contacto para resolver dudas cuando lo necesites.</div>
+          <div class="small">
+            Plan de entrenamiento personalizado con acompañamiento mensual vía WhatsApp.
+            Incluye seguimiento durante el mes, ajustes según tu evolución y contacto para resolver dudas cuando lo necesites.
+          </div>
+
           <div class="hr"></div>
 
           <ul class="small" style="margin:0;padding-left:18px;line-height:1.7">
@@ -165,31 +177,36 @@ Este plan está diseñado para mujeres que quieren entrenar con autonomía, sin 
           </ul>
 
           <div class="plan-media">
-  <video class="plan-video"
-         data-plan-media="pro"
-         controls
-         controlslist="nodownload"
-         playsinline
-         preload="auto"
-         poster="./imagenes/plan2.png">
-  </video>
-</div>
+            <video class="plan-video"
+                   data-plan-media="mid"
+                   controls
+                   controlslist="nodownload"
+                   playsinline
+                   preload="auto"
+                   poster="./imagenes/plan2.png">
+            </video>
+          </div>
 
           <div class="hr"></div>
+
           <div class="plan-cta">
             <div class="plan-pricing">
               <div class="plan-was">Antes <s>$60.000.-</s> <span class="plan-cur">ARS</span></div>
               <div class="plan-now"><span class="plan-off-tag">-20%</span> $48.000.- <span class="plan-cur">ARS</span></div>
               <div class="plan-note">Precio lanzamiento</div>
             </div>
-            <button class="btn primary" data-plan="mid">Suscribirme</button>
+            <button class="btn primary" type="button" data-plan="mid">Suscribirme</button>
           </div>
         </div>
 
         <!-- Premium (destacado) -->
         <div class="card plan plan--featured" style="box-shadow:none">
           <h3>Premium</h3>
-          <div class="small">Un espacio para entrenar tu cuerpo y participar de dos clases online de desarrollo personal con temas que te ayuden a crecer y sentirte más fuerte, junto a otras mujeres que están en el mismo camino que vos.</div>
+          <div class="small">
+            Un espacio para entrenar tu cuerpo y participar de dos clases online de desarrollo personal con temas que te ayuden a crecer
+            y sentirte más fuerte, junto a otras mujeres que están en el mismo camino que vos.
+          </div>
+
           <div class="hr"></div>
 
           <ul class="small" style="margin:0;padding-left:18px;line-height:1.7">
@@ -198,28 +215,28 @@ Este plan está diseñado para mujeres que quieren entrenar con autonomía, sin 
             <li>CLASES DE DESARROLLO PERSONAL</li>
           </ul>
 
-<div class="plan-media">
-  <video class="plan-video"
-         data-plan-media="basic"
-         controls
-         controlslist="nodownload"
-         playsinline
-         preload="auto"
-         poster="./imagenes/plan3.png">
-  </video>
-</div>
+          <div class="plan-media">
+            <video class="plan-video"
+                   data-plan-media="pro"
+                   controls
+                   controlslist="nodownload"
+                   playsinline
+                   preload="auto"
+                   poster="./imagenes/plan3.png">
+            </video>
+          </div>
 
           <div class="hr"></div>
+
           <div class="plan-cta">
             <div class="plan-pricing">
               <div class="plan-was">Antes <s>$73.625.-</s> <span class="plan-cur">ARS</span></div>
               <div class="plan-now"><span class="plan-off-tag">-20%</span> $58.900.- <span class="plan-cur">ARS</span></div>
               <div class="plan-note">Precio lanzamiento</div>
             </div>
-            <button class="btn primary" data-plan="pro">Suscribirme</button>
+            <button class="btn primary" type="button" data-plan="pro">Suscribirme</button>
           </div>
         </div>
-
       </div>
     </section>
 
@@ -234,7 +251,8 @@ Este plan está diseñado para mujeres que quieren entrenar con autonomía, sin 
             1. ¿Hay requisitos para inscribirme?
           </button>
           <div class="small faq-a" id="faq-a-1" role="region" aria-labelledby="faq-q-1" hidden>
-            No necesitas experiencia previa ni un nivel físico específico. Solo compromiso con vos misma. En caso de tener alguna lesión o condición médica, se recomienda contar con autorización profesional antes de comenzar e indicarlo en la planilla de inscripción.
+            No necesitás experiencia previa ni un nivel físico específico. Solo compromiso con vos misma.
+            En caso de tener alguna lesión o condición médica, se recomienda contar con autorización profesional antes de comenzar e indicarlo en la planilla de inscripción.
           </div>
         </div>
 
@@ -243,7 +261,8 @@ Este plan está diseñado para mujeres que quieren entrenar con autonomía, sin 
             2. ¿El plan es mensual? ¿Cada cuánto se renueva?
           </button>
           <div class="small faq-a" id="faq-a-2" role="region" aria-labelledby="faq-q-2" hidden>
-            Sí, el plan es mensual y se renueva cada 30 días desde la fecha de inscripción de manera automática. Para dar de baja el débito automático podrás hacerlo desde tu perfil.
+            Sí, el plan es mensual y se renueva cada 30 días desde la fecha de inscripción de manera automática.
+            Para dar de baja el débito automático podrás hacerlo desde tu perfil (o desde la app de Mercado Pago).
           </div>
         </div>
 
@@ -261,7 +280,9 @@ Este plan está diseñado para mujeres que quieren entrenar con autonomía, sin 
             4. ¿Cada cuánto se dan las clases de coaching y qué se trabaja?
           </button>
           <div class="small faq-a" id="faq-a-4" role="region" aria-labelledby="faq-q-4" hidden>
-            Las clases se llevarán a cabo cada 15 días y tendrán acceso a las mismas solo aquellas personas que se inscriban en el PLAN PREMIUM. Cada mes abordaremos una temática clave para tu crecimiento personal. Será un espacio de trabajo interno para redefinir tu identidad, fortalecer tu autoestima y construir una versión tuya que sea capaz de alcanzar todo lo que se propone.
+            Las clases se llevarán a cabo cada 15 días y tendrán acceso a las mismas solo aquellas personas que se inscriban en el PLAN PREMIUM.
+            Cada mes abordaremos una temática clave para tu crecimiento personal. Será un espacio de trabajo interno para redefinir tu identidad,
+            fortalecer tu autoestima y construir una versión tuya capaz de alcanzar todo lo que se propone.
           </div>
         </div>
 
@@ -280,28 +301,31 @@ Este plan está diseñado para mujeres que quieren entrenar con autonomía, sin 
   <!-- FOOTER -->
   <footer id="contacto" class="site-footer">
     <div class="container footer-inner">
-      <div>
-        <a class="footer-title">Contacto</a>
-      </div>
+      <div class="footer-title">Contacto</div>
 
-        <div class="socials" aria-label="Redes sociales">
-        <a class="social" href="https://www.facebook.com/profile.php?id=61579704266004&locale=es_LA#" target="_blank" rel="noopener" aria-label="Facebook">
+      <div class="socials" aria-label="Redes sociales">
+        <a class="social" href="https://www.facebook.com/profile.php?id=61579704266004&locale=es_LA#"
+           target="_blank" rel="noopener noreferrer" aria-label="Facebook">
           <img src="./imagenes/facebook.png" alt="Facebook" loading="lazy">
         </a>
 
-        <a class="social" href="https://www.instagram.com/maricelconse/" target="_blank" rel="noopener" aria-label="Instagram">
+        <a class="social" href="https://www.instagram.com/maricelconse/"
+           target="_blank" rel="noopener noreferrer" aria-label="Instagram">
           <img src="./imagenes/instagram.png" alt="Instagram" loading="lazy">
         </a>
 
-        <a class="social" href="https://wa.me/5492964406552" target="_blank" rel="noopener" aria-label="WhatsApp">
+        <a class="social" href="https://wa.me/5492964406552"
+           target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
           <img src="./imagenes/whatsapp.png" alt="WhatsApp" loading="lazy">
         </a>
 
-        <a class="social" href="https://www.tiktok.com/@maricelconse" target="_blank" rel="noopener" aria-label="TikTok">
+        <a class="social" href="https://www.tiktok.com/@maricelconse"
+           target="_blank" rel="noopener noreferrer" aria-label="TikTok">
           <img src="./imagenes/tiktok.png" alt="TikTok" loading="lazy">
         </a>
 
-        <a class="social" href="https://www.youtube.com/@maricelconse" target="_blank" rel="noopener" aria-label="YouTube">
+        <a class="social" href="https://www.youtube.com/@maricelconse"
+           target="_blank" rel="noopener noreferrer" aria-label="YouTube">
           <img src="./imagenes/youtube.png" alt="YouTube" loading="lazy">
         </a>
       </div>
@@ -309,59 +333,92 @@ Este plan está diseñado para mujeres que quieren entrenar con autonomía, sin 
       <div class="small2" style="margin-top:14px;opacity:.8">
         © <span id="year"></span> Maricel Conse · Academia de Mujeres
       </div>
+
+    <div style="margin-top:10px;display:flex;justify-content:center;">
+  <div style="
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:center;
+    text-align:center;
+    opacity:.55;              /* casi imperceptible */
+  ">
+    <a class="small" href="#" data-legal-open="a360-terms" style="text-decoration:none;">Términos y condiciones</a>
+    <span class="small" style="opacity:.35" aria-hidden="true">·</span>
+    <a class="small" href="#" data-legal-open="a360-privacy" style="text-decoration:none;">Privacidad</a>
+    <span class="small" style="opacity:.35" aria-hidden="true">·</span>
+    <a class="small" href="#" data-legal-open="a360-arrepentimiento" style="text-decoration:none;">Botón de arrepentimiento</a>
+    <span class="small" style="opacity:.35" aria-hidden="true">·</span>
+    <a class="small" href="#" data-legal-open="a360-baja" style="text-decoration:none;">Baja de servicio</a>
+  </div>
+</div>
     </div>
   </footer>
-  <script>
-  document.addEventListener("click", (e) => {
-    // Si el click fue sobre el video/controles, no redirigir
-    if (e.target.closest(".plan-media")) return;
 
-    const b = e.target.closest("[data-plan]");
-    if (!b) return;
+  <!-- =====================================================
+       Scripts (limpios)
+  ====================================================== -->
 
-    const plan = b.getAttribute("data-plan");
-    if (!plan) return;
-
-    localStorage.setItem("A360_SELECTED_PLAN", plan);
-    window.location.href = `./register.html?plan=${encodeURIComponent(plan)}`;
-  });
-</script>
   <script>
     // Año
-    document.getElementById("year").textContent = new Date().getFullYear();
+    (function () {
+      const y = document.getElementById("year");
+      if (y) y.textContent = new Date().getFullYear();
+    })();
 
     // Header transparente -> sólido al scrollear
-    const header = document.getElementById("siteHeader");
-    const onScroll = () => {
-      if (window.scrollY > 16) header.classList.add("is-scrolled");
-      else header.classList.remove("is-scrolled");
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
+    (function () {
+      const header = document.getElementById("siteHeader");
+      if (!header) return;
 
-    // Sesión: si está logueada, mostrar "Ir a mi panel" y ajustar CTA
+      const onScroll = () => {
+        if (window.scrollY > 16) header.classList.add("is-scrolled");
+        else header.classList.remove("is-scrolled");
+      };
+
+      onScroll();
+      window.addEventListener("scroll", onScroll, { passive: true });
+    })();
+
+    // CTA Planes -> register con plan (evita clicks en el video)
+    document.addEventListener("click", (e) => {
+      if (e.target.closest(".plan-media")) return;
+
+      const b = e.target.closest("[data-plan]");
+      if (!b) return;
+
+      const plan = b.getAttribute("data-plan");
+      if (!plan) return;
+
+      localStorage.setItem("A360_SELECTED_PLAN", plan);
+      window.location.href = `./register.html?plan=${encodeURIComponent(plan)}`;
+    });
+
+    // Sesión: si está logueada, mostrar "Mi panel" y ocultar login
     (async () => {
       try {
+        const sb = window.sb;
+        if (!sb?.auth) return;
+
         const { data } = await sb.auth.getSession();
         const hasSession = !!data?.session;
 
         const goAppBtn = document.getElementById("goAppBtn");
         const loginBtn = document.getElementById("loginBtn");
-        const registerBtn = document.getElementById("registerBtn");
-        const ctaMain = document.getElementById("ctaMain");
+
+        if (!goAppBtn || !loginBtn) return;
 
         if (hasSession) {
           goAppBtn.style.display = "inline-flex";
           loginBtn.style.display = "none";
-          registerBtn.style.display = "none";
-
-          ctaMain.textContent = "Ir a mi panel";
-          ctaMain.href = "./app.html";
+        } else {
+          goAppBtn.style.display = "none";
+          loginBtn.style.display = "inline-flex";
         }
-      } catch (e) {}
+      } catch (_) {}
     })();
 
-    // ===== FAQ: desplegable (accordion) — solo 1 abierta =====
+    // FAQ accordion — solo 1 abierta
     (function initFAQ() {
       const list = document.getElementById("faqList");
       if (!list) return;
@@ -388,88 +445,688 @@ Este plan está diseñado para mujeres que quieren entrenar con autonomía, sin 
         ans.hidden = isOpen;
       });
     })();
-
-    const planSelect = document.getElementById("planSelect");
-
-function initPlan(){
-  const url = new URL(window.location.href);
-  const q = url.searchParams.get("plan");
-
-  if(q){
-    planSlug.value = q;
-    planName.value = PLAN_LABEL[q];
-    planSelect.style.display = "none";
-  } else {
-    planSelect.addEventListener("change", () => {
-      planSlug.value = planSelect.value;
-      planName.value = PLAN_LABEL[planSelect.value];
-    });
-  }
-}
-
   </script>
 
- <script>
-  document.addEventListener("DOMContentLoaded", async () => {
-    if (!window.sb) {
-      console.warn("[videos] sb no definido");
-      return;
-    }
+  <script>
+    // Videos de planes desde Supabase Storage (tabla plan_media)
+    document.addEventListener("DOMContentLoaded", async () => {
+      const sb = window.sb;
+      if (!sb) return;
 
-    const { data, error } = await sb
-      .from("plan_media")
-      .select("plan_key,bucket,video_path");
+      const { data, error } = await sb
+        .from("plan_media")
+        .select("plan_key,bucket,video_path");
 
-    if (error || !data?.length) {
-      console.warn("[videos] plan_media vacío/error:", error);
-      return;
-    }
+      if (error || !data?.length) return;
 
-    for (const row of data) {
-      const video = document.querySelector(
-        `video.plan-video[data-plan-media="${row.plan_key}"]`
-      );
-      if (!video) {
-        console.warn("[videos] no encuentro <video> para plan_key:", row.plan_key);
-        continue;
+      for (const row of data) {
+        const video = document.querySelector(`video.plan-video[data-plan-media="${row.plan_key}"]`);
+        if (!video) continue;
+
+        const pub = sb.storage.from(row.bucket).getPublicUrl(row.video_path);
+        const url = pub?.data?.publicUrl || "";
+        if (!url) continue;
+
+        video.src = url;
+        video.load();
+      }
+    });
+
+    // Reproducción: al reproducir uno, pausamos los demás
+    document.addEventListener("DOMContentLoaded", () => {
+      const videos = Array.from(document.querySelectorAll("video.plan-video"));
+      if (!videos.length) return;
+
+      function stopOthers(active) {
+        for (const v of videos) {
+          if (v === active) continue;
+          if (!v.paused) v.pause();
+        }
       }
 
-      const { data: pub } = sb.storage.from(row.bucket).getPublicUrl(row.video_path);
-      video.src = pub.publicUrl;
-      video.load();
-    }
-  });
-</script>
+      for (const v of videos) {
+        v.addEventListener("play", () => stopOthers(v));
+      }
+    });
+  </script>
 
-</script>
+  <!-- =====================================================
+       Legal popups (4) — integrados
+       IMPORTANTE: completá los placeholders [[COMPLETAR_...]]
+  ====================================================== -->
+
+<!-- popup-terminos.html -->
+<div class="legal-modal" id="a360-terms" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="a360-terms-title"
+     data-support-email="maricelconse@gmail.com">
+  <div class="legal-backdrop" data-legal-close></div>
+
+  <div class="legal-dialog" tabindex="-1">
+    <div class="legal-head">
+      <div class="legal-head__title">
+        <h2 id="a360-terms-title">Términos y Condiciones (Contrato de adhesión)</h2>
+        <div class="legal-head__sub">Academia de Mujeres — Maricel Conse</div>
+      </div>
+      <button class="legal-close" type="button" data-legal-close aria-label="Cerrar">✕</button>
+    </div>
+
+    <div class="legal-body">
+      <h3>1. Identificación de la proveedora</h3>
+      <p>
+        La plataforma “Academia de Mujeres — Maricel Conse” (en adelante, la “Plataforma”) es operada por
+        <b>Maricel Conse</b>, CUIL <b>27-35873207-6</b>, con domicilio en <b>Perú 279, Río Grande, Tierra del Fuego, Argentina</b>
+        (en adelante, la “Proveedora”).
+      </p>
+
+      <h3>2. Aceptación</h3>
+      <p>
+        Al registrarte, contratar un plan y/o utilizar la Plataforma, aceptás estos Términos y Condiciones (“TyC”).
+        Si no estás de acuerdo, no utilices la Plataforma.
+      </p>
+
+      <h3>3. Descripción del servicio</h3>
+      <p>
+        La Plataforma ofrece contenidos digitales vinculados a entrenamiento (rutinas y biblioteca de clases),
+        y puede incluir clases en vivo por videollamada según el plan vigente.
+        El servicio es de carácter informativo y educativo; no constituye asesoramiento médico ni diagnóstico.
+      </p>
+
+      <h3>4. Cuenta y uso</h3>
+      <ul>
+        <li>Debés brindar datos veraces y mantenerlos actualizados.</li>
+        <li>Sos responsable por el uso de tu cuenta y por mantener confidenciales tus credenciales.</li>
+        <li>Está prohibido compartir accesos, revender o distribuir el contenido.</li>
+      </ul>
+
+      <h3>5. Planes, cobros y renovaciones</h3>
+      <p>
+        Los planes y precios se informan en el sitio. El cobro se realiza a través de Mercado Pago.
+        La suscripción puede renovarse automáticamente según el plan elegido, salvo que se solicite la baja.
+      </p>
+
+      <h3>6. Plazo de entrega de rutina</h3>
+      <p>
+        La rutina personalizada puede demorar hasta <b>48 hs hábiles</b> desde la acreditación del pago
+        y/o desde la recepción completa de la ficha, salvo fuerza mayor.
+      </p>
+
+      <h3>7. Clases grabadas y clases en vivo</h3>
+      <ul>
+        <li>Las clases grabadas se consumen por streaming a través de la plataforma Zoom.</li>
+        <li>Las clases en vivo pueden reprogramarse por motivos operativos. En tal caso, se informará la nueva fecha/hora.</li>
+      </ul>
+
+      <h3>8. Baja del servicio</h3>
+      <p>
+        Podes solicitar la baja por los canales habilitados en el sitio. Si tu cobro es por suscripción de Mercado Pago,
+        también podes cancelarla desde la app: Más → Tus suscripciones → Cancelar suscripción.
+        Guía: <a target="_blank" rel="noopener" href="https://www.mercadopago.com.ar/ayuda/36628">Cancelar suscripción en Mercado Pago</a>.
+      </p>
+
+      <h3>9. Botón de arrepentimiento</h3>
+      <p>
+        Si contrataste a distancia, podes solicitar la revocación en los plazos aplicables. El trámite se gestiona mediante
+        el “Botón de arrepentimiento” disponible en el sitio.
+      </p>
+
+      <h3>10. Soporte</h3>
+      <p>
+        Email: <b>maricelconse@gmail.com</b><br>
+        Horario de atención: <b>días hábiles de 08:00 a 17:00 hs (Argentina)</b>
+      </p>
+
+      <h3>11. Jurisdicción</h3>
+      <p>República Argentina. Jurisdicción: <b>Río Grande, Tierra del Fuego</b>.</p>
+
+      <div class="legal-foot">
+        <div class="legal-foot__muted">Última actualización: <b>28/02/2026</b></div>
+        <div class="legal-foot__actions">
+          <button class="legal-btn" type="button" data-legal-close>Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const videos = Array.from(document.querySelectorAll("video.plan-video"));
+(function () {
+  if (window.__A360_LEGAL_MODAL_LOADED) return;
+  window.__A360_LEGAL_MODAL_LOADED = true;
 
-    function stopOthers(active) {
-      for (const v of videos) {
-        if (v === active) continue;
-        if (!v.paused) v.pause();          // detiene el anterior
-        // si querés que además vuelva a 0, descomentá:
-        // v.currentTime = 0;
+  // Base CSS (una sola vez)
+  if (!document.getElementById("a360-legal-style")) {
+    const st = document.createElement("style");
+    st.id = "a360-legal-style";
+    st.textContent = `
+      .legal-modal{position:fixed;inset:0;z-index:9999;display:none}
+      .legal-modal[aria-hidden="false"]{display:block}
+      .legal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.55)}
+      .legal-dialog{
+        position:relative;z-index:1;
+        width:min(920px,92vw);
+        max-height:88vh;
+        margin:5vh auto;
+        background:rgba(255,255,255,.98);
+        border-radius:18px;
+        box-shadow:0 20px 70px rgba(0,0,0,.25);
+        overflow:auto;
+        outline:none;
       }
+      .legal-head{
+        position:sticky;top:0;z-index:2;
+        display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+        padding:14px 16px;
+        background:rgba(255,255,255,.96);
+        border-bottom:1px solid rgba(0,0,0,.08);
+        backdrop-filter: blur(10px);
+      }
+      .legal-head__title h2{margin:0;font-size:16px;line-height:1.2}
+      .legal-head__sub{margin-top:4px;font-size:12px;opacity:.75}
+      .legal-close{
+        border:1px solid rgba(0,0,0,.12);
+        background:rgba(255,255,255,.85);
+        border-radius:12px;
+        width:40px;height:40px;
+        cursor:pointer;
+      }
+      .legal-body{padding:16px}
+      .legal-body h3{margin:16px 0 8px;font-size:14px}
+      .legal-body p,.legal-body li{font-size:13px;line-height:1.55;opacity:.92}
+      .legal-body ul{margin:8px 0 0 18px}
+      .legal-body a{color:#0b57d0;word-break:break-word}
+      .legal-foot{
+        margin-top:18px;
+        display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;
+        border-top:1px solid rgba(0,0,0,.08);
+        padding-top:12px;
+      }
+      .legal-foot__muted{font-size:12px;opacity:.75}
+      .legal-btn{
+        border:1px solid rgba(0,0,0,.12);
+        background:rgba(255,255,255,.9);
+        border-radius:12px;
+        padding:10px 12px;
+        cursor:pointer;
+      }
+      .legal-btn.primary{background:rgba(20,70,200,.10);border-color:rgba(20,70,200,.20)}
+      .legal-label{display:block;font-size:12px;opacity:.8;margin-top:10px}
+      .legal-input,.legal-textarea{
+        width:100%;box-sizing:border-box;
+        border:1px solid rgba(0,0,0,.12);
+        background:rgba(255,255,255,.85);
+        border-radius:12px;
+        padding:10px 12px;
+        margin-top:6px;
+        font-size:13px;
+        outline:none;
+      }
+      .legal-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+      body.a360-legal-lock{overflow:hidden}
+      @media (max-width:520px){.legal-dialog{margin:3vh auto;max-height:92vh}}
+    `;
+    document.head.appendChild(st);
+  }
+
+  function openModal(id) {
+    const modal = document.getElementById(id);
+    if (!modal) return;
+    modal.__lastFocus = document.activeElement;
+    modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("a360-legal-lock");
+    modal.querySelector(".legal-dialog")?.focus?.();
+  }
+
+  function closeModal(modal) {
+    if (!modal) return;
+    modal.setAttribute("aria-hidden", "true");
+    const anyOpen = document.querySelector('.legal-modal[aria-hidden="false"]');
+    if (!anyOpen) document.body.classList.remove("a360-legal-lock");
+    modal.__lastFocus?.focus?.();
+  }
+
+  document.addEventListener("click", (e) => {
+    const openBtn = e.target.closest("[data-legal-open]");
+    if (openBtn) {
+      e.preventDefault();
+      openModal(openBtn.getAttribute("data-legal-open"));
+      return;
     }
-
-    for (const v of videos) {
-      // default “sonido ON” (igual el usuario puede bajar volumen desde controles)
-      v.muted = false;
-
-      v.addEventListener("play", () => {
-        stopOthers(v);
-        v.muted = false;   // por si algún browser lo dejó muteado
-        // opcional:
-        // v.volume = 1;
-      });
+    const closeBtn = e.target.closest("[data-legal-close]");
+    if (closeBtn) {
+      e.preventDefault();
+      closeModal(closeBtn.closest(".legal-modal"));
     }
   });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const modal = document.querySelector('.legal-modal[aria-hidden="false"]');
+    if (modal) closeModal(modal);
+  });
+
+  function buildMailto(to, subject, lines) {
+    const body = encodeURIComponent(lines.join("\n"));
+    return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${body}`;
+  }
+
+  function getSupportEmail(modalId) {
+    const modal = document.getElementById(modalId);
+    return (modal?.getAttribute("data-support-email") || "maricelconse@gmail.com").trim();
+  }
+
+  // Arrepentimiento
+  document.addEventListener("submit", (e) => {
+    const form = e.target;
+    if (!form || form.id !== "a360ArrepForm") return;
+    e.preventDefault();
+
+    const to = getSupportEmail("a360-arrepentimiento");
+    const fd = new FormData(form);
+    const mailto = buildMailto(to, "Botón de Arrepentimiento — Solicitud", [
+      "SOLICITUD — BOTÓN DE ARREPENTIMIENTO",
+      "",
+      `Nombre: ${fd.get("full_name") || ""}`,
+      `Email: ${fd.get("email") || ""}`,
+      `Teléfono: ${fd.get("phone") || ""}`,
+      `Fecha contratación/pago: ${fd.get("date") || ""}`,
+      `ID Mercado Pago: ${fd.get("mp_id") || ""}`,
+      "",
+      "Detalle:",
+      `${fd.get("detail") || ""}`,
+      "",
+      "— Enviado desde el sitio (sin login).",
+    ]);
+    window.location.href = mailto;
+  });
+
+  // Baja
+  document.addEventListener("submit", (e) => {
+    const form = e.target;
+    if (!form || form.id !== "a360BajaForm") return;
+    e.preventDefault();
+
+    const to = getSupportEmail("a360-baja");
+    const fd = new FormData(form);
+    const mailto = buildMailto(to, "Botón de Baja de Servicio — Solicitud", [
+      "SOLICITUD — BOTÓN DE BAJA DE SERVICIO",
+      "",
+      `Nombre: ${fd.get("full_name") || ""}`,
+      `Email: ${fd.get("email") || ""}`,
+      `Fecha estimada de alta: ${fd.get("date") || ""}`,
+      `Motivo: ${fd.get("reason") || ""}`,
+      "",
+      "Detalle:",
+      `${fd.get("detail") || ""}`,
+      "",
+      "— Enviado desde el sitio (sin login).",
+    ]);
+    window.location.href = mailto;
+  });
+
+  window.A360Legal = window.A360Legal || { open: openModal, close: closeModal };
+})();
 </script>
 
-<script src="./loader.js"></script>
+<!-- popup-privacidad.html -->
+<div class="legal-modal" id="a360-privacy" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="a360-privacy-title"
+     data-support-email="maricelconse@gmail.com">
+  <div class="legal-backdrop" data-legal-close></div>
+
+  <div class="legal-dialog" tabindex="-1">
+    <div class="legal-head">
+      <div class="legal-head__title">
+        <h2 id="a360-privacy-title">Política de Privacidad</h2>
+        <div class="legal-head__sub">Academia de Mujeres — Maricel Conse</div>
+      </div>
+      <button class="legal-close" type="button" data-legal-close aria-label="Cerrar">✕</button>
+    </div>
+
+    <div class="legal-body">
+      <h3>1. Responsable</h3>
+      <p>
+        Responsable: <b>Maricel Conse</b> · CUIL <b>27-35873207-6</b><br>
+        Domicilio: <b>Perú 279, Río Grande, Tierra del Fuego, Argentina</b><br>
+        Contacto: <b>maricelconse@gmail.com</b> (días hábiles 08:00 a 17:00 hs)
+      </p>
+
+      <h3>2. Datos que se recolectan</h3>
+      <ul>
+        <li>Identificación y contacto: nombre, email, teléfono.</li>
+        <li>Perfil: edad, nivel de entrenamiento y datos físicos si los cargás (peso/altura).</li>
+        <li>Preferencias: objetivo (perder peso/ganar masa) y modalidad (casa/gimnasio).</li>
+        <li>Datos técnicos mínimos para funcionamiento y seguridad.</li>
+      </ul>
+
+      <h3>3. Finalidades</h3>
+      <ul>
+        <li>Prestar el servicio y personalizar rutinas/contenidos.</li>
+        <li>Gestionar suscripciones y pagos (Mercado Pago).</li>
+        <li>Soporte, comunicaciones operativas y seguridad.</li>
+      </ul>
+
+      <h3>4. Derechos</h3>
+      <p>
+        Podes solicitar acceso, rectificación, actualización y supresión de tus datos
+        escribiendo a <b>maricelconse@gmail.com</b>.
+      </p>
+
+      <h3>5. Conservación</h3>
+      <p>
+        Se conservan los datos el tiempo necesario para prestar el servicio, cumplir obligaciones y atender reclamos,
+        y luego se eliminan o anonimizan cuando corresponda.
+      </p>
+
+      <div class="legal-foot">
+        <div class="legal-foot__muted">Última actualización: <b>28/02/2026</b></div>
+        <div class="legal-foot__actions">
+          <button class="legal-btn" type="button" data-legal-close>Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- popup-arrepentimiento.html -->
+<div class="legal-modal" id="a360-arrepentimiento" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="a360-arrep-title"
+     data-support-email="maricelconse@gmail.com">
+  <div class="legal-backdrop" data-legal-close></div>
+
+  <div class="legal-dialog" tabindex="-1">
+    <div class="legal-head">
+      <div class="legal-head__title">
+        <h2 id="a360-arrep-title">Botón de Arrepentimiento</h2>
+        <div class="legal-head__sub">Solicitud de revocación</div>
+      </div>
+      <button class="legal-close" type="button" data-legal-close aria-label="Cerrar">✕</button>
+    </div>
+
+    <div class="legal-body">
+      <div class="legal-note">
+        Este formulario no requiere login. Al enviar, se abrirá tu app de correo con el pedido prearmado hacia
+        <b>maricelconse@gmail.com</b>.
+      </div>
+
+      <form id="a360ArrepForm">
+        <label class="legal-label">Nombre y apellido</label>
+        <input class="legal-input" name="full_name" required>
+
+        <label class="legal-label">Email usado en la cuenta</label>
+        <input class="legal-input" name="email" type="email" required>
+
+        <label class="legal-label">Teléfono (opcional)</label>
+        <input class="legal-input" name="phone">
+
+        <label class="legal-label">Fecha de contratación / pago (opcional)</label>
+        <input class="legal-input" name="date">
+
+        <label class="legal-label">ID/operación de Mercado Pago (opcional)</label>
+        <input class="legal-input" name="mp_id">
+
+        <label class="legal-label">Detalle del pedido</label>
+        <textarea class="legal-textarea" name="detail" rows="4" placeholder="Describí tu solicitud..."></textarea>
+
+        <div class="legal-actions">
+          <button class="legal-btn primary" type="submit">Enviar por email</button>
+          <button class="legal-btn" type="button" data-legal-close>Cancelar</button>
+        </div>
+
+        <div class="legal-foot__muted" style="margin-top:10px">
+          Horario de atención: días hábiles 08:00 a 17:00 hs (AR). Última actualización: 28/02/2026.
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- popup-baja.html -->
+<div class="legal-modal" id="a360-baja" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="a360-baja-title"
+     data-support-email="maricelconse@gmail.com">
+  <div class="legal-backdrop" data-legal-close></div>
+
+  <div class="legal-dialog" tabindex="-1">
+    <div class="legal-head">
+      <div class="legal-head__title">
+        <h2 id="a360-baja-title">Botón de Baja de Servicio</h2>
+        <div class="legal-head__sub">Solicitud de cancelación</div>
+      </div>
+      <button class="legal-close" type="button" data-legal-close aria-label="Cerrar">✕</button>
+    </div>
+
+    <div class="legal-body">
+      <div class="legal-note">
+        Este formulario no requiere login. Al enviar, se abrirá tu app de correo con el pedido prearmado hacia
+        <b>maricelconse@gmail.com</b>.<br>
+        Si tu cobro es por suscripción de Mercado Pago, también podes cancelarla desde la app:
+        Más → Tus suscripciones → Cancelar suscripción.
+        <a target="_blank" rel="noopener" href="https://www.mercadopago.com.ar/ayuda/36628">Ver guía</a>.
+      </div>
+
+      <form id="a360BajaForm">
+        <label class="legal-label">Nombre y apellido</label>
+        <input class="legal-input" name="full_name" required>
+
+        <label class="legal-label">Email usado en la cuenta</label>
+        <input class="legal-input" name="email" type="email" required>
+
+        <label class="legal-label">Fecha estimada de alta (opcional)</label>
+        <input class="legal-input" name="date">
+
+        <label class="legal-label">Motivo (opcional)</label>
+        <input class="legal-input" name="reason" placeholder="Ej: ya no lo necesito / problema técnico / etc.">
+
+        <label class="legal-label">Detalle del pedido</label>
+        <textarea class="legal-textarea" name="detail" rows="4" placeholder="Describí tu solicitud..."></textarea>
+
+        <div class="legal-actions">
+          <button class="legal-btn primary" type="submit">Enviar por email</button>
+          <button class="legal-btn" type="button" data-legal-close>Cancelar</button>
+        </div>
+
+        <div class="legal-foot__muted" style="margin-top:10px">
+          Horario de atención: días hábiles 08:00 a 17:00 hs (AR). Última actualización: 28/02/2026.
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+  <script>
+    // Legal modals (open/close + mailto forms) — inyecta estilos 1 vez
+    (function () {
+      if (window.__A360_LEGAL_MODAL_LOADED) return;
+      window.__A360_LEGAL_MODAL_LOADED = true;
+
+      if (!document.getElementById("a360-legal-style")) {
+        const st = document.createElement("style");
+        st.id = "a360-legal-style";
+        st.textContent = `
+          .legal-modal{position:fixed;inset:0;z-index:9999;display:none}
+          .legal-modal[aria-hidden="false"]{display:block}
+          .legal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.55)}
+          .legal-dialog{
+            position:relative;z-index:1;
+            width:min(920px,92vw);
+            max-height:88vh;
+            margin:5vh auto;
+            background:rgba(255,255,255,.98);
+            border-radius:18px;
+            box-shadow:0 20px 70px rgba(0,0,0,.25);
+            overflow:auto;
+            outline:none;
+          }
+          .legal-head{
+            position:sticky;top:0;z-index:2;
+            display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+            padding:14px 16px;
+            background:rgba(255,255,255,.96);
+            border-bottom:1px solid rgba(0,0,0,.08);
+            backdrop-filter: blur(10px);
+          }
+          .legal-head__title h2{margin:0;font-size:16px;line-height:1.2}
+          .legal-head__sub{margin-top:4px;font-size:12px;opacity:.75}
+          .legal-close{
+            border:1px solid rgba(0,0,0,.12);
+            background:rgba(255,255,255,.85);
+            border-radius:12px;
+            width:40px;height:40px;
+            cursor:pointer;
+          }
+          .legal-body{padding:16px}
+          .legal-body h3{margin:16px 0 8px;font-size:14px}
+          .legal-body p,.legal-body li{font-size:13px;line-height:1.55;opacity:.92}
+          .legal-body ul{margin:8px 0 0 18px}
+          .legal-note{
+            border:1px dashed rgba(0,0,0,.18);
+            background:rgba(0,0,0,.03);
+            padding:10px 12px;
+            border-radius:14px;
+            font-size:12px;
+            margin-bottom:10px;
+          }
+          .legal-body a{color:#0b57d0;word-break:break-word}
+          .legal-foot{
+            margin-top:18px;
+            display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;
+            border-top:1px solid rgba(0,0,0,.08);
+            padding-top:12px;
+          }
+          .legal-foot__muted{font-size:12px;opacity:.75}
+          .legal-btn{
+            border:1px solid rgba(0,0,0,.12);
+            background:rgba(255,255,255,.9);
+            border-radius:12px;
+            padding:10px 12px;
+            cursor:pointer;
+          }
+          .legal-btn.primary{background:rgba(20,70,200,.10);border-color:rgba(20,70,200,.20)}
+          .legal-label{display:block;font-size:12px;opacity:.8;margin-top:10px}
+          .legal-input,.legal-textarea{
+            width:100%;box-sizing:border-box;
+            border:1px solid rgba(0,0,0,.12);
+            background:rgba(255,255,255,.85);
+            border-radius:12px;
+            padding:10px 12px;
+            margin-top:6px;
+            font-size:13px;
+            outline:none;
+          }
+          .legal-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+          body.a360-legal-lock{overflow:hidden}
+          @media (max-width:520px){
+            .legal-dialog{margin:3vh auto;max-height:92vh}
+          }
+        `;
+        document.head.appendChild(st);
+      }
+
+      function openModal(id) {
+        const modal = document.getElementById(id);
+        if (!modal) return;
+        modal.__lastFocus = document.activeElement;
+        modal.setAttribute("aria-hidden", "false");
+        document.body.classList.add("a360-legal-lock");
+        modal.querySelector(".legal-dialog")?.focus?.();
+      }
+
+      function closeModal(modal) {
+        if (!modal) return;
+        modal.setAttribute("aria-hidden", "true");
+        const anyOpen = document.querySelector('.legal-modal[aria-hidden="false"]');
+        if (!anyOpen) document.body.classList.remove("a360-legal-lock");
+        modal.__lastFocus?.focus?.();
+      }
+
+      document.addEventListener("click", (e) => {
+        const openBtn = e.target.closest("[data-legal-open]");
+        if (openBtn) {
+          e.preventDefault();
+          openModal(openBtn.getAttribute("data-legal-open"));
+          return;
+        }
+
+        const closeBtn = e.target.closest("[data-legal-close]");
+        if (closeBtn) {
+          e.preventDefault();
+          closeModal(closeBtn.closest(".legal-modal"));
+        }
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key !== "Escape") return;
+        const modal = document.querySelector('.legal-modal[aria-hidden="false"]');
+        if (modal) closeModal(modal);
+      });
+
+      function buildMailto(to, subject, lines) {
+        const body = encodeURIComponent(lines.join("\n"));
+        return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${body}`;
+      }
+
+      function requireSupportEmail(modalId) {
+        const modal = document.getElementById(modalId);
+        const to = (modal?.getAttribute("data-support-email") || "").trim();
+        if (!to || to.includes("[[COMPLETAR")) {
+          alert("Completá [[COMPLETAR_EMAIL_SOPORTE]] en los popups legales (data-support-email).");
+          return null;
+        }
+        return to;
+      }
+
+      // Arrepentimiento -> mailto
+      const arrepForm = document.getElementById("a360ArrepForm");
+      arrepForm?.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const to = requireSupportEmail("a360-arrepentimiento");
+        if (!to) return;
+
+        const fd = new FormData(arrepForm);
+        const mailto = buildMailto(to, "Botón de Arrepentimiento — Solicitud", [
+          "SOLICITUD — BOTÓN DE ARREPENTIMIENTO",
+          "",
+          `Nombre: ${fd.get("full_name") || ""}`,
+          `Email: ${fd.get("email") || ""}`,
+          `Teléfono: ${fd.get("phone") || ""}`,
+          `Fecha contratación/pago: ${fd.get("date") || ""}`,
+          `ID Mercado Pago: ${fd.get("mp_id") || ""}`,
+          "",
+          "Detalle:",
+          `${fd.get("detail") || ""}`,
+          "",
+          "— Enviado desde el sitio (sin login).",
+        ]);
+        window.location.href = mailto;
+      });
+
+      // Baja -> mailto
+      const bajaForm = document.getElementById("a360BajaForm");
+      bajaForm?.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const to = requireSupportEmail("a360-baja");
+        if (!to) return;
+
+        const fd = new FormData(bajaForm);
+        const mailto = buildMailto(to, "Botón de Baja de Servicio — Solicitud", [
+          "SOLICITUD — BOTÓN DE BAJA DE SERVICIO",
+          "",
+          `Nombre: ${fd.get("full_name") || ""}`,
+          `Email: ${fd.get("email") || ""}`,
+          `Fecha estimada de alta: ${fd.get("date") || ""}`,
+          `Motivo: ${fd.get("reason") || ""}`,
+          "",
+          "Detalle:",
+          `${fd.get("detail") || ""}`,
+          "",
+          "— Enviado desde el sitio (sin login).",
+        ]);
+        window.location.href = mailto;
+      });
+
+      window.A360Legal = window.A360Legal || { open: openModal, close: closeModal };
+    })();
+  </script>
+<style>
+  a[data-legal-open]{ opacity:.75; }
+  a[data-legal-open]:hover{ opacity:1; text-decoration:underline; }
+</style>
+  <script src="./loader.js"></script>
 </body>
 </html>

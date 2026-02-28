@@ -1477,3 +1477,10 @@ body.has-promo::before{
     radial-gradient(circle at center, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 42%),
     linear-gradient(180deg, #EEF2EC 0%, #E6ECE6 100%);
 }
+/* =========================================================
+   REGISTER (register.html) — Body 1 solo color
+   ========================================================= */
+body.register-page{
+  background: var(--bg) !important;     /* #f6f3ee */
+  background-image: none !important;    /* elimina gradientes */
+}
