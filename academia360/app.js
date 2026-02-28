@@ -90,6 +90,7 @@
   const classesList = document.getElementById("classesList");
   const recordedMsg = document.getElementById("recordedMsg");
   const recordedList = document.getElementById("recordedList");
+  const helpWhatsappBox = document.getElementById("helpWhatsappBox");
 
   // Upgrade panel principal
   const upgradeBox = document.getElementById("upgradeBox");
@@ -215,7 +216,13 @@
     day: "2-digit",
   }).format(d);
 }
+function syncHelpWhatsappUI() {
+  if (!helpWhatsappBox) return;
 
+  // Solo mid y pro ven WhatsApp
+  const canSee = planSlug === "mid" || planSlug === "pro";
+  helpWhatsappBox.style.display = canSee ? "block" : "none";
+}
 function formatDateTimeEs(value) {
   if (!value) return "";
   const d = new Date(value);
@@ -1690,6 +1697,7 @@ async function resolveUserTrackPreference(session) {
     await loadPlanBadge();
     syncUpgradeUI(planSlug);
     syncProfileAccountUI();
+    syncHelpWhatsappUI();
 
     await loadWeeklyQuoteIntoApp();
 
