@@ -150,7 +150,7 @@
   // State
   // =====================================================
   let currentObjective = localStorage.getItem("A360_OBJECTIVE") || "fat_loss";
-  let currentTrack = localStorage.getItem("A360_TRACK") || "gym";
+  let currentTrack = "gym"; // fallback si no hay preferencia guardada
 
   let planSlug = null;
   let planInfo = null;
@@ -205,30 +205,61 @@
   }
 
   function formatDateEs(value) {
-    if (!value) return "";
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "";
-    return d.toLocaleDateString("es-AR");
-  }
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("es-AR", {
+    timeZone: AR_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
 
-  function formatDateTimeEs(value) {
-    if (!value) return "";
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "";
-    return d.toLocaleString("es-AR");
-  }
+function formatDateTimeEs(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
 
-  function formatDateTimeShort(value) {
-    if (!value) return "";
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "";
-    return d.toLocaleString("es-AR", {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
+  const date = new Intl.DateTimeFormat("es-AR", {
+    timeZone: AR_TZ,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(d);
+
+  const time = new Intl.DateTimeFormat("es-AR", {
+    timeZone: AR_TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,      // ✅ evita AM/PM
+    hourCycle: "h23",   // ✅ fuerza 00–23
+  }).format(d);
+
+  return `${date}, ${time}hs`;
+}
+
+function formatDateTimeShort(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+
+  const date = new Intl.DateTimeFormat("es-AR", {
+    timeZone: AR_TZ,
+    day: "2-digit",
+    month: "2-digit",
+  }).format(d);
+
+  const time = new Intl.DateTimeFormat("es-AR", {
+    timeZone: AR_TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    hourCycle: "h23",
+  }).format(d);
+
+  return `${date} ${time}hs`;
+}
 
   function formatPaidThrough(value) {
     if (!value) return "—";
@@ -407,7 +438,7 @@
       campusProgressSecondaryBtn.setAttribute("href", premiumEnabled ? "#classesList" : "#recordedList");
     }
   }
-
+    const AR_TZ = "America/Argentina/Buenos_Aires";
   // =====================================================
   // Nav actions
   // =====================================================
@@ -579,16 +610,11 @@
   // Track / Objetivo
   // =====================================================
   function syncTrackUI() {
-    trackGymBtn?.classList.toggle("primary", currentTrack === "gym");
-    trackHomeBtn?.classList.toggle("primary", currentTrack === "home");
-
-    if (trackHint) {
-      trackHint.textContent =
-        currentTrack === "gym"
-          ? "Mostrando rutina: Gimnasio"
-          : "Mostrando rutina: Casa";
-    }
+  // Ya no hay botones; solo mostramos la modalidad elegida.
+  if (trackHint) {
+    trackHint.textContent = labelTrack(currentTrack);
   }
+}
 
   function setTrack(track) {
     currentTrack = track;
@@ -897,6 +923,43 @@ function closeVideoModal() {
     });
   }
 
+  function normalizeTrack(v) {
+  const raw = String(v || "").trim().toLowerCase();
+  if (raw === "gym" || raw === "gimnasio") return "gym";
+  if (raw === "home" || raw === "casa") return "home";
+  return null;
+}
+
+// Intenta obtener la modalidad elegida en “ficha de inscripción”.
+// Orden: user_metadata.track -> profiles.track -> fallback "gym"
+async function resolveUserTrackPreference(session) {
+  // 1) auth.user.user_metadata.track (si lo guardaste en signUp)
+  const metaTrack = normalizeTrack(session?.user?.user_metadata?.track);
+  if (metaTrack) return metaTrack;
+
+  // 2) profiles.track (si lo guardaste en profiles)
+  const uid = session?.user?.id;
+  if (uid) {
+    try {
+      const { data, error } = await sb
+        .from("profiles")
+        .select("track")
+        .eq("user_id", uid)
+        .maybeSingle();
+
+      // Si la columna no existe o hay RLS/permiso, caemos al fallback sin romper.
+      if (!error) {
+        const dbTrack = normalizeTrack(data?.track);
+        if (dbTrack) return dbTrack;
+      }
+    } catch (_) {
+      // fallback abajo
+    }
+  }
+
+  return "gym";
+}
+
   async function rpcMonthContent(monthNumber, objective) {
     let res = await sb.rpc("get_month_content_v3", {
       p_month: monthNumber,
@@ -985,12 +1048,12 @@ function closeVideoModal() {
 
     const nowIso = new Date().toISOString();
 
-    const { data, error } = await sb
-      .from("live_classes")
-      .select("id,title,topic,starts_at,zoom_join_url,status")
-      .gte("starts_at", nowIso)
-      .order("starts_at", { ascending: true })
-      .limit(10);
+   const { data, error } = await sb
+  .from("live_classes")
+  .select("id,title,topic,starts_at,zoom_join_url,zoom_passcode,status,cover_url")
+  .gte("starts_at", nowIso)
+  .order("starts_at", { ascending: true })
+  .limit(10);
 
     if (error) {
       setNotice(classesMsg, error.message, "error");
@@ -1012,21 +1075,29 @@ function closeVideoModal() {
     clearText(classesMsg);
 
     classesList.innerHTML = data.map((item) => {
-      const when = formatDateTimeEs(item.starts_at);
+  const when = formatDateTimeEs(item.starts_at); // ya queda AR
+  const cover = resolveCoverUrl(item.cover_url); // reutiliza tu helper (sirve si guardás URL o key)
+  const pass = (item.zoom_passcode || "").trim();
 
-      const actionBtn = item.zoom_join_url
-        ? `<a class="btn primary" target="_blank" rel="noopener" href="${esc(item.zoom_join_url)}">Entrar</a>`
-        : `<span class="small">Sin link</span>`;
+  const actionBtn = item.zoom_join_url
+    ? `<a class="btn primary" target="_blank" rel="noopener" href="${esc(item.zoom_join_url)}">Entrar</a>`
+    : `<span class="small">Sin link</span>`;
 
-      return `
-        <div class="item">
+  return `
+    <div class="item" style="display:flex;gap:12px;align-items:flex-start;justify-content:space-between">
+      <div style="display:flex;gap:12px;align-items:flex-start;min-width:0">
+        ${cover ? `<img src="${esc(cover)}" alt="cover" style="width:64px;height:64px;object-fit:cover;border-radius:12px" loading="lazy">` : ""}
+        <div style="min-width:0">
           <div><b>${esc(item.title || "Clase")}</b></div>
-          ${when ? `<div class="small">${esc(when)}</div>` : ""}
+          ${when ? `<div class="small">${esc(when)} (AR)</div>` : ""}
           ${item.topic ? `<div class="small" style="opacity:.9">${esc(item.topic)}</div>` : ""}
+          ${pass ? `<div class="small" style="opacity:.9">Código: <b>${esc(pass)}</b></div>` : ""}
           <div style="margin-top:10px">${actionBtn}</div>
         </div>
-      `;
-    }).join("");
+      </div>
+    </div>
+  `;
+}).join("");
 
     syncCampusExperience();
   }
@@ -1539,8 +1610,7 @@ function closeVideoModal() {
     campusEmailCache = session.user.email || "";
     await loadCampusIdentity();
 
-    trackGymBtn?.addEventListener("click", () => setTrack("gym"));
-    trackHomeBtn?.addEventListener("click", () => setTrack("home"));
+    currentTrack = await resolveUserTrackPreference(session);
     syncTrackUI();
 
     await maybeShowAdminLink();

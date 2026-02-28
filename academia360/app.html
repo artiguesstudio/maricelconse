@@ -35,7 +35,7 @@
 
       <nav class="header-actions" aria-label="Acciones">
         <a class="btn campus-ghost" id="adminLink" href="./admin.html" style="display:none">Admin</a>
-        <a class="btn campus-ghost" id="profileBtn" type="button">Mi perfil<a>
+        <button class="btn campus-ghost" id="profileBtn" type="button">Mi perfil</button>
         <a class="btn campus-ghost" href="#" data-action="logout">Salir</a>
       </nav>
     </div>
@@ -123,18 +123,6 @@
   <!-- CONTENIDO -->
   <main class="container page">
 
-    <!-- Encabezado “dashboard” -->
-    <section class="campus-head">
-      <div class="campus-head__left">
-        <h1 class="campus-title">Mi panel</h1>
-        <p class="small campus-sub">
-          Tu rutina, tus clases y tu biblioteca en un solo lugar.
-        </p>
-      </div>
-
-
-    </section>
-
     <!-- Nav interna (premium: claridad + control) -->
     <nav class="campus-nav" aria-label="Navegación del campus">
       <a class="btn campus-ghost" href="#sec-rutina">Rutina</a>
@@ -169,9 +157,7 @@
             <h2 id="monthTitle" class="campus-h2">Mes —</h2>
           </div>
 
-          <div class="campus-meta">
-            <div class="small campus-meta__hint">Elegí modalidad y explorá semanas/días.</div>
-          </div>
+        
         </header>
 
         <div id="upgradeBox" class="campus-upgrade" style="display:none">
@@ -182,14 +168,10 @@
           </div>
         </div>
 
-        <div class="campus-toolbar">
-          <div class="small">Modo de entrenamiento:</div>
-          <div class="track-switch">
-            <button class="btn" id="trackGymBtn" type="button">Gimnasio</button>
-            <button class="btn" id="trackHomeBtn" type="button">Casa</button>
-          </div>
-          <span class="small campus-toolbar__hint" id="trackHint"></span>
-        </div>
+   <div class="campus-toolbar">
+  <div class="small">Modalidad:</div>
+  <span class="small campus-toolbar__hint" id="trackHint">—</span>
+</div>
 
         <div id="monthContent" class="month-content"></div>
 
@@ -223,11 +205,9 @@
       <aside id="sec-clases" class="card panel-classes campus-tint has-coaching-photo">
 
         <div class="campus-splithead">
-          <div>
-            <div class="small" style="opacity:.8">Calendario</div>
-            <h2 class="campus-h2">Clases en vivo</h2>
-          </div>
-          <div class="small campus-pill">Premium</div>
+          <div>           
+            <h2 class="campus-h2">Próximas clases<br>en vivo</h2>
+          </div>          
         </div>
 
         <div id="classesMsg" class="small" style="margin-top:6px"></div>
@@ -238,8 +218,7 @@
 
         <div id="sec-biblioteca" class="campus-splithead" style="margin-top:6px">
           <div>
-            <div class="small" style="opacity:.8">On demand</div>
-            <h3 class="campus-h3">Biblioteca</h3>
+            <h3 class="campus-h2">Clases grabadas</h3>
           </div>
         </div>
 

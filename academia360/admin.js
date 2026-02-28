@@ -55,6 +55,72 @@
   const objLabel = (v) => (v === "muscle_gain" ? "Ganar masa" : "Perder peso");
   const trackLabel = (v) => (v === "home" ? "Casa" : "Gimnasio");
 
+  const AR_TZ = "America/Argentina/Buenos_Aires";
+
+// Convierte "YYYY-MM-DDTHH:mm" (datetime-local) a ISO UTC interpretándolo como hora AR.
+// Importante: NO depende de la TZ del dispositivo.
+function dtLocalArgentinaToIso(dtLocal) {
+  const v = String(dtLocal || "").trim();
+  const m = v.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!m) throw new Error("Fecha/hora inválida (datetime-local).");
+
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const hour = Number(m[4]);
+  const minute = Number(m[5]);
+  const second = Number(m[6] || 0);
+
+  // Creamos un string con offset AR fijo "-03:00"
+  // (evita que el Date() use la TZ del dispositivo).
+  const isoWithOffset = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:${String(second).padStart(2, "0")}-03:00`;
+  const d = new Date(isoWithOffset);
+  if (Number.isNaN(d.getTime())) throw new Error("No pude interpretar fecha/hora AR.");
+  return d.toISOString();
+}
+
+// Mes a partir del string "YYYY-MM-DDTHH:mm" (no depende de TZ)
+function monthFromDtLocal(dtLocal) {
+  const v = String(dtLocal || "").trim();
+  const m = Number(v.slice(5, 7));
+  return (m >= 1 && m <= 12) ? m : null;
+}
+
+// Formatea un ISO a “Argentina” (para listados), sin depender de TZ del dispositivo.
+function fmtArgentinaDateTime(iso) {
+  try {
+    const d = new Date(iso);
+    return new Intl.DateTimeFormat("es-AR", {
+      timeZone: AR_TZ,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(d);
+  } catch (_) {
+    return String(iso || "");
+  }
+}
+
+async function uploadLiveCoverIfAny() {
+  const file = lcCoverFile?.files?.[0];
+  if (!file) return (lcCoverUrl?.value || "").trim() || null;
+
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+  const path = `live/${Date.now()}-${Math.random().toString(16).slice(2)}.${ext}`;
+
+  const up = await sb.storage.from("class_covers").upload(path, file, {
+    cacheControl: "3600",
+    upsert: false,
+    contentType: file.type || "image/jpeg",
+  });
+  if (up.error) throw new Error(up.error.message);
+
+  const pub = sb.storage.from("class_covers").getPublicUrl(path);
+  return pub.data?.publicUrl || null;
+}
+
   // =====================================================
   // Cache meses
   // =====================================================
@@ -200,6 +266,10 @@
   const lcMsg = $("lcMsg");
   const lcRefreshBtn = $("lcRefreshBtn");
   const lcList = $("lcList");
+  const lcCoverFile = $("lcCoverFile");
+  const lcCoverUrl = $("lcCoverUrl");
+  const lcCoverPreview = $("lcCoverPreview");
+
 
   // =====================================================
   // State
@@ -1886,44 +1956,58 @@
     });
   }
 
-  async function saveLiveClass() {
-    setMsg(lcMsg, "Guardando…", "small");
+ async function saveLiveClass() {
+  setMsg(lcMsg, "Guardando…", "small");
 
-    const starts = (lcStartsAt?.value || "").trim();
-    const title = (lcTitle?.value || "").trim();
-    const topic = (lcTopic?.value || "").trim();
-    const zoom = (lcZoom?.value || "").trim();
-    const pass = (lcPasscode?.value || "").trim() || null;
-    const reminder = Number(lcReminderMin?.value || 60);
+  const startsLocal = (lcStartsAt?.value || "").trim();
+  const title = (lcTitle?.value || "").trim();
+  const topic = (lcTopic?.value || "").trim();
+  const zoom = (lcZoom?.value || "").trim();
+  const pass = (lcPasscode?.value || "").trim() || null;
+  const reminder = Number(lcReminderMin?.value || 60);
 
-    if (!starts) throw new Error("Falta fecha/hora.");
-    if (!title) throw new Error("Falta título.");
-    if (!topic) throw new Error("Falta temática.");
-    if (!zoom) throw new Error("Falta link Zoom.");
+  if (!startsLocal) throw new Error("Falta fecha/hora.");
+  if (!title) throw new Error("Falta título.");
+  if (!topic) throw new Error("Falta temática.");
+  if (!zoom) throw new Error("Falta link Zoom.");
 
-    const starts_at = new Date(starts);
-    const month_number = starts_at.getMonth() + 1;
+  // ✅ Interpretar SIEMPRE como hora AR, independientemente del dispositivo
+  const starts_at_iso = dtLocalArgentinaToIso(startsLocal);
 
-    const { data: me } = await sb.auth.getUser();
-    const created_by = me?.user?.id || null;
+  // ✅ Mes desde el string (no depende de TZ)
+  const month_number = monthFromDtLocal(startsLocal);
+  if (!month_number) throw new Error("No pude resolver el mes desde la fecha/hora.");
 
-    const ins = await sb.from("live_classes").insert({
-      title,
-      topic,
-      starts_at: starts_at.toISOString(),
-      zoom_join_url: zoom,
-      zoom_passcode: pass,
-      month_number,
-      reminder_minutes_before: reminder,
-      status: "scheduled",
-      created_by,
-    });
+  // ✅ Portada
+  const cover_url = await uploadLiveCoverIfAny();
 
-    if (ins.error) throw new Error(ins.error.message);
+  const { data: me } = await sb.auth.getUser();
+  const created_by = me?.user?.id || null;
 
-    setMsg(lcMsg, "Clase en vivo publicada ✅", "notice");
-    await loadLiveClassesAdmin();
-  }
+  const ins = await sb.from("live_classes").insert({
+    title,
+    topic,
+    starts_at: starts_at_iso,
+    zoom_join_url: zoom,
+    zoom_passcode: pass,
+    month_number,
+    reminder_minutes_before: reminder,
+    status: "scheduled",
+    created_by,
+    cover_url, // <- requiere columna; ver SQL arriba si no existe
+  });
+
+  if (ins.error) throw new Error(ins.error.message);
+
+  setMsg(lcMsg, "Clase en vivo publicada ✅", "notice");
+
+  // Limpieza
+  if (lcCoverFile) lcCoverFile.value = "";
+  if (lcCoverUrl) lcCoverUrl.value = "";
+  setLiveCoverPreview("");
+
+  await loadLiveClassesAdmin();
+}
 
   async function loadLiveClassesAdmin() {
     if (!lcList) return;
@@ -1932,7 +2016,7 @@
 
     const { data, error } = await sb
       .from("live_classes")
-      .select("id, title, topic, starts_at, zoom_join_url, zoom_passcode, reminder_minutes_before, reminded_at, status")
+      .select("id, title, topic, starts_at, zoom_join_url, zoom_passcode, reminder_minutes_before, reminded_at, status, cover_url")
       .order("starts_at", { ascending: true })
       .limit(20);
 
@@ -1946,22 +2030,25 @@
       return;
     }
 
-    lcList.innerHTML = data.map((c) => `
-      <div class="item" style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
-        <div>
-          <div><b>${esc(c.title)}</b></div>
-          <div class="small">${esc(c.topic)} · ${esc(new Date(c.starts_at).toLocaleString())}</div>
-          <div class="small" style="margin-top:6px;opacity:.9">
-            Reminder: ${esc(c.reminder_minutes_before)} min · Estado: ${esc(c.status || "")}
-            ${c.reminded_at ? ` · Recordatorio enviado: ${esc(new Date(c.reminded_at).toLocaleString())}` : ""}
-          </div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <a class="btn" target="_blank" rel="noopener" href="${esc(c.zoom_join_url)}">Zoom</a>
-          <button class="btn" type="button" data-lc-del="${esc(c.id)}">Eliminar</button>
+   lcList.innerHTML = data.map((c) => `
+  <div class="item" style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+    <div style="display:flex;gap:12px;align-items:flex-start">
+      ${c.cover_url ? `<img src="${esc(c.cover_url)}" alt="cover" style="width:64px;height:64px;object-fit:cover;border-radius:12px">` : ""}
+      <div>
+        <div><b>${esc(c.title)}</b></div>
+        <div class="small">${esc(c.topic)} · ${esc(fmtArgentinaDateTime(c.starts_at))} (AR)</div>
+        <div class="small" style="margin-top:6px;opacity:.9">
+          Reminder: ${esc(c.reminder_minutes_before)} min · Estado: ${esc(c.status || "")}
+          ${c.reminded_at ? ` · Recordatorio enviado: ${esc(fmtArgentinaDateTime(c.reminded_at))} (AR)` : ""}
         </div>
       </div>
-    `).join("");
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <a class="btn" target="_blank" rel="noopener" href="${esc(c.zoom_join_url)}">Zoom</a>
+      <button class="btn" type="button" data-lc-del="${esc(c.id)}">Eliminar</button>
+    </div>
+  </div>
+`).join("");
 
     lcList.querySelectorAll("[data-lc-del]").forEach((btn) => {
       btn.addEventListener("click", async () => {
@@ -2198,6 +2285,27 @@
 
   lcSaveBtn?.addEventListener("click", () => saveLiveClass().catch((e) => setMsg(lcMsg, e?.message || String(e), "error")));
   lcRefreshBtn?.addEventListener("click", () => loadLiveClassesAdmin().catch(console.error));
+
+  function setLiveCoverPreview(url) {
+  if (!lcCoverPreview) return;
+  if (!url) {
+    lcCoverPreview.style.display = "none";
+    lcCoverPreview.removeAttribute("src");
+    return;
+  }
+  lcCoverPreview.src = url;
+  lcCoverPreview.style.display = "block";
+}
+
+lcCoverUrl?.addEventListener("input", () => {
+  setLiveCoverPreview((lcCoverUrl.value || "").trim());
+});
+
+lcCoverFile?.addEventListener("change", () => {
+  const f = lcCoverFile.files?.[0];
+  if (!f) return setLiveCoverPreview("");
+  setLiveCoverPreview(URL.createObjectURL(f));
+});
 
   // =====================================================
   // Init
