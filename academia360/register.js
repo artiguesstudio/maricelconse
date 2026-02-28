@@ -231,8 +231,50 @@
       };
 
       const rpcRes = await sb.rpc("submit_enrollment_form_v1", payload);
+      await sb.rpc("user_set_plan_pending", { p_plan_slug: slug });
       if (rpcRes.error) return setMsg(rpcRes.error.message, "error");
+// 1) Upsert a profiles (lo que app.js lee)
+const { data: u1 } = await sb.auth.getUser();
+const uid = u1?.user?.id;
 
+if (uid) {
+  const { error: profErr } = await sb.from("profiles").upsert({
+    user_id: uid,
+    email: emailVal,
+    full_name: payload.p_full_name || null,
+    phone: payload.p_phone || null,
+    age: payload.p_age || null,
+    training_level: payload.p_training_level || null,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "user_id" });
+
+  if (profErr) console.warn("[REGISTER] profiles upsert:", profErr.message);
+
+  // 2) Preferencias (modalidad/objetivo elegidos en ficha)
+  const { error: prefErr } = await sb.from("user_preferences").upsert({
+    user_id: uid,
+    objective: payload.p_objective,
+    track: payload.p_track,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "user_id" });
+
+  if (prefErr) console.warn("[REGISTER] user_preferences upsert:", prefErr.message);
+
+  // 3) Metadata (fallback útil, por si preferencias falla)
+  try {
+    const { error: umErr } = await sb.auth.updateUser({
+      data: {
+        objective: payload.p_objective,
+        track: payload.p_track,
+        training_level: payload.p_training_level,
+        requested_plan: slug,
+      }
+    });
+    if (umErr) console.warn("[REGISTER] updateUser metadata:", umErr.message);
+  } catch (e) {
+    console.warn("[REGISTER] updateUser metadata exception:", e);
+  }
+}
       // ---- Persist metadata (para app.js)
       await persistUserMetadataFromEnrollment(payload, slug);
 

@@ -20,6 +20,16 @@
     el.setAttribute("aria-hidden", "true");
   };
 
+ // Mejora percepción touch
+  const header = document.getElementById("siteHeader");
+  const onScroll = () => {
+    if (!header) return;
+    if (window.scrollY > 16) header.classList.add("is-scrolled");
+    else header.classList.remove("is-scrolled");
+  };
+  onScroll();
+  window.addEventListener("scroll", onScroll, { passive: true });
+
   // Exponemos helpers por si querés usarlo en fetch/login/etc.
   window.GlobalLoader = {
     show,

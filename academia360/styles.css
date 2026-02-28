@@ -200,7 +200,7 @@ textarea.input{ min-height:92px; resize:vertical; }
   letter-spacing: .08em;
 }
 .brand-sub{
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   letter-spacing:.10em;
   text-transform: uppercase;
@@ -1483,4 +1483,84 @@ body.has-promo::before{
 body.register-page{
   background: var(--bg) !important;     /* #f6f3ee */
   background-image: none !important;    /* elimina gradientes */
+}
+/* ===== Touch UX: targets y gestos ===== */
+.btn, .social, .faq-q{
+  min-height: 44px;           /* Apple HIG / Android recomendado */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation; /* evita delay / double-tap zoom en taps */
+}
+
+a, button{
+  touch-action: manipulation;
+}
+/* iOS: evitar zoom automático en inputs */
+@media (max-width: 680px){
+  input, select, textarea{
+    font-size: 16px;
+  }
+}
+html{ scroll-behavior: smooth; }
+/* =========================================================
+   FIX: Header con altura fija y contenido centrado
+   (evita desalineación vertical en index con promo)
+   ========================================================= */
+.site-header .container{
+  height: var(--header-h);
+  padding: 0 18px;          /* antes: 12px 18px */
+  display: flex;
+  align-items: center;      /* centra vertical */
+}
+
+/* asegura que el inner use todo el ancho */
+.site-header .header-inner{
+  width: 100%;
+}
+
+/* opcional pero ayuda: evita “aire” extra por line-height */
+.brand-sub{
+  line-height: 1.1;
+}
+
+@media (max-width:680px){
+  .site-header .container{
+    padding: 0 14px;
+  }
+}
+:root{
+  --display: "Anton", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+/* Body */
+body{
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+/* INDEX — Hero centrado en mobile */
+@media (max-width: 680px){
+  body.has-promo .banner-card{
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 12px;
+  }
+
+  body.has-promo .banner-logo{
+    margin: 0 auto;
+  }
+
+  body.has-promo .banner-text{
+    min-width: 0;
+    text-align: center;
+  }
+
+  body.has-promo .banner-title,
+  body.has-promo .banner-subtitle{
+    text-align: center;
+  }
+
+  /* opcional: un poco menos de tracking para que no se vea “abierto” */
+  body.has-promo .banner-subtitle{
+    letter-spacing: .18em;
+  }
 }

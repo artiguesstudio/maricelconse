@@ -1,46 +1,9 @@
-// app.js — limpio
+// app.js — limpio (corregido)
 // Rutinas + clases en vivo + biblioteca grabadas (Año > Mes) + descarga + perfil + campus dinámico
 (() => {
   "use strict";
 
   console.log("[A360] app.js cargó ✅", new Date().toISOString());
-
-  async function loadWeeklyQuoteIntoApp() {
-  const sb = window.sb;
-  if (!sb) return;
-
-  const elTitle = document.getElementById("weeklyQuoteTitle");
-  const elPhrase = document.getElementById("weeklyQuotePhrase");
-  const elImg = document.getElementById("weeklyQuoteImg");
-
-  // Si no existe la card en este HTML, no hacemos nada
-  if (!elTitle || !elPhrase || !elImg) return;
-
-  try {
-    const { data, error } = await sb
-      .from("weekly_quote")
-      .select("id,title,phrase,image_url,updated_at")
-      .eq("id", 1)
-      .maybeSingle();
-
-    if (error) throw error;
-    if (!data) return; // deja el fallback hardcodeado
-
-    if (data.title) elTitle.textContent = data.title;
-    if (data.phrase) elPhrase.textContent = data.phrase;
-
-    const url = (data.image_url || "").trim();
-    if (url) {
-      elImg.src = url;
-      elImg.style.display = "";
-    } else {
-      elImg.style.display = "none";
-    }
-  } catch (e) {
-    console.error("[APP] weekly_quote load error:", e);
-    // No rompemos la app: dejamos el fallback del HTML
-  }
-}
 
   // =====================================================
   // Guard rails
@@ -53,10 +16,154 @@
     console.error("[A360] sb no existe. Revisa el orden de scripts.");
     return;
   }
-
   if (!requireAuth) {
     console.error("[A360] A360Auth.requireAuthOrRedirect no existe. Revisa auth.js.");
     return;
+  }
+
+  // =====================================================
+  // Constantes / helpers base
+  // =====================================================
+  const AR_TZ = "America/Argentina/Buenos_Aires";
+  const MONTHS_ES = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+  ];
+
+  function norm(v) {
+    return String(v ?? "").trim().toLowerCase();
+  }
+
+  function esc(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (m) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    }[m]));
+  }
+
+  function monthLabel(n) {
+    return MONTHS_ES[n - 1] || "Mes";
+  }
+
+  function monthNameEs(monthIndex) {
+    return MONTHS_ES[monthIndex] || "Mes";
+  }
+
+  function labelTrack(track) {
+    return track === "gym" ? "Gimnasio" : "Casa";
+  }
+
+  function objectiveLabel(objective) {
+    return objective === "muscle_gain" ? "Ganar masa muscular" : "Perder peso";
+  }
+
+  function setNotice(el, text, kind = "notice") {
+    if (!el) return;
+    el.className = kind;
+    el.textContent = text || "";
+  }
+
+  function clearText(el) {
+    if (!el) return;
+    el.className = "small";
+    el.textContent = "";
+  }
+
+  function formatDateEs(value) {
+    if (!value) return "";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+    return new Intl.DateTimeFormat("es-AR", {
+      timeZone: AR_TZ,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(d);
+  }
+
+  function formatDateTimeEs(value) {
+    if (!value) return "";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+
+    const date = new Intl.DateTimeFormat("es-AR", {
+      timeZone: AR_TZ,
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(d);
+
+    const time = new Intl.DateTimeFormat("es-AR", {
+      timeZone: AR_TZ,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      hourCycle: "h23",
+    }).format(d);
+
+    return `${date}, ${time}hs`;
+  }
+
+  function formatDateTimeShort(value) {
+    if (!value) return "";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+
+    const date = new Intl.DateTimeFormat("es-AR", {
+      timeZone: AR_TZ,
+      day: "2-digit",
+      month: "2-digit",
+    }).format(d);
+
+    const time = new Intl.DateTimeFormat("es-AR", {
+      timeZone: AR_TZ,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      hourCycle: "h23",
+    }).format(d);
+
+    return `${date} ${time}hs`;
+  }
+
+  function formatPaidThrough(value) {
+    if (!value) return "—";
+    try {
+      return new Intl.DateTimeFormat("es-AR", {
+        timeZone: AR_TZ,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date(value));
+    } catch (_) {
+      return String(value);
+    }
+  }
+
+  function filenameSafe(value) {
+    return String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9_-]+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  }
+
+  function firstNameFromEmail(email) {
+    const left = String(email || "").split("@")[0] || "Bienvenida";
+    const clean = left.replace(/[._-]+/g, " ").trim();
+    const first = clean.split(" ").filter(Boolean)[0] || "Bienvenida";
+    return first.charAt(0).toUpperCase() + first.slice(1);
+  }
+
+  function firstNameFromFullName(fullName, fallbackEmail) {
+    const raw = String(fullName || "").trim();
+    if (!raw) return firstNameFromEmail(fallbackEmail);
+    const first = raw.split(/\s+/)[0] || "";
+    return first.charAt(0).toUpperCase() + first.slice(1);
   }
 
   // =====================================================
@@ -71,8 +178,7 @@
   const planBadge = document.getElementById("planBadge");
   const adminLink = document.getElementById("adminLink");
 
-  const trackGymBtn = document.getElementById("trackGymBtn");
-  const trackHomeBtn = document.getElementById("trackHomeBtn");
+  // Modalidad (sin botones)
   const trackHint = document.getElementById("trackHint");
 
   const downloadRoutineBtn = document.getElementById("downloadRoutineBtn");
@@ -90,6 +196,8 @@
   const classesList = document.getElementById("classesList");
   const recordedMsg = document.getElementById("recordedMsg");
   const recordedList = document.getElementById("recordedList");
+
+  // WhatsApp help (opcional: poné id="helpWhatsappBox" al bloque)
   const helpWhatsappBox = document.getElementById("helpWhatsappBox");
 
   // Upgrade panel principal
@@ -127,34 +235,19 @@
   const profileSaveBtn = document.getElementById("profileSaveBtn");
   const profileMsg = document.getElementById("profileMsg");
 
-  // Frase semanal
-  const weeklyQuoteKicker = document.getElementById("weeklyQuoteKicker");
-  const weeklyQuoteTitle = document.getElementById("weeklyQuoteTitle");
-  const weeklyQuoteText = document.getElementById("weeklyQuoteText");
-  const weeklyQuoteImage = document.getElementById("weeklyQuoteImage");
-
-  // Campus premium UI
-  const campusWelcomeEyebrow = document.getElementById("campusWelcomeEyebrow");
-  const campusWelcomeTitle = document.getElementById("campusWelcomeTitle");
-  const campusWelcomeMeta = document.getElementById("campusWelcomeMeta");
-  const campusWelcomePrimaryBtn = document.getElementById("campusWelcomePrimaryBtn");
-  const campusWelcomeSecondaryBtn = document.getElementById("campusWelcomeSecondaryBtn");
-
-  const campusProgressEyebrow = document.getElementById("campusProgressEyebrow");
-  const campusProgressTitle = document.getElementById("campusProgressTitle");
-  const campusProgressCopy = document.getElementById("campusProgressCopy");
-  const campusProgressList = document.getElementById("campusProgressList");
-  const campusProgressPrimaryBtn = document.getElementById("campusProgressPrimaryBtn");
-  const campusProgressSecondaryBtn = document.getElementById("campusProgressSecondaryBtn");
+  // Weekly quote (IDs reales en tu app.html)
+  const weeklyQuoteTitleEl = document.getElementById("weeklyQuoteTitle");
+  const weeklyQuotePhraseEl = document.getElementById("weeklyQuotePhrase");
+  const weeklyQuoteImgEl = document.getElementById("weeklyQuoteImg");
 
   // =====================================================
   // State
   // =====================================================
   let currentObjective = localStorage.getItem("A360_OBJECTIVE") || "fat_loss";
-  let currentTrack = "gym"; // fallback si no hay preferencia guardada
+  let currentTrack = "gym"; // se pisa por user_preferences / user_metadata
 
-  let planSlug = null;
-  let planInfo = null;
+  let planSlug = null; // normalizado (lower)
+  let planInfo = null; // fila de user_plan
   let currentMonth = null;
   let nextLiveClass = null;
 
@@ -163,168 +256,89 @@
 
   const monthCache = new Map();
 
+  // Gate de entrega de rutinas
+  let routineLocked = false;
+  let routineAvailableAt = null;
+  let gateRefreshTimer = null;
+
   // =====================================================
-  // Helpers
+  // Gate helpers (rutina en preparación)
   // =====================================================
-  function esc(value) {
-    return String(value ?? "").replace(/[&<>"']/g, (m) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;",
-    }[m]));
+  function clearGateTimer() {
+    if (gateRefreshTimer) {
+      clearTimeout(gateRefreshTimer);
+      gateRefreshTimer = null;
+    }
   }
 
-  const MONTHS_ES = [
-    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
-  ];
+  function scheduleGateRefresh(availableAt) {
+    clearGateTimer();
+    if (!availableAt) return;
 
-  function monthLabel(n) {
-    return MONTHS_ES[n - 1] || "Mes";
+    const d = new Date(availableAt);
+    if (Number.isNaN(d.getTime())) return;
+
+    // refresco con un pequeño buffer
+    const ms = d.getTime() - Date.now() + 15_000;
+
+    // Evita timers absurdos (negativos o demasiado largos)
+    if (ms <= 0 || ms > 1000 * 60 * 60 * 50) return;
+
+    gateRefreshTimer = setTimeout(() => {
+      if (currentMonth) openMonth(currentMonth, { force: true });
+    }, ms);
   }
 
-  function monthNameEs(monthIndex) {
-    return MONTHS_ES[monthIndex] || "Mes";
+  function renderRoutineLockedNotice(availableAt) {
+    const when = availableAt ? formatDateTimeEs(availableAt) : "";
+    const msg = `
+      <div class="notice">
+        <b>Pago recibido ✅</b><br>
+        Dentro de las próximas <b>24 a 48hs</b> recibirás tu rutina 100% personalizada.
+        <br><br>
+        ${when
+          ? `<b>Se habilita:</b> ${esc(when)} (AR)`
+          : `Se habilita mañana entre <b>08:00 y 14:00</b> (AR).`}
+        <br><br>
+        Te avisaremos por email cuando esté lista.
+      </div>
+    `;
+
+    if (monthContent) monthContent.innerHTML = msg;
   }
 
-  function labelTrack(track) {
-    return track === "gym" ? "Gimnasio" : "Casa";
-  }
-
-  function objectiveLabel(objective) {
-    return objective === "muscle_gain" ? "Ganar masa muscular" : "Perder peso";
-  }
-
-  function getItemsForDay(day) {
-    return currentTrack === "gym" ? (day.items_gym || []) : (day.items_home || []);
+  // =====================================================
+  // Accesos por plan (blindado)
+  // =====================================================
+  function isPlanActive() {
+    return norm(planInfo?.status) === "active";
   }
 
   function canSeePremiumContent() {
-    return planSlug === "pro" || planSlug === "premium";
+    // Premium/Pro => solo pro (y por compat, "premium")
+    return isPlanActive() && ["pro", "premium"].includes(norm(planSlug));
   }
 
-  function formatDateEs(value) {
-  if (!value) return "";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return new Intl.DateTimeFormat("es-AR", {
-    timeZone: AR_TZ,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
-}
-function syncHelpWhatsappUI() {
-  if (!helpWhatsappBox) return;
-
-  // Solo mid y pro ven WhatsApp
-  const canSee = planSlug === "mid" || planSlug === "pro";
-  helpWhatsappBox.style.display = canSee ? "block" : "none";
-}
-function formatDateTimeEs(value) {
-  if (!value) return "";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-
-  const date = new Intl.DateTimeFormat("es-AR", {
-    timeZone: AR_TZ,
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(d);
-
-  const time = new Intl.DateTimeFormat("es-AR", {
-    timeZone: AR_TZ,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,      // ✅ evita AM/PM
-    hourCycle: "h23",   // ✅ fuerza 00–23
-  }).format(d);
-
-  return `${date}, ${time}hs`;
-}
-
-function formatDateTimeShort(value) {
-  if (!value) return "";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-
-  const date = new Intl.DateTimeFormat("es-AR", {
-    timeZone: AR_TZ,
-    day: "2-digit",
-    month: "2-digit",
-  }).format(d);
-
-  const time = new Intl.DateTimeFormat("es-AR", {
-    timeZone: AR_TZ,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    hourCycle: "h23",
-  }).format(d);
-
-  return `${date} ${time}hs`;
-}
-
-  function formatPaidThrough(value) {
-    if (!value) return "—";
-    try {
-      return new Date(value).toLocaleDateString("es-AR");
-    } catch (_) {
-      return String(value);
-    }
+  function canSeeWhatsappHelp() {
+    // WhatsApp visible solo en mid + pro (si plan activo)
+    return isPlanActive() && ["mid", "pro"].includes(norm(planSlug));
   }
 
-  function filenameSafe(value) {
-    return String(value || "")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-zA-Z0-9_-]+/g, "_")
-      .replace(/_+/g, "_")
-      .replace(/^_+|_+$/g, "");
+  function syncHelpWhatsappUI() {
+    if (!helpWhatsappBox) return;
+    helpWhatsappBox.style.display = canSeeWhatsappHelp() ? "block" : "none";
   }
 
-  function setNotice(el, text, kind = "notice") {
-    if (!el) return;
-    el.className = kind;
-    el.textContent = text || "";
-  }
-
-  function clearText(el) {
-    if (!el) return;
-    el.className = "small";
-    el.textContent = "";
-  }
-
-  function firstNameFromEmail(email) {
-    const left = String(email || "").split("@")[0] || "Bienvenida";
-    const clean = left.replace(/[._-]+/g, " ").trim();
-    const first = clean.split(" ").filter(Boolean)[0] || "Bienvenida";
-    return first.charAt(0).toUpperCase() + first.slice(1);
-  }
-
-  function firstNameFromFullName(fullName, fallbackEmail) {
-    const raw = String(fullName || "").trim();
-    if (!raw) return firstNameFromEmail(fallbackEmail);
-    const first = raw.split(/\s+/)[0] || "";
-    return first.charAt(0).toUpperCase() + first.slice(1);
-  }
-
+  // =====================================================
+  // Header UI
+  // =====================================================
   function syncHeaderUI() {
-    if (yearEl) {
-      yearEl.textContent = new Date().getFullYear();
-    }
-
+    if (yearEl) yearEl.textContent = new Date().getFullYear();
     if (!siteHeader) return;
 
     const onScroll = () => {
-      if (window.scrollY > 16) {
-        siteHeader.classList.add("is-scrolled");
-      } else {
-        siteHeader.classList.remove("is-scrolled");
-      }
+      if (window.scrollY > 16) siteHeader.classList.add("is-scrolled");
+      else siteHeader.classList.remove("is-scrolled");
     };
 
     onScroll();
@@ -338,6 +352,9 @@ function formatDateTimeShort(value) {
     window.location.href = "./index.html";
   }
 
+  // =====================================================
+  // Perfil / identidad
+  // =====================================================
   async function loadCampusIdentity() {
     try {
       const { data: userRes } = await sb.auth.getUser();
@@ -368,25 +385,50 @@ function formatDateTimeShort(value) {
     }
   }
 
+  function syncTrackUI() {
+    // No hay switch; solo mostramos la modalidad elegida
+    if (trackHint) trackHint.textContent = labelTrack(currentTrack);
+  }
+
+  // =====================================================
+  // UX campus (si existen esos nodos en el HTML)
+  // =====================================================
+  const campusWelcomeEyebrow = document.getElementById("campusWelcomeEyebrow");
+  const campusWelcomeTitle = document.getElementById("campusWelcomeTitle");
+  const campusWelcomeMeta = document.getElementById("campusWelcomeMeta");
+  const campusWelcomePrimaryBtn = document.getElementById("campusWelcomePrimaryBtn");
+  const campusWelcomeSecondaryBtn = document.getElementById("campusWelcomeSecondaryBtn");
+
+  const campusProgressEyebrow = document.getElementById("campusProgressEyebrow");
+  const campusProgressTitle = document.getElementById("campusProgressTitle");
+  const campusProgressCopy = document.getElementById("campusProgressCopy");
+  const campusProgressList = document.getElementById("campusProgressList");
+  const campusProgressPrimaryBtn = document.getElementById("campusProgressPrimaryBtn");
+  const campusProgressSecondaryBtn = document.getElementById("campusProgressSecondaryBtn");
+
   function syncCampusExperience() {
     const safeName = campusFirstName || firstNameFromEmail(campusEmailCache);
     const monthName = currentMonth ? monthLabel(currentMonth) : "este mes";
     const planName = planInfo?.plans?.name || "Tu plan";
-    const planStatus = planInfo?.status || null;
+    const planStatusNorm = norm(planInfo?.status || "");
     const nextClassLabel = nextLiveClass?.starts_at ? formatDateTimeShort(nextLiveClass.starts_at) : "";
     const premiumEnabled = canSeePremiumContent();
 
     if (campusWelcomeEyebrow) {
       campusWelcomeEyebrow.textContent = premiumEnabled ? "Tu membresía premium" : "Tu espacio de entrenamiento";
     }
-
     if (campusWelcomeTitle) {
       campusWelcomeTitle.textContent = `Hola, ${safeName}`;
     }
 
     if (campusWelcomeMeta) {
-      if (planStatus && planStatus !== "active") {
-        campusWelcomeMeta.textContent = `${planName} · Estado: ${planStatus}. Activá tu cuenta para acceder al contenido completo.`;
+      if (planStatusNorm && planStatusNorm !== "active") {
+        campusWelcomeMeta.textContent =
+          `${planName} · Estado: ${planInfo?.status}. Activá tu cuenta para acceder al contenido completo.`;
+      } else if (routineLocked) {
+        const when = routineAvailableAt ? formatDateTimeShort(routineAvailableAt) : "";
+        campusWelcomeMeta.textContent =
+          `Pago recibido · Rutina de ${monthName} en preparación${when ? ` · Se habilita: ${when} (AR)` : ""}`;
       } else if (nextClassLabel) {
         campusWelcomeMeta.textContent = `${planName} activo · Rutina de ${monthName} · Próxima clase: ${nextClassLabel}`;
       } else {
@@ -409,13 +451,8 @@ function formatDateTimeShort(value) {
       }
     }
 
-    if (campusProgressEyebrow) {
-      campusProgressEyebrow.textContent = "Tu progreso";
-    }
-
-    if (campusProgressTitle) {
-      campusProgressTitle.textContent = "Seguimiento";
-    }
+    if (campusProgressEyebrow) campusProgressEyebrow.textContent = "Tu progreso";
+    if (campusProgressTitle) campusProgressTitle.textContent = "Seguimiento";
 
     if (campusProgressCopy) {
       campusProgressCopy.textContent =
@@ -427,11 +464,12 @@ function formatDateTimeShort(value) {
         `Plan activo: ${planName}`,
         `Objetivo: ${objectiveLabel(currentObjective)}`,
         `Modalidad: ${labelTrack(currentTrack)}`,
-        premiumEnabled
-          ? (nextClassLabel ? `Próxima clase: ${nextClassLabel}` : "Acceso premium habilitado")
-          : "Clases premium disponibles con upgrade",
+        routineLocked
+          ? (routineAvailableAt ? `Rutina en preparación: ${formatDateTimeShort(routineAvailableAt)} (AR)` : "Rutina en preparación")
+          : (premiumEnabled
+            ? (nextClassLabel ? `Próxima clase: ${nextClassLabel}` : "Acceso premium habilitado")
+            : "Clases premium disponibles con upgrade"),
       ];
-
       campusProgressList.innerHTML = lines.map((line) => `<div>• ${esc(line)}</div>`).join("");
     }
 
@@ -445,7 +483,7 @@ function formatDateTimeShort(value) {
       campusProgressSecondaryBtn.setAttribute("href", premiumEnabled ? "#classesList" : "#recordedList");
     }
   }
-    const AR_TZ = "America/Argentina/Buenos_Aires";
+
   // =====================================================
   // Nav actions
   // =====================================================
@@ -468,50 +506,101 @@ function formatDateTimeShort(value) {
   // =====================================================
   async function maybeShowAdminLink() {
     if (!adminLink) return;
-
     adminLink.style.display = "none";
 
     const { data, error } = await sb.rpc("is_admin");
-    if (!error && data === true) {
-      adminLink.style.display = "inline-flex";
-    }
+    if (!error && data === true) adminLink.style.display = "inline-flex";
   }
 
   // =====================================================
-  // Weekly quote
+  // Weekly quote (única)
   // =====================================================
-  async function loadWeeklyQuote() {
-    if (!weeklyQuoteTitle || !weeklyQuoteText) return;
+  async function loadWeeklyQuoteIntoApp() {
+    if (!weeklyQuoteTitleEl || !weeklyQuotePhraseEl || !weeklyQuoteImgEl) return;
 
     try {
       const { data, error } = await sb
         .from("weekly_quote")
-        .select("title, phrase, image_url")
+        .select("id,title,phrase,image_url,updated_at")
         .eq("id", 1)
         .maybeSingle();
 
-      if (error || !data) {
-        console.warn("[A360] weekly_quote no disponible:", error?.message || "sin fila");
-        return;
-      }
+      if (error) throw error;
+      if (!data) return;
 
-      if (weeklyQuoteKicker) {
-        weeklyQuoteKicker.textContent = "Frase de la semana";
-      }
+      if (data.title) weeklyQuoteTitleEl.textContent = data.title;
+      if (data.phrase) weeklyQuotePhraseEl.textContent = data.phrase;
 
-      weeklyQuoteTitle.textContent = data.title || "Frase de la semana";
-      weeklyQuoteText.textContent = data.phrase || "";
-
-      if (weeklyQuoteImage && data.image_url) {
-        weeklyQuoteImage.src = data.image_url;
+      const url = String(data.image_url || "").trim();
+      if (url) {
+        weeklyQuoteImgEl.src = url;
+        weeklyQuoteImgEl.style.display = "";
+      } else {
+        weeklyQuoteImgEl.style.display = "none";
       }
     } catch (e) {
-      console.error("[A360] loadWeeklyQuote:", e);
+      console.error("[APP] weekly_quote load error:", e);
     }
   }
 
   // =====================================================
-  // Plan badge
+  // Preferencias usuario (objective/track)
+  // =====================================================
+  function normalizeTrack(v) {
+    const raw = norm(v);
+    if (raw === "gym" || raw === "gimnasio") return "gym";
+    if (raw === "home" || raw === "casa") return "home";
+    return null;
+  }
+
+  async function loadUserPreferences() {
+    const { data: u } = await sb.auth.getUser();
+    const uid = u?.user?.id;
+    const meta = u?.user?.user_metadata || {};
+
+    let objective = norm(meta.objective) || null;
+    let track = normalizeTrack(meta.track);
+
+    if (uid) {
+      const { data, error } = await sb
+        .from("user_preferences")
+        .select("objective, track")
+        .eq("user_id", uid)
+        .maybeSingle();
+
+      if (!error && data) {
+        objective = norm(data.objective) || objective;
+        track = normalizeTrack(data.track) || track;
+      }
+    }
+
+    return {
+      objective: objective === "muscle_gain" ? "muscle_gain" : "fat_loss",
+      track: track || "gym",
+    };
+  }
+
+  // =====================================================
+  // Mes publicado (month_release)
+  // =====================================================
+  async function getPublishedMonthNumber() {
+    const nowIso = new Date().toISOString();
+    const { data, error } = await sb
+      .from("month_release")
+      .select("month_number, release_at")
+      .eq("is_published", true)
+      .lte("release_at", nowIso)
+      .order("release_at", { ascending: false })
+      .limit(1);
+
+    if (error) throw error;
+
+    const m = Number(data?.[0]?.month_number || 0);
+    return m || (new Date().getMonth() + 1);
+  }
+
+  // =====================================================
+  // Plan badge (FIX: normaliza status+slug y pide plan_id)
   // =====================================================
   async function loadPlanBadge() {
     const { data: userRes } = await sb.auth.getUser();
@@ -520,18 +609,14 @@ function formatDateTimeShort(value) {
 
     const { data: row, error } = await sb
       .from("user_plan")
-      .select("status, paid_through, plans:plan_id (slug,name)")
+      .select("status, paid_through, plan_id, plans:plan_id (slug,name)")
       .eq("user_id", uid)
       .maybeSingle();
 
     if (error) {
       planInfo = null;
       planSlug = null;
-
-      if (planBadge) {
-        planBadge.style.display = "none";
-      }
-
+      if (planBadge) planBadge.style.display = "none";
       return null;
     }
 
@@ -543,28 +628,33 @@ function formatDateTimeShort(value) {
         planBadge.style.display = "inline-flex";
         planBadge.textContent = "Plan · pendiente de pago";
       }
-
       return null;
+    }
+
+    // Fallback si el embed "plans" viniera null por algún motivo
+    if (!row.plans?.slug && row.plan_id) {
+      const { data: pRow } = await sb
+        .from("plans")
+        .select("slug,name")
+        .eq("id", row.plan_id)
+        .maybeSingle();
+      row.plans = pRow || row.plans;
     }
 
     planInfo = row;
 
-    if (row.status !== "active") {
+    const statusNorm = norm(row.status);
+    const slugNorm = norm(row.plans?.slug);
+
+    if (statusNorm !== "active") {
       planSlug = null;
-
-      if (planBadge) {
-        planBadge.style.display = "inline-flex";
-        planBadge.textContent = `${row.plans?.name ?? "Plan"} · ${row.status}`;
-      }
-
-      return row;
+    } else {
+      planSlug = slugNorm || null;
     }
-
-    planSlug = row.plans?.slug ?? null;
 
     if (planBadge) {
       planBadge.style.display = "inline-flex";
-      planBadge.textContent = `${row.plans?.name ?? "Plan"} · ${row.status}`;
+      planBadge.textContent = `${row.plans?.name ?? "Plan"} · ${row.status ?? "—"}`;
     }
 
     return row;
@@ -576,16 +666,12 @@ function formatDateTimeShort(value) {
   function syncUpgradeUI(currentSlug) {
     if (!upgradeBox) return;
 
-    const show = currentSlug === "basic" || currentSlug === "mid";
+    const slug = norm(currentSlug);
+    const show = slug === "basic" || slug === "mid";
+
     upgradeBox.style.display = show ? "block" : "none";
-
-    if (upgradeMidBtn) {
-      upgradeMidBtn.style.display = currentSlug === "basic" ? "inline-flex" : "none";
-    }
-
-    if (upgradeProBtn) {
-      upgradeProBtn.style.display = show ? "inline-flex" : "none";
-    }
+    if (upgradeMidBtn) upgradeMidBtn.style.display = slug === "basic" ? "inline-flex" : "none";
+    if (upgradeProBtn) upgradeProBtn.style.display = show ? "inline-flex" : "none";
   }
 
   async function startCheckout(targetSlug) {
@@ -598,12 +684,10 @@ function formatDateTimeShort(value) {
         alert(error.message || "No pude iniciar el checkout.");
         return;
       }
-
       if (!data?.url) {
         alert("No llegó URL de checkout.");
         return;
       }
-
       window.location.href = data.url;
     } catch (e) {
       alert(e?.message || String(e));
@@ -614,30 +698,11 @@ function formatDateTimeShort(value) {
   upgradeProBtn?.addEventListener("click", () => startCheckout("pro"));
 
   // =====================================================
-  // Track / Objetivo
+  // Objetivo
   // =====================================================
-  function syncTrackUI() {
-  // Ya no hay botones; solo mostramos la modalidad elegida.
-  if (trackHint) {
-    trackHint.textContent = labelTrack(currentTrack);
-  }
-}
-
-  function setTrack(track) {
-    currentTrack = track;
-    localStorage.setItem("A360_TRACK", track);
-    syncTrackUI();
-
-    if (currentMonth) {
-      renderFromCache(currentMonth);
-    }
-
-    syncCampusExperience();
-  }
-
   function setObjective(objective) {
-    currentObjective = objective;
-    localStorage.setItem("A360_OBJECTIVE", objective);
+    currentObjective = objective === "muscle_gain" ? "muscle_gain" : "fat_loss";
+    localStorage.setItem("A360_OBJECTIVE", currentObjective);
   }
 
   function openObjectivePanel(open) {
@@ -645,10 +710,7 @@ function formatDateTimeShort(value) {
 
     objectivePanel.style.display = open ? "block" : "none";
 
-    if (objectiveSel) {
-      objectiveSel.value = currentObjective;
-    }
-
+    if (objectiveSel) objectiveSel.value = currentObjective;
     if (objectiveMsg) {
       objectiveMsg.textContent = "";
       objectiveMsg.className = "small";
@@ -667,9 +729,7 @@ function formatDateTimeShort(value) {
       objectiveMsg.textContent = "Objetivo actualizado ✅";
     }
 
-    if (currentMonth) {
-      await openMonth(currentMonth, { force: true });
-    }
+    if (currentMonth) await openMonth(currentMonth, { force: true });
 
     syncCampusExperience();
     setTimeout(() => openObjectivePanel(false), 600);
@@ -679,86 +739,77 @@ function formatDateTimeShort(value) {
   // Video modal
   // =====================================================
   function ytEmbedUrl(url) {
-  if (!url) return "";
+    if (!url) return "";
+    const raw = String(url).trim();
 
-  const raw = String(url).trim();
+    if (raw.includes("/embed/")) {
+      return raw.replace("www.youtube.com", "www.youtube-nocookie.com");
+    }
 
-  if (raw.includes("/embed/")) {
-    return raw.replace("www.youtube.com", "www.youtube-nocookie.com");
+    try {
+      const u = new URL(raw);
+
+      if (u.hostname.includes("youtu.be")) {
+        const id = u.pathname.split("/").filter(Boolean)[0];
+        return id ? `https://www.youtube-nocookie.com/embed/${id}` : "";
+      }
+
+      if (u.pathname.startsWith("/shorts/")) {
+        const id = u.pathname.split("/").filter(Boolean)[1];
+        return id ? `https://www.youtube-nocookie.com/embed/${id}` : "";
+      }
+
+      if (u.pathname === "/watch") {
+        const id = u.searchParams.get("v");
+        return id ? `https://www.youtube-nocookie.com/embed/${id}` : "";
+      }
+
+      const v = u.searchParams.get("v");
+      if (v) return `https://www.youtube-nocookie.com/embed/${v}`;
+    } catch (_) {}
+
+    const match = raw.match(/[?&]v=([a-zA-Z0-9_-]{6,})/);
+    if (match?.[1]) return `https://www.youtube-nocookie.com/embed/${match[1]}`;
+
+    return "";
   }
 
-  try {
-    const u = new URL(raw);
+  function openVideoModal(url, title) {
+    if (!videoModal || !videoModalBackdrop || !videoModalFrame) return;
 
-    if (u.hostname.includes("youtu.be")) {
-      const id = u.pathname.split("/").filter(Boolean)[0];
-      return id ? `https://www.youtube-nocookie.com/embed/${id}` : "";
-    }
+    const embed = ytEmbedUrl(url);
+    if (!embed) return;
 
-    if (u.pathname.startsWith("/shorts/")) {
-      const id = u.pathname.split("/").filter(Boolean)[1];
-      return id ? `https://www.youtube-nocookie.com/embed/${id}` : "";
-    }
+    const wrap = videoModal.querySelector(".video-wrap");
+    const isShort = /\/shorts\//i.test(String(url));
 
-    if (u.pathname === "/watch") {
-      const id = u.searchParams.get("v");
-      return id ? `https://www.youtube-nocookie.com/embed/${id}` : "";
-    }
+    wrap?.classList.toggle("is-vertical", isShort);
+    wrap?.classList.toggle("is-horizontal", !isShort);
 
-    const v = u.searchParams.get("v");
-    if (v) {
-      return `https://www.youtube-nocookie.com/embed/${v}`;
-    }
-  } catch (_) {}
+    if (videoModalTitle) videoModalTitle.textContent = title || "Video";
 
-  const match = raw.match(/[?&]v=([a-zA-Z0-9_-]{6,})/);
-  if (match?.[1]) {
-    return `https://www.youtube-nocookie.com/embed/${match[1]}`;
+    const params = "autoplay=0&controls=1&rel=0&playsinline=1&modestbranding=1";
+
+    videoModal.classList.add("is-open");
+    videoModalBackdrop.classList.add("is-open");
+    videoModal.setAttribute("aria-hidden", "false");
+    videoModalBackdrop.setAttribute("aria-hidden", "false");
+
+    videoModalFrame.src = "about:blank";
+    requestAnimationFrame(() => {
+      videoModalFrame.src = `${embed}?${params}`;
+    });
   }
 
-  return "";
-}
+  function closeVideoModal() {
+    if (!videoModal || !videoModalBackdrop || !videoModalFrame) return;
 
-function openVideoModal(url, title) {
-  if (!videoModal || !videoModalBackdrop || !videoModalFrame) return;
-
-  const embed = ytEmbedUrl(url);
-  if (!embed) return;
-
-  const wrap = videoModal.querySelector(".video-wrap");
-  const isShort = /\/shorts\//i.test(String(url));
-
-  wrap?.classList.toggle("is-vertical", isShort);
-  wrap?.classList.toggle("is-horizontal", !isShort);
-
-  if (videoModalTitle) {
-    videoModalTitle.textContent = title || "Video";
+    videoModal.classList.remove("is-open");
+    videoModalBackdrop.classList.remove("is-open");
+    videoModal.setAttribute("aria-hidden", "true");
+    videoModalBackdrop.setAttribute("aria-hidden", "true");
+    videoModalFrame.src = "about:blank";
   }
-
-  const params = "autoplay=0&controls=1&rel=0&playsinline=1&modestbranding=1";
-
-  videoModal.classList.add("is-open");
-  videoModalBackdrop.classList.add("is-open");
-  videoModal.setAttribute("aria-hidden", "false");
-  videoModalBackdrop.setAttribute("aria-hidden", "false");
-
-  videoModalFrame.src = "about:blank";
-
-  requestAnimationFrame(() => {
-    videoModalFrame.src = `${embed}?${params}`;
-  });
-}
-
-function closeVideoModal() {
-  if (!videoModal || !videoModalBackdrop || !videoModalFrame) return;
-
-  videoModal.classList.remove("is-open");
-  videoModalBackdrop.classList.remove("is-open");
-  videoModal.setAttribute("aria-hidden", "true");
-  videoModalBackdrop.setAttribute("aria-hidden", "true");
-
-  videoModalFrame.src = "about:blank";
-}
 
   videoModalBackdrop?.addEventListener("click", (e) => {
     e.preventDefault();
@@ -772,31 +823,36 @@ function closeVideoModal() {
     closeVideoModal();
   });
 
-  document.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-video-url]");
-    if (!btn) return;
+  document.addEventListener(
+    "click",
+    (e) => {
+      const btn = e.target.closest("[data-video-url]");
+      if (!btn) return;
 
-    e.preventDefault();
-    e.stopPropagation();
+      e.preventDefault();
+      e.stopPropagation();
 
-    openVideoModal(
-      btn.getAttribute("data-video-url"),
-      btn.getAttribute("data-video-title") || "Video"
-    );
-  }, true);
+      openVideoModal(
+        btn.getAttribute("data-video-url"),
+        btn.getAttribute("data-video-title") || "Video"
+      );
+    },
+    true
+  );
 
   // =====================================================
   // Render rutinas
   // =====================================================
+  function getItemsForDay(day) {
+    return currentTrack === "gym" ? (day.items_gym || []) : (day.items_home || []);
+  }
+
   function renderExerciseCard(item) {
     const videoBtn = item.video_url
       ? `
-        <button
-          class="btn"
-          type="button"
+        <button class="btn" type="button"
           data-video-url="${esc(item.video_url)}"
-          data-video-title="${esc(item.exercise)}"
-        >
+          data-video-title="${esc(item.exercise)}">
           Ver video
         </button>
       `
@@ -841,17 +897,12 @@ function closeVideoModal() {
 
       weekDetails.addEventListener("toggle", () => {
         if (!weekDetails.open) return;
-
         monthContent.querySelectorAll("details.week").forEach((other) => {
-          if (other !== weekDetails) {
-            other.open = false;
-          }
+          if (other !== weekDetails) other.open = false;
         });
       });
 
-      const titleIsRedundant =
-        String(week.title || "").trim().toLowerCase() ===
-        `semana ${week.week_number}`.toLowerCase();
+      const titleIsRedundant = norm(week.title) === norm(`semana ${week.week_number}`);
 
       weekDetails.innerHTML = `
         <summary>
@@ -873,29 +924,17 @@ function closeVideoModal() {
 
         dayDetails.addEventListener("toggle", () => {
           if (!dayDetails.open) return;
-
           weekBody.querySelectorAll("details.day").forEach((other) => {
-            if (other !== dayDetails) {
-              other.open = false;
-            }
+            if (other !== dayDetails) other.open = false;
           });
         });
 
         const dayName = DAY_NAMES[day.day_number] || `Día ${day.day_number}`;
         const items = getItemsForDay(day);
 
-        const focus =
-          day.focus && String(day.focus).trim().length
-            ? String(day.focus).trim()
-            : "";
-
-        const muscleGroupRaw =
-          day.muscle_group && String(day.muscle_group).trim().length
-            ? String(day.muscle_group).trim()
-            : "";
-
-        const muscleGroupIsAdef =
-          muscleGroupRaw && muscleGroupRaw.toLowerCase() === "a definir";
+        const focus = String(day.focus || "").trim();
+        const muscleGroupRaw = String(day.muscle_group || "").trim();
+        const muscleGroupIsAdef = muscleGroupRaw && norm(muscleGroupRaw) === "a definir";
 
         const chips = `
           <div class="chips" style="margin-top:10px">
@@ -930,58 +969,24 @@ function closeVideoModal() {
     });
   }
 
-  function normalizeTrack(v) {
-  const raw = String(v || "").trim().toLowerCase();
-  if (raw === "gym" || raw === "gimnasio") return "gym";
-  if (raw === "home" || raw === "casa") return "home";
-  return null;
-}
-
-// Intenta obtener la modalidad elegida en “ficha de inscripción”.
-// Orden: user_metadata.track -> profiles.track -> fallback "gym"
-async function resolveUserTrackPreference(session) {
-  // 1) auth.user.user_metadata.track (si lo guardaste en signUp)
-  const metaTrack = normalizeTrack(session?.user?.user_metadata?.track);
-  if (metaTrack) return metaTrack;
-
-  // 2) profiles.track (si lo guardaste en profiles)
-  const uid = session?.user?.id;
-  if (uid) {
-    try {
-      const { data, error } = await sb
-        .from("profiles")
-        .select("track")
-        .eq("user_id", uid)
-        .maybeSingle();
-
-      // Si la columna no existe o hay RLS/permiso, caemos al fallback sin romper.
-      if (!error) {
-        const dbTrack = normalizeTrack(data?.track);
-        if (dbTrack) return dbTrack;
-      }
-    } catch (_) {
-      // fallback abajo
-    }
-  }
-
-  return "gym";
-}
-
   async function rpcMonthContent(monthNumber, objective) {
-    let res = await sb.rpc("get_month_content_v3", {
+    // 1) Gate (nuevo)
+    const res = await sb.rpc("get_month_content_gate", {
       p_month: monthNumber,
       p_objective: objective,
     });
 
-    if (!res.error) {
-      return res;
-    }
+    if (!res.error) return res;
 
+    // 2) Fallback legacy
     const msg = String(res.error?.message || "");
-    if (
-      msg.includes("schema cache") ||
-      msg.includes("Could not find the function")
-    ) {
+    if (msg.includes("schema cache") || msg.includes("Could not find the function")) {
+      const r3 = await sb.rpc("get_month_content_v3", {
+        p_month: monthNumber,
+        p_objective: objective,
+      });
+      if (!r3.error) return r3;
+
       return await sb.rpc("get_month_content_v2", {
         p_month: monthNumber,
         p_objective: objective,
@@ -994,13 +999,18 @@ async function resolveUserTrackPreference(session) {
   async function openMonth(monthNumber, opts = {}) {
     currentMonth = monthNumber;
 
-    if (monthTitle) {
-      monthTitle.textContent = monthLabel(monthNumber);
-    }
+    if (monthTitle) monthTitle.textContent = monthLabel(monthNumber);
 
-    const cacheKey = `${monthNumber}-${currentObjective}`;
+    const cacheKey = `${monthNumber}-${currentObjective}-${currentTrack}`;
 
+    // Cache: solo si NO está force
     if (!opts.force && monthCache.has(cacheKey)) {
+      routineLocked = false;
+      routineAvailableAt = null;
+      clearGateTimer();
+
+      if (downloadRoutineBtn) downloadRoutineBtn.disabled = false;
+
       renderMonth(monthCache.get(cacheKey));
       syncCampusExperience();
       return;
@@ -1009,30 +1019,56 @@ async function resolveUserTrackPreference(session) {
     const { data: json, error } = await rpcMonthContent(monthNumber, currentObjective);
 
     if (error) {
-      if (monthContent) {
-        monthContent.innerHTML = `<div class="error">${esc(error.message)}</div>`;
-      }
+      if (monthContent) monthContent.innerHTML = `<div class="error">${esc(error.message)}</div>`;
       syncCampusExperience();
       return;
     }
+
+    // 👇 Gate: rutina en preparación
+    if (json?.locked) {
+      routineLocked = true;
+      routineAvailableAt = json.available_at || null;
+
+      if (downloadRoutineBtn) downloadRoutineBtn.disabled = true;
+
+      clearGateTimer();
+      scheduleGateRefresh(routineAvailableAt);
+
+      // No cachear locked
+      renderRoutineLockedNotice(routineAvailableAt);
+      syncCampusExperience();
+      return;
+    }
+
+    // Rutina habilitada
+    routineLocked = false;
+    routineAvailableAt = null;
+    clearGateTimer();
+
+    if (downloadRoutineBtn) downloadRoutineBtn.disabled = false;
 
     monthCache.set(cacheKey, json);
     renderMonth(json);
     syncCampusExperience();
   }
 
-  function renderFromCache(monthNumber) {
-    const cacheKey = `${monthNumber}-${currentObjective}`;
-    const json = monthCache.get(cacheKey);
-
-    if (json) {
-      renderMonth(json);
-    }
-  }
-
   // =====================================================
   // Clases en vivo
   // =====================================================
+  function resolveCoverUrl(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    if (/^https?:\/\//i.test(raw)) return raw;
+
+    const candidates = raw.includes("/") ? [raw] : [`covers/${raw}`, raw];
+    for (const key of candidates) {
+      const pub = sb.storage.from("class_covers").getPublicUrl(key);
+      const url = pub?.data?.publicUrl || "";
+      if (url) return url;
+    }
+    return "";
+  }
+
   async function loadClasses() {
     if (!classesList || !classesMsg) return;
 
@@ -1041,11 +1077,7 @@ async function resolveUserTrackPreference(session) {
     clearText(classesMsg);
 
     if (!canSeePremiumContent()) {
-      setNotice(
-        classesMsg,
-        "Las clases están disponibles solo para el Plan Premium/Pro.",
-        "notice small"
-      );
+      setNotice(classesMsg, "Las clases están disponibles solo para el Plan Premium/Pro.", "notice small");
       syncCampusExperience();
       return;
     }
@@ -1055,12 +1087,12 @@ async function resolveUserTrackPreference(session) {
 
     const nowIso = new Date().toISOString();
 
-   const { data, error } = await sb
-  .from("live_classes")
-  .select("id,title,topic,starts_at,zoom_join_url,zoom_passcode,status,cover_url")
-  .gte("starts_at", nowIso)
-  .order("starts_at", { ascending: true })
-  .limit(10);
+    const { data, error } = await sb
+      .from("live_classes")
+      .select("id,title,topic,starts_at,zoom_join_url,zoom_passcode,status,cover_url")
+      .gte("starts_at", nowIso)
+      .order("starts_at", { ascending: true })
+      .limit(10);
 
     if (error) {
       setNotice(classesMsg, error.message, "error");
@@ -1069,11 +1101,7 @@ async function resolveUserTrackPreference(session) {
     }
 
     if (!data?.length) {
-      setNotice(
-        classesMsg,
-        "Todavía no hay clases en vivo programadas.",
-        "notice small"
-      );
+      setNotice(classesMsg, "Todavía no hay clases en vivo programadas.", "notice small");
       syncCampusExperience();
       return;
     }
@@ -1081,82 +1109,55 @@ async function resolveUserTrackPreference(session) {
     nextLiveClass = data[0] || null;
     clearText(classesMsg);
 
-    classesList.innerHTML = data.map((item) => {
-  const when = formatDateTimeEs(item.starts_at); // ya queda AR
-  const cover = resolveCoverUrl(item.cover_url); // reutiliza tu helper (sirve si guardás URL o key)
-  const pass = (item.zoom_passcode || "").trim();
+    classesList.innerHTML = data
+      .map((item) => {
+        const when = formatDateTimeEs(item.starts_at);
+        const cover = resolveCoverUrl(item.cover_url);
+        const pass = String(item.zoom_passcode || "").trim();
 
-  const actionBtn = item.zoom_join_url
-    ? `<a class="btn primary" target="_blank" rel="noopener" href="${esc(item.zoom_join_url)}">Entrar</a>`
-    : `<span class="small">Sin link</span>`;
+        const actionBtn = item.zoom_join_url
+          ? `<a class="btn primary" target="_blank" rel="noopener" href="${esc(item.zoom_join_url)}">Entrar</a>`
+          : `<span class="small">Sin link</span>`;
 
-  return `
-    <div class="item" style="display:flex;gap:12px;align-items:flex-start;justify-content:space-between">
-      <div style="display:flex;gap:12px;align-items:flex-start;min-width:0">
-        ${cover ? `<img src="${esc(cover)}" alt="cover" style="width:64px;height:64px;object-fit:cover;border-radius:12px" loading="lazy">` : ""}
-        <div style="min-width:0">
-          <div><b>${esc(item.title || "Clase")}</b></div>
-          ${when ? `<div class="small">${esc(when)} (AR)</div>` : ""}
-          ${item.topic ? `<div class="small" style="opacity:.9">${esc(item.topic)}</div>` : ""}
-          ${pass ? `<div class="small" style="opacity:.9">Código: <b>${esc(pass)}</b></div>` : ""}
-          <div style="margin-top:10px">${actionBtn}</div>
-        </div>
-      </div>
-    </div>
-  `;
-}).join("");
+        return `
+          <div class="item" style="display:flex;gap:12px;align-items:flex-start;justify-content:space-between">
+            <div style="display:flex;gap:12px;align-items:flex-start;min-width:0">
+              ${cover ? `<img src="${esc(cover)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:12px" loading="lazy">` : ""}
+              <div style="min-width:0">
+                <div><b>${esc(item.title || "Clase")}</b></div>
+                ${when ? `<div class="small">${esc(when)} (AR)</div>` : ""}
+                ${item.topic ? `<div class="small" style="opacity:.9">${esc(item.topic)}</div>` : ""}
+                ${pass ? `<div class="small" style="opacity:.9">Código: <b>${esc(pass)}</b></div>` : ""}
+                <div style="margin-top:10px">${actionBtn}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
 
     syncCampusExperience();
   }
 
   // =====================================================
-  // Clases grabadas — helpers
+  // Clases grabadas
   // =====================================================
-  function resolveCoverUrl(value) {
-    const raw = String(value || "").trim();
-    if (!raw) return "";
-
-    if (/^https?:\/\//i.test(raw)) {
-      return raw;
-    }
-
-    const candidates = raw.includes("/") ? [raw] : [`covers/${raw}`, raw];
-
-    for (const key of candidates) {
-      const pub = sb.storage.from("class_covers").getPublicUrl(key);
-      const url = pub?.data?.publicUrl || "";
-      if (url) return url;
-    }
-
-    return "";
-  }
-
   function getRecordedDate(item) {
-    const raw =
-      item.class_date ||
-      item.recorded_at ||
-      item.starts_at ||
-      item.created_at ||
-      null;
-
+    const raw = item.class_date || item.recorded_at || item.starts_at || item.created_at || null;
     const d = raw ? new Date(raw) : new Date();
     return Number.isNaN(d.getTime()) ? new Date() : d;
   }
 
   function groupRecordedByYearMonth(items) {
     const grouped = {};
-
     for (const item of items) {
       const d = getRecordedDate(item);
       const year = d.getFullYear();
       const month = d.getMonth();
-
       if (!grouped[year]) grouped[year] = {};
       if (!grouped[year][month]) grouped[year][month] = [];
-
       grouped[year][month].push(item);
     }
-
     return grouped;
   }
 
@@ -1169,12 +1170,9 @@ async function resolveUserTrackPreference(session) {
 
     const action = item.youtube_url
       ? `
-        <button
-          class="btn primary"
-          type="button"
+        <button class="btn primary" type="button"
           data-video-url="${esc(item.youtube_url)}"
-          data-video-title="${esc(title)}"
-        >
+          data-video-title="${esc(title)}">
           Ver clase
         </button>
       `
@@ -1184,19 +1182,16 @@ async function resolveUserTrackPreference(session) {
       <div class="lib-video">
         <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:12px;min-width:0;flex:1 1 260px;">
-            <img
-              class="lib-video-thumb"
+            <img class="lib-video-thumb"
               src="${esc(thumb)}"
               alt="${esc(title)}"
               loading="lazy"
-              onerror="this.src='./imagenes/Isotipo.png'"
-            >
+              onerror="this.src='./imagenes/Isotipo.png'">
             <div style="min-width:0;">
               <div class="lib-video-title">${esc(title)}</div>
               ${meta ? `<div class="lib-video-meta">${esc(meta)}</div>` : ""}
             </div>
           </div>
-
           <div style="display:flex;align-items:center;gap:8px;">
             ${action}
           </div>
@@ -1207,15 +1202,10 @@ async function resolveUserTrackPreference(session) {
 
   function renderRecordedLibrary(items) {
     if (!recordedList) return;
-
     recordedList.innerHTML = "";
 
     if (!items || !items.length) {
-      setNotice(
-        recordedMsg,
-        "Todavía no hay clases grabadas publicadas.",
-        "notice small"
-      );
+      setNotice(recordedMsg, "Todavía no hay clases grabadas publicadas.", "notice small");
       return;
     }
 
@@ -1226,43 +1216,37 @@ async function resolveUserTrackPreference(session) {
     const currentYear = now.getFullYear();
     const currentMonthIndex = now.getMonth();
 
-    const years = Object.keys(grouped)
-      .map(Number)
-      .sort((a, b) => b - a);
+    const years = Object.keys(grouped).map(Number).sort((a, b) => b - a);
 
-    recordedList.innerHTML = years.map((year) => {
-      const months = Object.keys(grouped[year])
-        .map(Number)
-        .sort((a, b) => b - a);
+    recordedList.innerHTML = years
+      .map((year) => {
+        const months = Object.keys(grouped[year]).map(Number).sort((a, b) => b - a);
+        const yearIsOpen = year === currentYear ? "open" : "";
 
-      const yearIsOpen = year === currentYear ? "open" : "";
+        return `
+          <details class="lib-year" ${yearIsOpen}>
+            <summary>${year}</summary>
+            ${months
+              .map((monthIndex) => {
+                const monthIsOpen =
+                  year === currentYear && monthIndex === currentMonthIndex ? "open" : "";
 
-      return `
-        <details class="lib-year" ${yearIsOpen}>
-          <summary>${year}</summary>
-
-          ${months.map((monthIndex) => {
-            const monthIsOpen =
-              year === currentYear && monthIndex === currentMonthIndex ? "open" : "";
-
-            return `
-              <details class="lib-month" ${monthIsOpen}>
-                <summary>${monthNameEs(monthIndex)}</summary>
-
-                <div class="lib-items">
-                  ${grouped[year][monthIndex].map(buildRecordedVideoCard).join("")}
-                </div>
-              </details>
-            `;
-          }).join("")}
-        </details>
-      `;
-    }).join("");
+                return `
+                  <details class="lib-month" ${monthIsOpen}>
+                    <summary>${monthNameEs(monthIndex)}</summary>
+                    <div class="lib-items">
+                      ${grouped[year][monthIndex].map(buildRecordedVideoCard).join("")}
+                    </div>
+                  </details>
+                `;
+              })
+              .join("")}
+          </details>
+        `;
+      })
+      .join("");
   }
 
-  // =====================================================
-  // Clases grabadas
-  // =====================================================
   async function loadRecordedClasses() {
     if (!recordedList || !recordedMsg) return;
 
@@ -1270,11 +1254,7 @@ async function resolveUserTrackPreference(session) {
     clearText(recordedMsg);
 
     if (!canSeePremiumContent()) {
-      setNotice(
-        recordedMsg,
-        "Las clases grabadas están disponibles solo para el Plan Premium/Pro.",
-        "notice small"
-      );
+      setNotice(recordedMsg, "Las clases grabadas están disponibles solo para el Plan Premium/Pro.", "notice small");
       return;
     }
 
@@ -1296,105 +1276,117 @@ async function resolveUserTrackPreference(session) {
   }
 
   // =====================================================
-  // Descargar rutina
+  // Descargar rutina (prolija + SIN links de video)
   // =====================================================
   async function getMonthJsonForDownload(monthNumber, objective) {
-    const key = `${monthNumber}-${objective}`;
-
-    if (monthCache.has(key)) {
-      return monthCache.get(key);
-    }
+    const key = `${monthNumber}-${objective}-${currentTrack}`;
+    if (monthCache.has(key)) return monthCache.get(key);
 
     const { data, error } = await rpcMonthContent(monthNumber, objective);
     if (error) throw error;
+
+    // Evitar descarga si viene gateado
+    if (data?.locked) {
+      const when = data.available_at ? formatDateTimeEs(data.available_at) : "";
+      const msg = when
+        ? `Tu rutina todavía está en preparación. Se habilita: ${when} (AR).`
+        : "Tu rutina todavía está en preparación. Se habilita mañana entre 08:00 y 14:00 (AR).";
+      throw new Error(msg);
+    }
 
     monthCache.set(key, data);
     return data;
   }
 
   function buildRoutineHTML({ json, monthNumber, objective, track }) {
-  const gen = new Date();
-  const title = `Rutina ${monthLabel(monthNumber)} — ${objectiveLabel(objective)} — ${labelTrack(track)}`;
+    const gen = new Date();
+    const title = `Rutina ${monthLabel(monthNumber)} — ${objectiveLabel(objective)} — ${labelTrack(track)}`;
 
-  const DAY_NAMES = {
-    1: "Lunes",
-    2: "Martes",
-    3: "Miércoles",
-    4: "Jueves",
-    5: "Viernes",
-  };
+    const DAY_NAMES = {
+      1: "Lunes",
+      2: "Martes",
+      3: "Miércoles",
+      4: "Jueves",
+      5: "Viernes",
+    };
 
-  const weeks = Array.isArray(json?.weeks) ? json.weeks : [];
+    const weeks = Array.isArray(json?.weeks) ? json.weeks : [];
 
-  const weeksHtml = weeks.map((week) => {
-    const weekTitle = String(week.title || "").trim();
-    const weekHead = weekTitle
-      ? `Semana ${week.week_number} — ${esc(weekTitle)}`
-      : `Semana ${week.week_number}`;
+    const weeksHtml = weeks
+      .map((week) => {
+        const weekTitle = String(week.title || "").trim();
+        const weekHead = weekTitle
+          ? `Semana ${week.week_number} — ${esc(weekTitle)}`
+          : `Semana ${week.week_number}`;
 
-    const days = Array.isArray(week.days) ? week.days : [];
+        const days = Array.isArray(week.days) ? week.days : [];
 
-    const daysHtml = days.map((day) => {
-      const dayName = DAY_NAMES[day.day_number] || `Día ${day.day_number}`;
-      const mg = day.muscle_group && String(day.muscle_group).trim() ? String(day.muscle_group).trim() : "";
-      const focus = day.focus && String(day.focus).trim() ? String(day.focus).trim() : "";
+        const daysHtml = days
+          .map((day) => {
+            const dayName = DAY_NAMES[day.day_number] || `Día ${day.day_number}`;
+            const mg = String(day.muscle_group || "").trim();
+            const focus = String(day.focus || "").trim();
 
-      const items = track === "gym" ? (day.items_gym || []) : (day.items_home || []);
+            const items = track === "gym" ? (day.items_gym || []) : (day.items_home || []);
 
-      const metaLine = [
-        mg && `Grupo: ${esc(mg)}`,
-        focus && `Foco: ${esc(focus)}`,
-      ].filter(Boolean).join(" · ");
+            const metaLine = [
+              mg && `Grupo: ${esc(mg)}`,
+              focus && `Foco: ${esc(focus)}`,
+            ].filter(Boolean).join(" · ");
 
-      if (!items.length) {
+            if (!items.length) {
+              return `
+                <section class="day">
+                  <h3>${esc(dayName)}</h3>
+                  ${metaLine ? `<div class="meta">${metaLine}</div>` : ""}
+                  <div class="muted">Sin ejercicios cargados para este objetivo/modalidad.</div>
+                </section>
+              `;
+            }
+
+            const rows = items
+              .map((item) => `
+                <tr>
+                  <td class="col-ex">${esc(item.exercise || "")}</td>
+                  <td class="col-num">${esc(item.sets || "")}</td>
+                  <td class="col-num">${esc(item.reps || "")}</td>
+                  <td class="col-notes">${esc(item.notes || "")}</td>
+                </tr>
+              `)
+              .join("");
+
+            return `
+              <section class="day">
+                <h3>${esc(dayName)}</h3>
+                ${metaLine ? `<div class="meta">${metaLine}</div>` : ""}
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Ejercicio</th>
+                      <th class="col-num">Series</th>
+                      <th class="col-num">Reps</th>
+                      <th>Notas</th>
+                    </tr>
+                  </thead>
+                  <tbody>${rows}</tbody>
+                </table>
+              </section>
+            `;
+          })
+          .join("");
+
         return `
-          <section class="day">
-            <h3>${esc(dayName)}</h3>
-            ${metaLine ? `<div class="meta">${metaLine}</div>` : ""}
-            <div class="muted">Sin ejercicios cargados para este objetivo/modalidad.</div>
+          <section class="week">
+            <h2>${esc(weekHead)}</h2>
+            ${daysHtml || `<div class="muted">Semana sin días.</div>`}
           </section>
         `;
-      }
+      })
+      .join("");
 
-      const rows = items.map((item) => `
-        <tr>
-          <td class="col-ex">${esc(item.exercise || "")}</td>
-          <td class="col-num">${esc(item.sets || "")}</td>
-          <td class="col-num">${esc(item.reps || "")}</td>
-          <td class="col-notes">${esc(item.notes || "")}</td>
-        </tr>
-      `).join("");
+    const body = weeksHtml || `<div class="muted">Este mes no tiene contenido cargado.</div>`;
 
-      return `
-        <section class="day">
-          <h3>${esc(dayName)}</h3>
-          ${metaLine ? `<div class="meta">${metaLine}</div>` : ""}
-          <table>
-            <thead>
-              <tr>
-                <th>Ejercicio</th>
-                <th class="col-num">Series</th>
-                <th class="col-num">Reps</th>
-                <th>Notas</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </section>
-      `;
-    }).join("");
-
-    return `
-      <section class="week">
-        <h2>${esc(weekHead)}</h2>
-        ${daysHtml || `<div class="muted">Semana sin días.</div>`}
-      </section>
-    `;
-  }).join("");
-
-  const body = weeksHtml || `<div class="muted">Este mes no tiene contenido cargado.</div>`;
-
-  return `<!doctype html>
+    return `<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
@@ -1402,90 +1394,25 @@ async function resolveUserTrackPreference(session) {
   <title>${esc(title)}</title>
   <style>
     :root{ color-scheme: light; }
-
-    body{
-      font-family: system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
-      margin: 0;
-      color:#111;
-      background:#fff;
-    }
-
-    .page{
-      max-width: 920px;
-      margin: 0 auto;
-      padding: 26px;
-    }
-
-    .head{
-      display:flex;
-      justify-content:space-between;
-      gap:14px;
-      align-items:flex-start;
-      border-bottom: 1px solid #e9e9e9;
-      padding-bottom: 14px;
-      margin-bottom: 16px;
-    }
-
-    .brand{
-      font-weight: 800;
-      letter-spacing: .04em;
-      font-size: 14px;
-      opacity: .85;
-    }
-
+    body{ font-family: system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; margin:0; color:#111; background:#fff; }
+    .page{ max-width: 920px; margin: 0 auto; padding: 26px; }
+    .head{ display:flex; justify-content:space-between; gap:14px; align-items:flex-start; border-bottom: 1px solid #e9e9e9; padding-bottom: 14px; margin-bottom: 16px; }
+    .brand{ font-weight: 800; letter-spacing: .04em; font-size: 14px; opacity: .85; }
     h1{ font-size: 18px; margin: 6px 0 0; line-height:1.25; }
     .sub{ color:#555; font-size: 12px; margin: 6px 0 0; }
-
     h2{ margin: 18px 0 10px; font-size: 14px; }
     h3{ margin: 14px 0 6px; font-size: 13px; }
-
     .meta{ font-size: 12px; color:#555; margin-bottom: 8px; }
     .muted{ font-size: 12px; color:#666; }
-
     .week{ page-break-inside: avoid; }
     .day{ padding: 10px 0 8px; border-top: 1px solid #efefef; }
-
-    table{
-      width:100%;
-      border-collapse: collapse;
-      margin-top: 8px;
-      border: 1px solid #e7e7e7;
-      border-radius: 10px;
-      overflow: hidden;
-    }
-
-    th, td{
-      border-bottom: 1px solid #ededed;
-      padding: 10px 10px;
-      font-size: 12px;
-      vertical-align: top;
-    }
-
-    th{
-      background:#fafafa;
-      text-align:left;
-      font-weight: 700;
-    }
-
+    table{ width:100%; border-collapse: collapse; margin-top: 8px; border: 1px solid #e7e7e7; border-radius: 10px; overflow: hidden; }
+    th, td{ border-bottom: 1px solid #ededed; padding: 10px 10px; font-size: 12px; vertical-align: top; }
+    th{ background:#fafafa; text-align:left; font-weight: 700; }
     tr:last-child td{ border-bottom: none; }
-
-    .col-num{
-      width: 72px;
-      text-align: center;
-      white-space: nowrap;
-    }
-
+    .col-num{ width: 72px; text-align: center; white-space: nowrap; }
     .col-ex{ width: 42%; }
-    .col-notes{ width: auto; }
-
-    .footnote{
-      margin-top: 18px;
-      font-size: 12px;
-      color:#666;
-      border-top: 1px solid #e9e9e9;
-      padding-top: 12px;
-    }
-
+    .footnote{ margin-top: 18px; font-size: 12px; color:#666; border-top: 1px solid #e9e9e9; padding-top: 12px; }
     @media print{
       .page{ padding: 0; }
       body{ margin: 10mm; }
@@ -1511,12 +1438,22 @@ async function resolveUserTrackPreference(session) {
   </div>
 </body>
 </html>`;
-}
+  }
 
   async function downloadRoutine() {
     try {
       if (!currentMonth) {
         alert("Primero cargá un mes (esperá a que aparezca la rutina).");
+        return;
+      }
+
+      if (routineLocked) {
+        const when = routineAvailableAt ? formatDateTimeEs(routineAvailableAt) : "";
+        alert(
+          when
+            ? `Tu rutina todavía está en preparación.\nSe habilita: ${when} (AR).`
+            : "Tu rutina todavía está en preparación.\nSe habilita mañana entre 08:00 y 14:00 (AR)."
+        );
         return;
       }
 
@@ -1565,37 +1502,23 @@ async function resolveUserTrackPreference(session) {
   }
 
   function syncProfileAccountUI() {
-    if (profileEmail) {
-      profileEmail.textContent = userEmail?.textContent || "";
-    }
+    if (profileEmail) profileEmail.textContent = userEmail?.textContent || "";
 
     const planName = planInfo?.plans?.name || "Plan";
     const status = planInfo?.status || "—";
     const paid = planInfo?.paid_through || null;
 
-    if (profilePlanLine) {
-      profilePlanLine.textContent = `${planName} · ${status}`;
-    }
-
-    if (profilePaidLine) {
-      profilePaidLine.textContent = `Pago hasta: ${formatPaidThrough(paid)}`;
-    }
+    if (profilePlanLine) profilePlanLine.textContent = `${planName} · ${status}`;
+    if (profilePaidLine) profilePaidLine.textContent = `Pago hasta: ${formatPaidThrough(paid)}`;
 
     if (!profileUpgradeBox) return;
 
-    const isBasic = planSlug === "basic";
-    const isMid = planSlug === "mid";
-    const show = isBasic || isMid;
-
+    const slug = norm(planSlug);
+    const show = slug === "basic" || slug === "mid";
     profileUpgradeBox.style.display = show ? "block" : "none";
 
-    if (profileUpgradeMidBtn) {
-      profileUpgradeMidBtn.style.display = isBasic ? "inline-flex" : "none";
-    }
-
-    if (profileUpgradeProBtn) {
-      profileUpgradeProBtn.style.display = show ? "inline-flex" : "none";
-    }
+    if (profileUpgradeMidBtn) profileUpgradeMidBtn.style.display = slug === "basic" ? "inline-flex" : "none";
+    if (profileUpgradeProBtn) profileUpgradeProBtn.style.display = show ? "inline-flex" : "none";
   }
 
   async function loadMyProfile() {
@@ -1631,7 +1554,6 @@ async function resolveUserTrackPreference(session) {
     const { data: userRes } = await sb.auth.getUser();
     const uid = userRes?.user?.id;
     const email = userRes?.user?.email;
-
     if (!uid || !email) return;
 
     setProfileMsg("Guardando…", "small");
@@ -1648,9 +1570,7 @@ async function resolveUserTrackPreference(session) {
       updated_at: new Date().toISOString(),
     };
 
-    const { error } = await sb
-      .from("profiles")
-      .upsert(payload, { onConflict: "user_id" });
+    const { error } = await sb.from("profiles").upsert(payload, { onConflict: "user_id" });
 
     if (error) {
       setProfileMsg(error.message, "error");
@@ -1683,66 +1603,35 @@ async function resolveUserTrackPreference(session) {
     const session = await requireAuth();
     if (!session) return;
 
-    if (userEmail) {
-      userEmail.textContent = session.user.email;
-    }
+    if (userEmail) userEmail.textContent = session.user.email;
 
     campusEmailCache = session.user.email || "";
     await loadCampusIdentity();
 
-    currentTrack = await resolveUserTrackPreference(session);
-    syncTrackUI();
-
+    // 1) Plan primero (para que canSeePremiumContent funcione)
     await maybeShowAdminLink();
     await loadPlanBadge();
     syncUpgradeUI(planSlug);
     syncProfileAccountUI();
     syncHelpWhatsappUI();
 
+    // 2) Preferencias (objective/track) desde ficha
+    const prefs = await loadUserPreferences();
+    currentObjective = prefs.objective;
+    currentTrack = prefs.track;
+
+    localStorage.setItem("A360_OBJECTIVE", currentObjective);
+    syncTrackUI();
+
+    // 3) Contenido
     await loadWeeklyQuoteIntoApp();
 
-    const now = new Date();
-    const monthNumber = now.getMonth() + 1;
+    const publishedMonth = await getPublishedMonthNumber();
+    await openMonth(publishedMonth, { force: true });
 
-    await openMonth(monthNumber, { force: true });
     await loadClasses();
     await loadRecordedClasses();
 
     syncCampusExperience();
   })();
-  async function loadWeeklyQuoteIntoApp() {
-  const sb = window.sb;
-  if (!sb) return;
-
-  const elTitle = document.getElementById("weeklyQuoteTitle");
-  const elPhrase = document.getElementById("weeklyQuotePhrase");
-  const elImg = document.getElementById("weeklyQuoteImg");
-
-  if (!elTitle || !elPhrase || !elImg) return;
-
-  try {
-    const { data, error } = await sb
-      .from("weekly_quote")
-      .select("id,title,phrase,image_url,updated_at")
-      .eq("id", 1)
-      .maybeSingle();
-
-    if (error) throw error;
-    if (!data) return; // deja el fallback del HTML
-
-    if (data.title) elTitle.textContent = data.title;
-    if (data.phrase) elPhrase.textContent = data.phrase;
-
-    const url = (data.image_url || "").trim();
-    if (url) {
-      elImg.src = url;
-      elImg.style.display = "";
-    } else {
-      elImg.style.display = "none";
-    }
-  } catch (e) {
-    console.error("[APP] weekly_quote load error:", e);
-    // no rompemos la app
-  }
-}
 })();

@@ -382,7 +382,7 @@ async function uploadLiveCoverIfAny() {
       try {
         const title = (elTitle.value || "").trim();
         const phrase = (elPhrase.value || "").trim();
-        if (!title || !phrase) return setLocalMsg("Completá Título y Copy.");
+        if (!title) return setLocalMsg("Completá Título y Copy.");
 
         setLocalMsg("Guardando…");
 
@@ -2186,6 +2186,21 @@ async function uploadLiveCoverIfAny() {
 
       foundUserId = row.user_id;
 
+      const sum = await adminLoadUserSummary(foundUserId);
+
+if (sum.plan){
+  studentPlanOut.textContent = `Plan: ${sum.plan.plans?.slug || "—"} ${sum.plan.plans?.name ? `(${sum.plan.plans.name})` : ""}`;
+  studentStatusOut.textContent = `Estado: ${sum.plan.status || "—"}`;
+  studentPaidOut.textContent = `Pago hasta: ${sum.plan.paid_through || "—"}`;
+} else {
+  studentPlanOut.textContent = "Plan: —";
+  studentStatusOut.textContent = "Estado: —";
+  studentPaidOut.textContent = "Pago hasta: —";
+}
+
+// opcional: mostrar track/objetivo/nivel en el msg
+console.log("[ADMIN] prefs/profile:", sum.prefs, sum.profile);
+
       if (studentEmailOut) studentEmailOut.textContent = row.email;
       if (studentPlanOut) studentPlanOut.textContent = `Plan: ${row.plan_slug || "—"}`;
       if (studentStatusOut) studentStatusOut.textContent = `Estado: ${row.plan_status || "—"}`;
@@ -2349,3 +2364,32 @@ lcCoverFile?.addEventListener("change", () => {
     }
   })();
 })();
+async function adminLoadUserSummary(userId){
+  const out = {};
+
+  const { data: planRow, error: pErr } = await sb
+    .from("user_plan")
+    .select("status, paid_through, plans:plan_id (slug, name)")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!pErr && planRow) out.plan = planRow;
+
+  const { data: prefRow, error: prErr } = await sb
+    .from("user_preferences")
+    .select("objective, track")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!prErr && prefRow) out.prefs = prefRow;
+
+  const { data: profRow, error: pfErr } = await sb
+    .from("profiles")
+    .select("training_level")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!pfErr && profRow) out.profile = profRow;
+
+  return out;
+}

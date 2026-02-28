@@ -1,6 +1,12 @@
 <!doctype html>
 <html lang="es">
 <head>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="./styles.css" />
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Academia de Mujeres — Maricel Conse</title>
@@ -22,7 +28,7 @@
 
   <!-- TOP PROMO BANNER (clic -> Planes) -->
   <a class="top-promo" href="#planes" aria-label="Promo lanzamiento: ver planes de entrenamiento">
-    <span class="promo-badge">LANZAMIENTO</span>
+    <span class="promo-badge">PROMO LANZAMIENTO</span>
     <span class="promo-text">Planes de entrenamiento: producto nuevo ya disponible</span>
     <span class="promo-off">20% OFF</span>
     <span class="promo-cta">Ver planes →</span>
@@ -139,12 +145,13 @@
 
           <div class="plan-media">
             <video class="plan-video"
-                   data-plan-media="basic"
-                   controls
-                   controlslist="nodownload"
-                   playsinline
-                   preload="auto"
-                   poster="./imagenes/plan1.png">
+              data-plan-media="basic"
+              controls
+              controlslist="nodownload"
+              playsinline
+              webkit-playsinline
+              preload="metadata"
+              poster="./imagenes/plan1.png">
             </video>
           </div>
 
@@ -178,12 +185,13 @@
 
           <div class="plan-media">
             <video class="plan-video"
-                   data-plan-media="mid"
-                   controls
-                   controlslist="nodownload"
-                   playsinline
-                   preload="auto"
-                   poster="./imagenes/plan2.png">
+              data-plan-media="mid"
+              controls
+              controlslist="nodownload"
+              playsinline
+              webkit-playsinline
+              preload="metadata"
+              poster="./imagenes/plan2.png">
             </video>
           </div>
 
@@ -217,12 +225,13 @@
 
           <div class="plan-media">
             <video class="plan-video"
-                   data-plan-media="pro"
-                   controls
-                   controlslist="nodownload"
-                   playsinline
-                   preload="auto"
-                   poster="./imagenes/plan3.png">
+             data-plan-media="pro"
+             controls
+             controlslist="nodownload"
+             playsinline
+             webkit-playsinline
+             preload="metadata"
+             poster="./imagenes/plan3.png">
             </video>
           </div>
 
@@ -382,17 +391,34 @@
 
     // CTA Planes -> register con plan (evita clicks en el video)
     document.addEventListener("click", (e) => {
-      if (e.target.closest(".plan-media")) return;
+    // Evitar redirección si el tap fue en el video o sus controles
+    if (e.target.closest("video") || e.target.closest(".plan-media")) return;
 
-      const b = e.target.closest("[data-plan]");
-      if (!b) return;
+    const b = e.target.closest("[data-plan]");
+    if (!b) return;
 
-      const plan = b.getAttribute("data-plan");
-      if (!plan) return;
+    const plan = b.getAttribute("data-plan");
+    if (!plan) return;
 
-      localStorage.setItem("A360_SELECTED_PLAN", plan);
-      window.location.href = `./register.html?plan=${encodeURIComponent(plan)}`;
-    });
+    localStorage.setItem("A360_SELECTED_PLAN", plan);
+    window.location.href = `./register.html?plan=${encodeURIComponent(plan)}`;
+  });
+
+    // Pausar video al salir del modal
+
+    document.addEventListener("DOMContentLoaded", () => {
+    const videos = Array.from(document.querySelectorAll("video.plan-video"));
+    if (!videos.length || !("IntersectionObserver" in window)) return;
+
+    const io = new IntersectionObserver((entries) => {
+      for (const en of entries) {
+        const v = en.target;
+        if (!en.isIntersecting && !v.paused) v.pause();
+      }
+    }, { threshold: 0.15 });
+
+    videos.forEach(v => io.observe(v));
+  });
 
     // Sesión: si está logueada, mostrar "Mi panel" y ocultar login
     (async () => {
@@ -532,7 +558,7 @@
 
       <h3>4. Cuenta y uso</h3>
       <ul>
-        <li>Debés brindar datos veraces y mantenerlos actualizados.</li>
+        <li>Debes brindar datos veraces y mantenerlos actualizados.</li>
         <li>Sos responsable por el uso de tu cuenta y por mantener confidenciales tus credenciales.</li>
         <li>Está prohibido compartir accesos, revender o distribuir el contenido.</li>
       </ul>
