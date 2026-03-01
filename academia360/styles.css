@@ -1564,3 +1564,37 @@ body{
     letter-spacing: .18em;
   }
 }
+/* === Perfil (panel flotante) — scroll interno === */
+.profile-panel{
+  position: fixed;                 /* si ya lo tenés fixed, dejalo; si no, esto lo soluciona */
+  top: 84px;                       /* ajustá según tu header */
+  right: 16px;
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100vh - 110px); /* clave: que nunca exceda el viewport */
+  overflow-y: auto;                /* clave: scroll interno */
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  z-index: 2000;
+}
+
+/* En mobile, que use casi todo el ancho */
+@media (max-width: 720px){
+  .profile-panel{
+    left: 12px;
+    right: 12px;
+    width: auto;
+    top: 72px;
+    max-height: calc(100vh - 92px);
+  }
+}
+.profile-panel > .row:first-child{
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: inherit;
+  padding-bottom: 10px;
+}
+.danger-zone{ margin-top: 8px; }
+.danger-zone > summary{ list-style: none; }
+.danger-zone > summary::-webkit-details-marker{ display:none; }

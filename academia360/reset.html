@@ -123,7 +123,643 @@
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
   </script>
+ <!-- =====================================================
+       Legal popups (4) — integrados
+       IMPORTANTE: completá los placeholders [[COMPLETAR_...]]
+  ====================================================== -->
 
+<!-- popup-terminos.html -->
+<div class="legal-modal" id="a360-terms" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="a360-terms-title"
+     data-support-email="maricelconse@gmail.com">
+  <div class="legal-backdrop" data-legal-close></div>
+
+  <div class="legal-dialog" tabindex="-1">
+    <div class="legal-head">
+      <div class="legal-head__title">
+        <h2 id="a360-terms-title">Términos y Condiciones (Contrato de adhesión)</h2>
+        <div class="legal-head__sub">Academia de Mujeres — Maricel Conse</div>
+      </div>
+      <button class="legal-close" type="button" data-legal-close aria-label="Cerrar">✕</button>
+    </div>
+
+    <div class="legal-body">
+      <h3>1. Identificación de la proveedora</h3>
+        <p>
+        La plataforma “Academia de Mujeres — Maricel Conse” (en adelante, la “Plataforma”) es operada por
+        <b>Maricel Lourdes Tomas</b>, CUIL <b>27-35873207-6</b>, con domicilio en <b>Río Grande, Tierra del Fuego, Argentina</b>
+        (en adelante, la “Proveedora”).
+      </p>
+
+      <h3>2. Aceptación</h3>
+      <p>
+        Al registrarte, contratar un plan y/o utilizar la Plataforma, aceptás estos Términos y Condiciones (“TyC”).
+        Si no estás de acuerdo, no utilices la Plataforma.
+      </p>
+
+      <h3>3. Descripción del servicio</h3>
+      <p>
+        La Plataforma ofrece contenidos digitales vinculados a entrenamiento (rutinas y biblioteca de clases),
+        y puede incluir clases en vivo por videollamada según el plan vigente.
+        El servicio es de carácter informativo y educativo; no constituye asesoramiento médico ni diagnóstico.
+      </p>
+
+      <h3>4. Cuenta y uso</h3>
+      <ul>
+        <li>Debes brindar datos veraces y mantenerlos actualizados.</li>
+        <li>Sos responsable por el uso de tu cuenta y por mantener confidenciales tus credenciales.</li>
+        <li>Está prohibido compartir accesos, revender o distribuir el contenido.</li>
+      </ul>
+
+      <h3>5. Planes, cobros y renovaciones</h3>
+      <p>
+        Los planes y precios se informan en el sitio. El cobro se realiza a través de Mercado Pago.
+        La suscripción puede renovarse automáticamente según el plan elegido, salvo que se solicite la baja.
+      </p>
+
+      <h3>6. Plazo de entrega de rutina</h3>
+      <p>
+        La rutina personalizada puede demorar hasta <b>48 hs hábiles</b> desde la acreditación del pago
+        y/o desde la recepción completa de la ficha, salvo fuerza mayor.
+      </p>
+
+      <h3>7. Clases grabadas y clases en vivo</h3>
+      <ul>
+        <li>Las clases grabadas se consumen por streaming a través de la plataforma Zoom.</li>
+        <li>Las clases en vivo pueden reprogramarse por motivos operativos. En tal caso, se informará la nueva fecha/hora.</li>
+      </ul>
+
+      <h3>8. Baja del servicio</h3>
+      <p>
+        Podes solicitar la baja por los canales habilitados en el sitio. Si tu cobro es por suscripción de Mercado Pago,
+        también podes cancelarla desde la app: Más → Tus suscripciones → Cancelar suscripción.
+        Guía: <a target="_blank" rel="noopener" href="https://www.mercadopago.com.ar/ayuda/36628">Cancelar suscripción en Mercado Pago</a>.
+      </p>
+
+      <h3>9. Botón de arrepentimiento</h3>
+      <p>
+        Si contrataste a distancia, podes solicitar la revocación en los plazos aplicables. El trámite se gestiona mediante
+        el “Botón de arrepentimiento” disponible en el sitio.
+      </p>
+
+      <h3>10. Soporte</h3>
+      <p>
+        Email: <b>maricelconse@gmail.com</b><br>
+        Horario de atención: <b>días hábiles de 08:00 a 17:00 hs (Argentina)</b>
+      </p>
+
+      <h3>11. Jurisdicción</h3>
+      <p>República Argentina. Jurisdicción: <b>Río Grande, Tierra del Fuego</b>.</p>
+
+      <div class="legal-foot">
+        <div class="legal-foot__muted">Última actualización: <b>28/02/2026</b></div>
+        <div class="legal-foot__actions">
+          <button class="legal-btn" type="button" data-legal-close>Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  if (window.__A360_LEGAL_MODAL_LOADED) return;
+  window.__A360_LEGAL_MODAL_LOADED = true;
+
+  // Base CSS (una sola vez)
+  if (!document.getElementById("a360-legal-style")) {
+    const st = document.createElement("style");
+    st.id = "a360-legal-style";
+    st.textContent = `
+      .legal-modal{position:fixed;inset:0;z-index:9999;display:none}
+      .legal-modal[aria-hidden="false"]{display:block}
+      .legal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.55)}
+      .legal-dialog{
+        position:relative;z-index:1;
+        width:min(920px,92vw);
+        max-height:88vh;
+        margin:5vh auto;
+        background:rgba(255,255,255,.98);
+        border-radius:18px;
+        box-shadow:0 20px 70px rgba(0,0,0,.25);
+        overflow:auto;
+        outline:none;
+      }
+      .legal-head{
+        position:sticky;top:0;z-index:2;
+        display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+        padding:14px 16px;
+        background:rgba(255,255,255,.96);
+        border-bottom:1px solid rgba(0,0,0,.08);
+        backdrop-filter: blur(10px);
+      }
+      .legal-head__title h2{margin:0;font-size:16px;line-height:1.2}
+      .legal-head__sub{margin-top:4px;font-size:12px;opacity:.75}
+      .legal-close{
+        border:1px solid rgba(0,0,0,.12);
+        background:rgba(255,255,255,.85);
+        border-radius:12px;
+        width:40px;height:40px;
+        cursor:pointer;
+      }
+      .legal-body{padding:16px}
+      .legal-body h3{margin:16px 0 8px;font-size:14px}
+      .legal-body p,.legal-body li{font-size:13px;line-height:1.55;opacity:.92}
+      .legal-body ul{margin:8px 0 0 18px}
+      .legal-body a{color:#0b57d0;word-break:break-word}
+      .legal-foot{
+        margin-top:18px;
+        display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;
+        border-top:1px solid rgba(0,0,0,.08);
+        padding-top:12px;
+      }
+      .legal-foot__muted{font-size:12px;opacity:.75}
+      .legal-btn{
+        border:1px solid rgba(0,0,0,.12);
+        background:rgba(255,255,255,.9);
+        border-radius:12px;
+        padding:10px 12px;
+        cursor:pointer;
+      }
+      .legal-btn.primary{background:rgba(20,70,200,.10);border-color:rgba(20,70,200,.20)}
+      .legal-label{display:block;font-size:12px;opacity:.8;margin-top:10px}
+      .legal-input,.legal-textarea{
+        width:100%;box-sizing:border-box;
+        border:1px solid rgba(0,0,0,.12);
+        background:rgba(255,255,255,.85);
+        border-radius:12px;
+        padding:10px 12px;
+        margin-top:6px;
+        font-size:13px;
+        outline:none;
+      }
+      .legal-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+      body.a360-legal-lock{overflow:hidden}
+      @media (max-width:520px){.legal-dialog{margin:3vh auto;max-height:92vh}}
+    `;
+    document.head.appendChild(st);
+  }
+
+  function openModal(id) {
+    const modal = document.getElementById(id);
+    if (!modal) return;
+    modal.__lastFocus = document.activeElement;
+    modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("a360-legal-lock");
+    modal.querySelector(".legal-dialog")?.focus?.();
+  }
+
+  function closeModal(modal) {
+    if (!modal) return;
+    modal.setAttribute("aria-hidden", "true");
+    const anyOpen = document.querySelector('.legal-modal[aria-hidden="false"]');
+    if (!anyOpen) document.body.classList.remove("a360-legal-lock");
+    modal.__lastFocus?.focus?.();
+  }
+
+  document.addEventListener("click", (e) => {
+    const openBtn = e.target.closest("[data-legal-open]");
+    if (openBtn) {
+      e.preventDefault();
+      openModal(openBtn.getAttribute("data-legal-open"));
+      return;
+    }
+    const closeBtn = e.target.closest("[data-legal-close]");
+    if (closeBtn) {
+      e.preventDefault();
+      closeModal(closeBtn.closest(".legal-modal"));
+    }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const modal = document.querySelector('.legal-modal[aria-hidden="false"]');
+    if (modal) closeModal(modal);
+  });
+
+  function buildMailto(to, subject, lines) {
+    const body = encodeURIComponent(lines.join("\n"));
+    return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${body}`;
+  }
+
+  function getSupportEmail(modalId) {
+    const modal = document.getElementById(modalId);
+    return (modal?.getAttribute("data-support-email") || "maricelconse@gmail.com").trim();
+  }
+
+  // Arrepentimiento
+  document.addEventListener("submit", (e) => {
+    const form = e.target;
+    if (!form || form.id !== "a360ArrepForm") return;
+    e.preventDefault();
+
+    const to = getSupportEmail("a360-arrepentimiento");
+    const fd = new FormData(form);
+    const mailto = buildMailto(to, "Botón de Arrepentimiento — Solicitud", [
+      "SOLICITUD — BOTÓN DE ARREPENTIMIENTO",
+      "",
+      `Nombre: ${fd.get("full_name") || ""}`,
+      `Email: ${fd.get("email") || ""}`,
+      `Teléfono: ${fd.get("phone") || ""}`,
+      `Fecha contratación/pago: ${fd.get("date") || ""}`,
+      `ID Mercado Pago: ${fd.get("mp_id") || ""}`,
+      "",
+      "Detalle:",
+      `${fd.get("detail") || ""}`,
+      "",
+      "— Enviado desde el sitio (sin login).",
+    ]);
+    window.location.href = mailto;
+  });
+
+  // Baja
+  document.addEventListener("submit", (e) => {
+    const form = e.target;
+    if (!form || form.id !== "a360BajaForm") return;
+    e.preventDefault();
+
+    const to = getSupportEmail("a360-baja");
+    const fd = new FormData(form);
+    const mailto = buildMailto(to, "Botón de Baja de Servicio — Solicitud", [
+      "SOLICITUD — BOTÓN DE BAJA DE SERVICIO",
+      "",
+      `Nombre: ${fd.get("full_name") || ""}`,
+      `Email: ${fd.get("email") || ""}`,
+      `Fecha estimada de alta: ${fd.get("date") || ""}`,
+      `Motivo: ${fd.get("reason") || ""}`,
+      "",
+      "Detalle:",
+      `${fd.get("detail") || ""}`,
+      "",
+      "— Enviado desde el sitio (sin login).",
+    ]);
+    window.location.href = mailto;
+  });
+
+  window.A360Legal = window.A360Legal || { open: openModal, close: closeModal };
+})();
+</script>
+
+<!-- popup-privacidad.html -->
+<div class="legal-modal" id="a360-privacy" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="a360-privacy-title"
+     data-support-email="maricelconse@gmail.com">
+  <div class="legal-backdrop" data-legal-close></div>
+
+  <div class="legal-dialog" tabindex="-1">
+    <div class="legal-head">
+      <div class="legal-head__title">
+        <h2 id="a360-privacy-title">Política de Privacidad</h2>
+        <div class="legal-head__sub">Academia de Mujeres — Maricel Conse</div>
+      </div>
+      <button class="legal-close" type="button" data-legal-close aria-label="Cerrar">✕</button>
+    </div>
+
+    <div class="legal-body">
+      <h3>1. Responsable</h3>
+      <p>
+        Responsable: <b>Maricel Conse Lourdes Tomas</b> · CUIL <b>27-35873207-6</b><br>
+        Domicilio: <b>Río Grande, Tierra del Fuego, Argentina</b><br>
+        Contacto: <b>maricelconse@gmail.com</b> (días hábiles 08:00 a 17:00 hs)
+      </p>
+
+      <h3>2. Datos que se recolectan</h3>
+      <ul>
+        <li>Identificación y contacto: nombre, email, teléfono.</li>
+        <li>Perfil: edad, nivel de entrenamiento y datos físicos si los cargás (peso/altura).</li>
+        <li>Preferencias: objetivo (perder peso/ganar masa) y modalidad (casa/gimnasio).</li>
+        <li>Datos técnicos mínimos para funcionamiento y seguridad.</li>
+      </ul>
+
+      <h3>3. Finalidades</h3>
+      <ul>
+        <li>Prestar el servicio y personalizar rutinas/contenidos.</li>
+        <li>Gestionar suscripciones y pagos (Mercado Pago).</li>
+        <li>Soporte, comunicaciones operativas y seguridad.</li>
+      </ul>
+
+      <h3>4. Derechos</h3>
+      <p>
+        Podes solicitar acceso, rectificación, actualización y supresión de tus datos
+        escribiendo a <b>maricelconse@gmail.com</b>.
+      </p>
+
+      <h3>5. Conservación</h3>
+      <p>
+        Se conservan los datos el tiempo necesario para prestar el servicio, cumplir obligaciones y atender reclamos,
+        y luego se eliminan o anonimizan cuando corresponda.
+      </p>
+
+      <div class="legal-foot">
+        <div class="legal-foot__muted">Última actualización: <b>28/02/2026</b></div>
+        <div class="legal-foot__actions">
+          <button class="legal-btn" type="button" data-legal-close>Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- popup-arrepentimiento.html -->
+<div class="legal-modal" id="a360-arrepentimiento" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="a360-arrep-title"
+     data-support-email="maricelconse@gmail.com">
+  <div class="legal-backdrop" data-legal-close></div>
+
+  <div class="legal-dialog" tabindex="-1">
+    <div class="legal-head">
+      <div class="legal-head__title">
+        <h2 id="a360-arrep-title">Botón de Arrepentimiento</h2>
+        <div class="legal-head__sub">Solicitud de revocación</div>
+      </div>
+      <button class="legal-close" type="button" data-legal-close aria-label="Cerrar">✕</button>
+    </div>
+
+    <div class="legal-body">
+      <div class="legal-note">
+        Este formulario no requiere login. Al enviar, se abrirá tu app de correo con el pedido prearmado hacia
+        <b>maricelconse@gmail.com</b>.
+      </div>
+
+      <form id="a360ArrepForm">
+        <label class="legal-label">Nombre y apellido</label>
+        <input class="legal-input" name="full_name" required>
+
+        <label class="legal-label">Email usado en la cuenta</label>
+        <input class="legal-input" name="email" type="email" required>
+
+        <label class="legal-label">Teléfono (opcional)</label>
+        <input class="legal-input" name="phone">
+
+        <label class="legal-label">Fecha de contratación / pago (opcional)</label>
+        <input class="legal-input" name="date">
+
+        <label class="legal-label">ID/operación de Mercado Pago (opcional)</label>
+        <input class="legal-input" name="mp_id">
+
+        <label class="legal-label">Detalle del pedido</label>
+        <textarea class="legal-textarea" name="detail" rows="4" placeholder="Describí tu solicitud..."></textarea>
+
+        <div class="legal-actions">
+          <button class="legal-btn primary" type="submit">Enviar por email</button>
+          <button class="legal-btn" type="button" data-legal-close>Cancelar</button>
+        </div>
+
+        <div class="legal-foot__muted" style="margin-top:10px">
+          Horario de atención: días hábiles 08:00 a 17:00 hs (AR). Última actualización: 28/02/2026.
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- popup-baja.html -->
+<div class="legal-modal" id="a360-baja" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="a360-baja-title"
+     data-support-email="maricelconse@gmail.com">
+  <div class="legal-backdrop" data-legal-close></div>
+
+  <div class="legal-dialog" tabindex="-1">
+    <div class="legal-head">
+      <div class="legal-head__title">
+        <h2 id="a360-baja-title">Botón de Baja de Servicio</h2>
+        <div class="legal-head__sub">Solicitud de cancelación</div>
+      </div>
+      <button class="legal-close" type="button" data-legal-close aria-label="Cerrar">✕</button>
+    </div>
+
+    <div class="legal-body">
+      <div class="legal-note">
+        Este formulario no requiere login. Al enviar, se abrirá tu app de correo con el pedido prearmado hacia
+        <b>maricelconse@gmail.com</b>.<br>
+        Si tu cobro es por suscripción de Mercado Pago, también podes cancelarla desde la app:
+        Más → Tus suscripciones → Cancelar suscripción.
+        <a target="_blank" rel="noopener" href="https://www.mercadopago.com.ar/ayuda/36628">Ver guía</a>.
+      </div>
+
+      <form id="a360BajaForm">
+        <label class="legal-label">Nombre y apellido</label>
+        <input class="legal-input" name="full_name" required>
+
+        <label class="legal-label">Email usado en la cuenta</label>
+        <input class="legal-input" name="email" type="email" required>
+
+        <label class="legal-label">Fecha estimada de alta (opcional)</label>
+        <input class="legal-input" name="date">
+
+        <label class="legal-label">Motivo (opcional)</label>
+        <input class="legal-input" name="reason" placeholder="Ej: ya no lo necesito / problema técnico / etc.">
+
+        <label class="legal-label">Detalle del pedido</label>
+        <textarea class="legal-textarea" name="detail" rows="4" placeholder="Describí tu solicitud..."></textarea>
+
+        <div class="legal-actions">
+          <button class="legal-btn primary" type="submit">Enviar por email</button>
+          <button class="legal-btn" type="button" data-legal-close>Cancelar</button>
+        </div>
+
+        <div class="legal-foot__muted" style="margin-top:10px">
+          Horario de atención: días hábiles 08:00 a 17:00 hs (AR). Última actualización: 28/02/2026.
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+  <script>
+    // Legal modals (open/close + mailto forms) — inyecta estilos 1 vez
+    (function () {
+      if (window.__A360_LEGAL_MODAL_LOADED) return;
+      window.__A360_LEGAL_MODAL_LOADED = true;
+
+      if (!document.getElementById("a360-legal-style")) {
+        const st = document.createElement("style");
+        st.id = "a360-legal-style";
+        st.textContent = `
+          .legal-modal{position:fixed;inset:0;z-index:9999;display:none}
+          .legal-modal[aria-hidden="false"]{display:block}
+          .legal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.55)}
+          .legal-dialog{
+            position:relative;z-index:1;
+            width:min(920px,92vw);
+            max-height:88vh;
+            margin:5vh auto;
+            background:rgba(255,255,255,.98);
+            border-radius:18px;
+            box-shadow:0 20px 70px rgba(0,0,0,.25);
+            overflow:auto;
+            outline:none;
+          }
+          .legal-head{
+            position:sticky;top:0;z-index:2;
+            display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+            padding:14px 16px;
+            background:rgba(255,255,255,.96);
+            border-bottom:1px solid rgba(0,0,0,.08);
+            backdrop-filter: blur(10px);
+          }
+          .legal-head__title h2{margin:0;font-size:16px;line-height:1.2}
+          .legal-head__sub{margin-top:4px;font-size:12px;opacity:.75}
+          .legal-close{
+            border:1px solid rgba(0,0,0,.12);
+            background:rgba(255,255,255,.85);
+            border-radius:12px;
+            width:40px;height:40px;
+            cursor:pointer;
+          }
+          .legal-body{padding:16px}
+          .legal-body h3{margin:16px 0 8px;font-size:14px}
+          .legal-body p,.legal-body li{font-size:13px;line-height:1.55;opacity:.92}
+          .legal-body ul{margin:8px 0 0 18px}
+          .legal-note{
+            border:1px dashed rgba(0,0,0,.18);
+            background:rgba(0,0,0,.03);
+            padding:10px 12px;
+            border-radius:14px;
+            font-size:12px;
+            margin-bottom:10px;
+          }
+          .legal-body a{color:#0b57d0;word-break:break-word}
+          .legal-foot{
+            margin-top:18px;
+            display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;
+            border-top:1px solid rgba(0,0,0,.08);
+            padding-top:12px;
+          }
+          .legal-foot__muted{font-size:12px;opacity:.75}
+          .legal-btn{
+            border:1px solid rgba(0,0,0,.12);
+            background:rgba(255,255,255,.9);
+            border-radius:12px;
+            padding:10px 12px;
+            cursor:pointer;
+          }
+          .legal-btn.primary{background:rgba(20,70,200,.10);border-color:rgba(20,70,200,.20)}
+          .legal-label{display:block;font-size:12px;opacity:.8;margin-top:10px}
+          .legal-input,.legal-textarea{
+            width:100%;box-sizing:border-box;
+            border:1px solid rgba(0,0,0,.12);
+            background:rgba(255,255,255,.85);
+            border-radius:12px;
+            padding:10px 12px;
+            margin-top:6px;
+            font-size:13px;
+            outline:none;
+          }
+          .legal-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+          body.a360-legal-lock{overflow:hidden}
+          @media (max-width:520px){
+            .legal-dialog{margin:3vh auto;max-height:92vh}
+          }
+        `;
+        document.head.appendChild(st);
+      }
+
+      function openModal(id) {
+        const modal = document.getElementById(id);
+        if (!modal) return;
+        modal.__lastFocus = document.activeElement;
+        modal.setAttribute("aria-hidden", "false");
+        document.body.classList.add("a360-legal-lock");
+        modal.querySelector(".legal-dialog")?.focus?.();
+      }
+
+      function closeModal(modal) {
+        if (!modal) return;
+        modal.setAttribute("aria-hidden", "true");
+        const anyOpen = document.querySelector('.legal-modal[aria-hidden="false"]');
+        if (!anyOpen) document.body.classList.remove("a360-legal-lock");
+        modal.__lastFocus?.focus?.();
+      }
+
+      document.addEventListener("click", (e) => {
+        const openBtn = e.target.closest("[data-legal-open]");
+        if (openBtn) {
+          e.preventDefault();
+          openModal(openBtn.getAttribute("data-legal-open"));
+          return;
+        }
+
+        const closeBtn = e.target.closest("[data-legal-close]");
+        if (closeBtn) {
+          e.preventDefault();
+          closeModal(closeBtn.closest(".legal-modal"));
+        }
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key !== "Escape") return;
+        const modal = document.querySelector('.legal-modal[aria-hidden="false"]');
+        if (modal) closeModal(modal);
+      });
+
+      function buildMailto(to, subject, lines) {
+        const body = encodeURIComponent(lines.join("\n"));
+        return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${body}`;
+      }
+
+      function requireSupportEmail(modalId) {
+        const modal = document.getElementById(modalId);
+        const to = (modal?.getAttribute("data-support-email") || "").trim();
+        if (!to || to.includes("[[COMPLETAR")) {
+          alert("Completá [[COMPLETAR_EMAIL_SOPORTE]] en los popups legales (data-support-email).");
+          return null;
+        }
+        return to;
+      }
+
+      // Arrepentimiento -> mailto
+      const arrepForm = document.getElementById("a360ArrepForm");
+      arrepForm?.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const to = requireSupportEmail("a360-arrepentimiento");
+        if (!to) return;
+
+        const fd = new FormData(arrepForm);
+        const mailto = buildMailto(to, "Botón de Arrepentimiento — Solicitud", [
+          "SOLICITUD — BOTÓN DE ARREPENTIMIENTO",
+          "",
+          `Nombre: ${fd.get("full_name") || ""}`,
+          `Email: ${fd.get("email") || ""}`,
+          `Teléfono: ${fd.get("phone") || ""}`,
+          `Fecha contratación/pago: ${fd.get("date") || ""}`,
+          `ID Mercado Pago: ${fd.get("mp_id") || ""}`,
+          "",
+          "Detalle:",
+          `${fd.get("detail") || ""}`,
+          "",
+          "— Enviado desde el sitio (sin login).",
+        ]);
+        window.location.href = mailto;
+      });
+
+      // Baja -> mailto
+      const bajaForm = document.getElementById("a360BajaForm");
+      bajaForm?.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const to = requireSupportEmail("a360-baja");
+        if (!to) return;
+
+        const fd = new FormData(bajaForm);
+        const mailto = buildMailto(to, "Botón de Baja de Servicio — Solicitud", [
+          "SOLICITUD — BOTÓN DE BAJA DE SERVICIO",
+          "",
+          `Nombre: ${fd.get("full_name") || ""}`,
+          `Email: ${fd.get("email") || ""}`,
+          `Fecha estimada de alta: ${fd.get("date") || ""}`,
+          `Motivo: ${fd.get("reason") || ""}`,
+          "",
+          "Detalle:",
+          `${fd.get("detail") || ""}`,
+          "",
+          "— Enviado desde el sitio (sin login).",
+        ]);
+        window.location.href = mailto;
+      });
+
+      window.A360Legal = window.A360Legal || { open: openModal, close: closeModal };
+    })();
+  </script>
+<style>
+  a[data-legal-open]{ opacity:.75; }
+  a[data-legal-open]:hover{ opacity:1; text-decoration:underline; }
+</style>
   <script src="./loader.js"></script>
 </body>
 </html>

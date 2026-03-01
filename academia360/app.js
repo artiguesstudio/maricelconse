@@ -234,6 +234,8 @@
 
   const profileSaveBtn = document.getElementById("profileSaveBtn");
   const profileMsg = document.getElementById("profileMsg");
+  const deleteAccountBtn = document.getElementById("deleteAccountBtn");
+  const deleteAccountMsg = document.getElementById("deleteAccountMsg");
 
   // Weekly quote (IDs reales en tu app.html)
   const weeklyQuoteTitleEl = document.getElementById("weeklyQuoteTitle");
@@ -1501,6 +1503,15 @@
     if (!open) setProfileMsg("");
   }
 
+  function openProfile(open) {
+    if (!profilePanel) return;
+    profilePanel.style.display = open ? "block" : "none";
+    if (!open) {
+      setProfileMsg("");
+      setDeleteAccountMsg("");
+    }
+  }
+
   function syncProfileAccountUI() {
     if (profileEmail) profileEmail.textContent = userEmail?.textContent || "";
 
@@ -1594,44 +1605,128 @@
   profileUpgradeMidBtn?.addEventListener("click", () => startCheckout("mid"));
   profileUpgradeProBtn?.addEventListener("click", () => startCheckout("pro"));
 
+      // =====================================================
+  // Eliminar cuenta
   // =====================================================
-  // Init
+  function setDeleteAccountMsg(text, kind = "small") {
+    if (!deleteAccountMsg) return;
+    deleteAccountMsg.className = kind;
+    deleteAccountMsg.textContent = text || "";
+  }
+
+  async function deleteMyAccount() {
+    try {
+      // Evita doble click
+      if (deleteAccountBtn) deleteAccountBtn.disabled = true;
+      setDeleteAccountMsg("", "small");
+
+      const { data: sessRes, error: sessErr } = await sb.auth.getSession();
+      if (sessErr) throw sessErr;
+
+      const session = sessRes?.session;
+      const token = session?.access_token;
+      const email = session?.user?.email || campusEmailCache || "";
+
+      if (!token || !email) {
+        alert("Tu sesión expiró. Volvé a iniciar sesión e intentá de nuevo.");
+        return;
+      }
+
+      const ok = confirm(
+        "Vas a ELIMINAR tu cuenta.\n\nEsto es irreversible.\n\n¿Querés continuar?"
+      );
+      if (!ok) return;
+
+      const typed = (prompt(`Para confirmar, escribí tu email:\n${email}`) || "").trim();
+      if (norm(typed) !== norm(email)) {
+        alert("El email no coincide. Operación cancelada.");
+        return;
+      }
+
+      setDeleteAccountMsg("Eliminando…", "small");
+
+      const res = await sb.functions.invoke("delete-account", {
+        body: { confirm_email: typed },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      // Debug útil: te deja ver el JSON real que vuelve de la function
+      console.log("[delete-account] response:", res);
+
+      const { data, error } = res;
+
+      if (error) {
+        setDeleteAccountMsg(error.message || "Error al eliminar la cuenta.", "error");
+        return;
+      }
+
+      if (!data?.ok) {
+        setDeleteAccountMsg("No se pudo completar la eliminación.", "error");
+        return;
+      }
+
+      setDeleteAccountMsg("Cuenta eliminada ✅", "notice");
+
+      try { await sb.auth.signOut(); } catch (_) {}
+      window.location.href = "./index.html";
+    } catch (e) {
+      console.error("[A360] deleteMyAccount error:", e);
+      alert(e?.message || String(e));
+      setDeleteAccountMsg("", "small");
+    } finally {
+      if (deleteAccountBtn) deleteAccountBtn.disabled = false;
+    }
+  }
+
+  // ⬅️ ESTE listener va 1 sola vez, fuera de setDeleteAccountMsg
+  deleteAccountBtn?.addEventListener("click", deleteMyAccount);
+
   // =====================================================
-  (async function init() {
-    syncHeaderUI();
+// Init (optimizado: paralelo + no bloquea quote)
+// =====================================================
+(async function init() {
+  syncHeaderUI();
 
-    const session = await requireAuth();
-    if (!session) return;
+  const session = await requireAuth();
+  if (!session) return;
 
-    if (userEmail) userEmail.textContent = session.user.email;
+  if (userEmail) userEmail.textContent = session.user.email;
 
-    campusEmailCache = session.user.email || "";
-    await loadCampusIdentity();
+  campusEmailCache = session.user.email || "";
+  await loadCampusIdentity();
 
-    // 1) Plan primero (para que canSeePremiumContent funcione)
-    await maybeShowAdminLink();
-    await loadPlanBadge();
-    syncUpgradeUI(planSlug);
-    syncProfileAccountUI();
-    syncHelpWhatsappUI();
+  // ⚡ Disparar tareas en paralelo lo antes posible
+  const adminP = maybeShowAdminLink();
+  const planP = loadPlanBadge();
+  const prefsP = loadUserPreferences();
 
-    // 2) Preferencias (objective/track) desde ficha
-    const prefs = await loadUserPreferences();
-    currentObjective = prefs.objective;
-    currentTrack = prefs.track;
+  // ⚡ Quote no bloquea el resto
+  const quoteP = loadWeeklyQuoteIntoApp();
 
-    localStorage.setItem("A360_OBJECTIVE", currentObjective);
-    syncTrackUI();
+  // Necesitamos plan/admin antes de sincronizar UI de plan
+  await Promise.all([adminP, planP]);
 
-    // 3) Contenido
-    await loadWeeklyQuoteIntoApp();
+  syncUpgradeUI(planSlug);
+  syncProfileAccountUI();
+  syncHelpWhatsappUI();
 
-    const publishedMonth = await getPublishedMonthNumber();
-    await openMonth(publishedMonth, { force: true });
+  // Preferencias (objective/track)
+  const prefs = await prefsP;
+  currentObjective = prefs.objective;
+  currentTrack = prefs.track;
 
-    await loadClasses();
-    await loadRecordedClasses();
+  localStorage.setItem("A360_OBJECTIVE", currentObjective);
+  syncTrackUI();
 
-    syncCampusExperience();
-  })();
+  // Contenido pesado
+  const publishedMonth = await getPublishedMonthNumber();
+  await openMonth(publishedMonth, { force: true });
+
+  await Promise.all([loadClasses(), loadRecordedClasses()]);
+
+  // No es necesario esperar quote, pero si querés asegurar que termine:
+  await quoteP;
+
+  syncCampusExperience();
+})();
 })();
