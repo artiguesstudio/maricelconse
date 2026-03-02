@@ -1,20 +1,16 @@
 <!doctype html>
 <html lang="es">
 <head>
-<link rel="icon" type="image/png" href="/academia360/imagenes/isotipo.png?v=1">
-<link rel="apple-touch-icon" href="/academia360/imagenes/isotipo.png?v=1">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="icon" type="image/png" href="/academia360/imagenes/isotipo.png?v=1">
+  <link rel="apple-touch-icon" href="/academia360/imagenes/isotipo.png?v=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css" />
 
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-
-<link rel="stylesheet" href="./styles.css" />
-  <link rel="icon" href="data:,">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Admin — Academia de Mujeres</title>
-
-  <link rel="stylesheet" href="./styles.css" />
 
   <style>
     /* ===== Admin: Accordion ===== */
@@ -48,74 +44,34 @@
       border-top: 1px solid rgba(0,0,0,.08);
     }
 
-    /* Índice sticky */
-    .admin-index{
-      position: sticky;
-      top: 88px;
-      z-index: 5;
-    }
-    .admin-index a{ text-decoration:none; }
-
-    /* Anclas con header fijo */
     .admin-anchor{ scroll-margin-top: 110px; }
 
-    /* ===== Menú hamburguesa (meses) ===== */
-    .ham-wrap{ position:relative; display:inline-flex; align-items:center; gap:8px; }
-    .ham-btn{
-      width:44px; height:44px; border-radius:14px;
+    /* ===== Admin: Weekly Quote ===== */
+    .wq-preview{
+      display:grid;
+      gap:10px;
+    }
+    .wq-preview img{
+      width:100%;
+      max-height:220px;
+      object-fit:cover;
+      border-radius:14px;
       border:1px solid rgba(0,0,0,.10);
-      background: rgba(255,255,255,.70);
-      display:inline-flex; align-items:center; justify-content:center;
-      cursor:pointer;
+      background: rgba(255,255,255,.6);
     }
-    .ham-btn:active{ transform: translateY(1px); }
-    .ham-icon{ width:18px; height:12px; display:grid; gap:3px; }
-    .ham-icon span{ height:2px; background: rgba(0,0,0,.65); border-radius:999px; display:block; }
-    .ham-menu{
-      position:absolute; top:52px; right:0;
-      min-width: 280px;
-      max-height: 360px;
-      overflow:auto;
-      border-radius: 16px;
-      border:1px solid rgba(0,0,0,.10);
-      background: rgba(255,255,255,.92);
-      box-shadow: 0 14px 40px rgba(0,0,0,.12);
-      padding: 10px;
-      display:none;
-      z-index: 30;
-    }
-    .ham-menu.open{ display:block; }
-    .ham-menu .rowline{
-      display:flex; justify-content:space-between; gap:10px; align-items:center;
-      padding: 8px;
-      border-radius: 12px;
-      cursor:pointer;
-    }
-    .ham-menu .rowline:hover{ background: rgba(0,0,0,.04); }
+
+    /* ===== Active users list ===== */
     .pill{
       font-size:12px; padding:4px 8px; border-radius:999px;
       border:1px solid rgba(0,0,0,.10);
       opacity:.9;
       white-space:nowrap;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
     }
-    .pill.pub{ border-color: rgba(40,140,90,.25); background: rgba(40,140,90,.10); }
-    .pill.sel{ border-color: rgba(20,70,200,.20); background: rgba(20,70,200,.10); }
-  /* ...tu CSS existente... */
-
-  /* ===== Admin: Weekly Quote ===== */
-  .wq-preview{
-    display:grid;
-    gap:10px;
-  }
-  .wq-preview img{
-    width:100%;
-    max-height:220px;
-    object-fit:cover;
-    border-radius:14px;
-    border:1px solid rgba(0,0,0,.10);
-    background: rgba(255,255,255,.6);
-  }
-
+    .pill.ok{ border-color: rgba(40,140,90,.25); background: rgba(40,140,90,.10); }
+    .pill.warn{ border-color: rgba(200,140,20,.25); background: rgba(200,140,20,.10); }
   </style>
 
   <!-- Supabase + config -->
@@ -161,7 +117,7 @@
 
           <div class="banner-text">
             <div class="banner-title">ADMIN</div>
-            <div class="banner-subtitle">GESTIÓN DE RUTINAS</div>
+            <div class="banner-subtitle">GESTIÓN</div>
           </div>
         </div>
       </div>
@@ -212,233 +168,53 @@
       <div id="kpiByPlan" class="list" style="margin-top:10px"></div>
     </div>
 
-    <!-- Rutinas del mes publicado -->
-    <div class="card" style="margin-top:18px">
-      <div class="row" style="justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
-        <div style="min-width:220px">
-          <div class="small" style="opacity:.8">Rutinas</div>
-          <h3 id="activeMonthTitle" style="margin:0">Mes publicado</h3>
-          <div id="activeMonthSubtitle" class="small" style="opacity:.8;margin-top:4px"></div>
-        </div>
-
-        <div class="row" style="gap:10px;flex-wrap:wrap;align-items:center">
-          <button class="btn" id="activePrevBtn" type="button" title="Mes anterior">←</button>
-
-          <div style="position:relative">
-            <button class="btn" id="activeMonthMenuBtn" type="button" title="Elegir mes" aria-haspopup="true" aria-expanded="false">
-              ☰ Meses
-            </button>
-
-            <div id="activeMonthMenu" style="
-              display:none;
-              position:absolute;
-              right:0;
-              top:42px;
-              width:min(520px, 84vw);
-              max-height:360px;
-              overflow:auto;
-              background:rgba(255,255,255,.96);
-              border:1px solid rgba(0,0,0,.12);
-              border-radius:14px;
-              box-shadow:0 18px 60px rgba(0,0,0,.18);
-              padding:10px;
-              z-index:20;
-            ">
-              <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
-                <div class="small" style="opacity:.8">Elegí un mes</div>
-                <button class="btn" id="activeMonthMenuCloseBtn" type="button">Cerrar</button>
-              </div>
-
-              <div class="hr"></div>
-              <div id="activeMonthMenuList" style="display:grid;gap:8px"></div>
-            </div>
-          </div>
-
-          <button class="btn" id="activeNextBtn" type="button" title="Mes siguiente">→</button>
-
-          <select class="input" id="activeObjSel" style="min-width:170px">
-            <option value="fat_loss">Perder peso</option>
-            <option value="muscle_gain">Ganar masa muscular</option>
-          </select>
-
-          <select class="input" id="activeTrackSel" style="min-width:140px">
-            <option value="gym">Gimnasio</option>
-            <option value="home">Casa</option>
-          </select>
-
-          <button class="btn primary" id="activeRefreshBtn" type="button">Refrescar</button>
-        </div>
-      </div>
-
-      <div class="hr"></div>
-      <div id="activeRoutinesMsg" class="small" style="opacity:.85"></div>
-
-      <!-- ✅ Semanas desplegables -->
-      <details class="admin-acc" open style="margin-top:12px">
-        <summary>Semana 1</summary>
-        <div class="acc-body">
-          <div style="overflow:auto">
-            <table style="width:100%;border-collapse:separate;border-spacing:0;min-width:720px">
-              <thead>
-                <tr style="text-align:left">
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Día</th>
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Etiqueta</th>
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Grupo</th>
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Foco</th>
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Items</th>
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Acciones</th>
-                </tr>
-              </thead>
-              <tbody data-week="1">
-                <tr><td colspan="6" class="small" style="padding:12px;opacity:.8">Cargando…</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </details>
-
-      <details class="admin-acc" style="margin-top:10px">
-        <summary>Semana 2</summary>
-        <div class="acc-body">
-          <div style="overflow:auto">
-            <table style="width:100%;border-collapse:separate;border-spacing:0;min-width:720px">
-              <thead>
-                <tr style="text-align:left">
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Día</th>
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Etiqueta</th>
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Grupo</th>
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Foco</th>
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Items</th>
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Acciones</th>
-                </tr>
-              </thead>
-              <tbody data-week="2">
-                <tr><td colspan="6" class="small" style="padding:12px;opacity:.8">Cargando…</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </details>
-
-      <details class="admin-acc" style="margin-top:10px">
-        <summary>Semana 3</summary>
-        <div class="acc-body">
-          <div style="overflow:auto">
-            <table style="width:100%;border-collapse:separate;border-spacing:0;min-width:720px">
-              <thead>
-                <tr style="text-align:left">
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Día</th>
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Etiqueta</th>
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Grupo</th>
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Foco</th>
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Items</th>
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Acciones</th>
-                </tr>
-              </thead>
-              <tbody data-week="3">
-                <tr><td colspan="6" class="small" style="padding:12px;opacity:.8">Cargando…</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </details>
-
-      <details class="admin-acc" style="margin-top:10px">
-        <summary>Semana 4</summary>
-        <div class="acc-body">
-          <div style="overflow:auto">
-            <table style="width:100%;border-collapse:separate;border-spacing:0;min-width:720px">
-              <thead>
-                <tr style="text-align:left">
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Día</th>
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Etiqueta</th>
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Grupo</th>
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Foco</th>
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Items</th>
-                  <th class="small" style="padding:10px;border-bottom:1px solid rgba(0,0,0,.10);opacity:.75">Acciones</th>
-                </tr>
-              </thead>
-              <tbody data-week="4">
-                <tr><td colspan="6" class="small" style="padding:12px;opacity:.8">Cargando…</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </details>
-
-      <div class="hr"></div>
-
-      <h3 style="margin:0">Duplicar mes</h3>
-      <div class="small" style="opacity:.85;margin-top:6px">
-        Copia rutinas del mes origen hacia el <b>mes publicado</b>. Podes copiar un solo contexto (objetivo+modalidad) o todos.
-      </div>
-
-      <div class="form" style="margin-top:10px">
-        <label class="small">Mes origen</label>
-        <select class="input" id="copyMonthSrcSel"></select>
-
-        <label class="small" style="display:flex;gap:10px;align-items:center;margin-top:8px">
-          <input type="checkbox" id="copyMonthAllCtx" />
-          Copiar todos los contextos (4 combinaciones)
-        </label>
-
-        <label class="small" style="display:flex;gap:10px;align-items:center;margin-top:6px">
-          <input type="checkbox" id="copyMonthOverwrite" checked />
-          Sobrescribir destino (recomendado)
-        </label>
-
-        <button class="btn primary" id="copyMonthBtn" type="button" style="margin-top:10px">Duplicar al mes publicado</button>
-        <div id="copyMonthMsg" class="small" style="margin-top:8px"></div>
-      </div>
-    </div>
+    <!-- ✅ Se eliminó el bloque grande de “Rutinas del mes publicado / duplicar mes / semanas” -->
 
     <div class="grid" style="margin-top:18px">
       <!-- LEFT -->
       <div class="card">
 
+        <!-- Frase de la semana -->
+        <details class="admin-acc admin-anchor" id="sec-weekly-quote">
+          <summary>Frase de la semana</summary>
+          <div class="acc-body">
+            <div class="small" style="opacity:.85">
+              Gestioná el contenido que se muestra en la card del campus (app.html).
+            </div>
+
+            <div class="form" style="margin-top:10px">
+              <label class="small" for="wqTitle">Título</label>
+              <input class="input" id="wqTitle" placeholder="Ej: “Disciplina > motivación.”" />
+
+              <label class="small" for="wqCopy">Copy</label>
+              <textarea class="input" id="wqCopy" rows="3" placeholder="Ej: Hacé lo mínimo posible, pero hacelo todos los días."></textarea>
+
+              <label class="small" for="wqPhotoFile">Foto (archivo)</label>
+              <input class="input" id="wqPhotoFile" type="file" accept="image/*" />
+
+              <label class="small" for="wqPhotoUrl">o Foto (URL)</label>
+              <input class="input" id="wqPhotoUrl" placeholder="https://..." />
+
+              <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">
+                <button class="btn primary" id="wqSaveBtn" type="button">Guardar</button>
+                <button class="btn" id="wqRefreshBtn" type="button">Cargar actual</button>
+                <span class="small" id="wqMsg"></span>
+              </div>
+
+              <div class="hr"></div>
+
+              <div class="small" style="opacity:.8">Vista previa</div>
+              <div class="card wq-preview" style="background:rgba(255,255,255,.55)">
+                <div class="small" style="opacity:.8">Frase de la semana</div>
+                <div style="font-weight:800;font-size:18px;line-height:1.2" id="wqPreviewTitle">—</div>
+                <div class="small" style="opacity:.85" id="wqPreviewCopy">—</div>
+                <img id="wqPreviewImg" alt="" loading="lazy" style="display:none" />
+              </div>
+            </div>
+          </div>
+        </details>
+
         <!-- Contenido Premium -->
-<!-- Frase de la semana -->
-<details class="admin-acc admin-anchor" id="sec-weekly-quote">
-  <summary>Frase de la semana</summary>
-  <div class="acc-body">
-
-    <div class="small" style="opacity:.85">
-      Gestioná el contenido que se muestra en la card del campus (app.html).
-    </div>
-
-    <div class="form" style="margin-top:10px">
-      <label class="small" for="wqTitle">Título</label>
-      <input class="input" id="wqTitle" placeholder="Ej: “Disciplina > motivación.”" />
-
-      <label class="small" for="wqCopy">Copy</label>
-      <textarea class="input" id="wqCopy" rows="3" placeholder="Ej: Hacé lo mínimo posible, pero hacelo todos los días."></textarea>
-
-      <label class="small" for="wqPhotoFile">Foto (archivo)</label>
-      <input class="input" id="wqPhotoFile" type="file" accept="image/*" />
-
-      <label class="small" for="wqPhotoUrl">o Foto (URL)</label>
-      <input class="input" id="wqPhotoUrl" placeholder="https://..." />
-
-      <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">
-        <button class="btn primary" id="wqSaveBtn" type="button">Guardar</button>
-        <button class="btn" id="wqRefreshBtn" type="button">Cargar actual</button>
-        <span class="small" id="wqMsg"></span>
-      </div>
-
-      <div class="hr"></div>
-
-      <div class="small" style="opacity:.8">Vista previa</div>
-      <div class="card wq-preview" style="background:rgba(255,255,255,.55)">
-        <div class="small" style="opacity:.8">Frase de la semana</div>
-        <div style="font-weight:800;font-size:18px;line-height:1.2" id="wqPreviewTitle">—</div>
-        <div class="small" style="opacity:.85" id="wqPreviewCopy">—</div>
-        <img id="wqPreviewImg" alt="" loading="lazy" style="display:none" />
-      </div>
-    </div>
-
-  </div>
-</details>
-
         <details class="admin-acc admin-anchor" id="sec-premium">
           <summary>Contenido Premium</summary>
           <div class="acc-body">
@@ -507,9 +283,9 @@
               <input class="input" id="lcCoverUrl" placeholder="https://..." />
 
               <img id="lcCoverPreview"
-                 alt="Portada"
-                 loading="lazy"
-                 style="display:none;width:100%;max-height:220px;object-fit:cover;border-radius:14px;border:1px solid rgba(0,0,0,.10);background: rgba(255,255,255,.6);" />
+                alt="Portada"
+                loading="lazy"
+                style="display:none;width:100%;max-height:220px;object-fit:cover;border-radius:14px;border:1px solid rgba(0,0,0,.10);background: rgba(255,255,255,.6);" />
 
               <label class="small">Link Zoom</label>
               <input class="input" id="lcZoom" placeholder="https://zoom.us/j/..." />
@@ -533,130 +309,121 @@
           </div>
         </details>
 
-        <!-- Selector -->
-        <details class="admin-acc admin-anchor" id="sec-selector">
-          <summary>Rutinas · Selector de contexto</summary>
+        <!-- Cargar ejercicio -->
+        <details class="admin-acc" id="sec-create-exercise">
+          <summary>Cargar ejercicio</summary>
           <div class="acc-body">
-
-            <div class="row" style="align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-              <h3 id="dayTitle" style="margin:0">Día</h3>
-              <span id="ctxBadge" class="badge" style="display:none"></span>
-            </div>
-
-            <div class="small" id="dayMeta">Cargá un día para editar.</div>
-            <div class="hr"></div>
-
-            <h3>Selector</h3>
-            <div class="small">Elegí el contexto para cargar la rutina.</div>
-            <div class="hr"></div>
-
             <div class="form">
-              <label class="small" for="monthSel">Mes</label>
-              <select class="input" id="monthSel"></select>
+              <label class="small" for="exName">Nombre</label>
+              <input class="input" id="exName" placeholder="Ej: Sentadilla goblet" />
 
-              <label class="small" for="objSel">Objetivo</label>
-              <select class="input" id="objSel">
-                <option value="fat_loss">Perder peso</option>
-                <option value="muscle_gain">Ganar masa muscular</option>
+              <label class="small" for="exVideo">Video URL</label>
+              <input class="input" id="exVideo" placeholder="https://..." />
+
+              <label class="small" for="exCues">Cues / técnica</label>
+              <textarea class="input" id="exCues" placeholder="Indicaciones de ejecución"></textarea>
+
+              <label class="small" for="exObjective">Objetivo</label>
+              <select class="input" id="exObjective">
+                <option value="fat_loss">Perder grasa</option>
+                <option value="muscle_gain">Ganar masa</option>
+                <option value="both">Ambos</option>
               </select>
 
-              <label class="small" for="trackSel">Modalidad</label>
-              <select class="input" id="trackSel">
+              <label class="small" for="exTrack">Modalidad</label>
+              <select class="input" id="exTrack">
                 <option value="gym">Gimnasio</option>
                 <option value="home">Casa</option>
+                <option value="both">Ambos</option>
               </select>
 
-       <label class="small" for="weekSel">Semana</label>
-<select class="input" id="weekSel"></select>
-
-              <label class="small" for="daySel">Día</label>
-              <select class="input" id="daySel">
-                <option value="1">Día 1 (Lunes)</option>
-                <option value="2">Día 2 (Martes)</option>
-                <option value="3">Día 3 (Miércoles)</option>
-                <option value="4">Día 4 (Jueves)</option>
-                <option value="5">Día 5 (Viernes)</option>
+              <label class="small" for="exGroup">Grupo muscular</label>
+              <select class="input" id="exGroup">
+                <option value="lower">Tren inferior</option>
+                <option value="upper">Tren superior</option>
+                <option value="abs">Abdominales</option>
+                <option value="activation">Activación</option>
+                <option value="cardio">Cardio</option>
               </select>
 
-              <button class="btn primary" id="loadBtn" type="button">Cargar día</button>
-              <div id="selMsg" class="small"></div>
+              <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap">
+                <button class="btn primary" id="createExerciseBtn" type="button">Guardar ejercicio</button>
+                <span class="small" id="exMsg"></span>
+              </div>
             </div>
-
           </div>
         </details>
 
-        <!-- Biblioteca -->
-        <details class="admin-acc" id="sec-create-exercise">
-  <summary>Cargar ejercicio</summary>
+        <!-- Biblioteca de ejercicios -->
+        <details class="admin-acc" id="sec-exercise-library">
+          <summary>Biblioteca de ejercicios</summary>
+          <div class="acc-body">
+            <div class="row" style="margin-bottom:12px; gap:10px; flex-wrap:wrap">
+              <button class="btn" id="exRefreshBtn" type="button">Actualizar</button>
+              <span class="small" style="opacity:.8">Editar, reorganizar o desactivar ejercicios.</span>
+            </div>
 
-  <div class="acc-body">
-    <div class="form">
-      <label class="small" for="exName">Nombre</label>
-      <input class="input" id="exName" placeholder="Ej: Sentadilla goblet" />
-
-      <label class="small" for="exVideo">Video URL</label>
-      <input class="input" id="exVideo" placeholder="https://..." />
-
-      <label class="small" for="exCues">Cues / técnica</label>
-      <textarea class="input" id="exCues" placeholder="Indicaciones de ejecución"></textarea>
-
-      <label class="small" for="exObjective">Objetivo</label>
-      <select class="input" id="exObjective">
-        <option value="fat_loss">Perder grasa</option>
-        <option value="muscle_gain">Ganar masa</option>
-        <option value="both">Ambos</option>
-      </select>
-
-      <label class="small" for="exTrack">Modalidad</label>
-      <select class="input" id="exTrack">
-        <option value="gym">Gimnasio</option>
-        <option value="home">Casa</option>
-        <option value="both">Ambos</option>
-      </select>
-
-      <label class="small" for="exGroup">Grupo muscular</label>
-      <select class="input" id="exGroup">
-        <option value="lower">Tren inferior</option>
-        <option value="upper">Tren superior</option>
-        <option value="abs">Abdominales</option>
-        <option value="activation">Activación</option>
-        <option value="cardio">Cardio</option>
-      </select>
-
-      <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap">
-        <button class="btn primary" id="createExerciseBtn" type="button">Guardar ejercicio</button>
-        <span class="small" id="exMsg"></span>
-      </div>
-    </div>
-  </div>
-</details>
-
-<details class="admin-acc" id="sec-exercise-library">
-  <summary>Biblioteca de ejercicios</summary>
-
-  <div class="acc-body">
-    <div class="row" style="margin-bottom:12px; gap:10px; flex-wrap:wrap">
-      <button class="btn" id="exRefreshBtn" type="button">Actualizar</button>
-      <span class="small" style="opacity:.8">Editar, reorganizar o desactivar ejercicios.</span>
-    </div>
-
-    <div id="exList" class="list"></div>
-  </div>
-</details>
+            <div id="exList" class="list"></div>
+          </div>
+        </details>
 
       </div>
 
       <!-- RIGHT -->
       <div class="card">
 
-        <!-- Editor -->
+        <!-- ✅ Usuarios con cuentas activas -->
+        <details class="admin-acc admin-anchor" id="sec-active-users" open>
+          <summary>Usuarios activos</summary>
+          <div class="acc-body">
+            <div class="row" style="justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
+              <div class="small" style="opacity:.85">Listado de cuentas con plan activo (status=active).</div>
+              <button class="btn primary" id="activeUsersRefreshBtn" type="button">Refrescar</button>
+            </div>
+
+            <div class="form" style="margin-top:10px">
+              <label class="small">Filtrar por plan (opcional)</label>
+              <select class="input" id="activeUsersPlanSel">
+                <option value="">(todos)</option>
+              </select>
+              <div id="activeUsersMsg" class="small" style="margin-top:8px"></div>
+            </div>
+
+            <div id="activeUsersList" class="list" style="margin-top:10px"></div>
+          </div>
+        </details>
+
+        <!-- Editor del día (ahora orientado a Alumno) -->
         <details class="admin-acc admin-anchor" id="sec-editor">
           <summary>Editor del día</summary>
           <div class="acc-body">
 
+            <div class="card" style="background:rgba(255,255,255,.55)">
+              <div class="small" style="opacity:.85">Día a editar</div>
+              <div class="small" id="editorHint" style="opacity:.8;margin-top:6px">
+                Primero buscá un alumno y elegí mes.
+              </div>
+
+              <div class="form" style="margin-top:10px">
+                <label class="small">Semana</label>
+                <select class="input" id="weekSel"></select>
+
+                <label class="small">Día</label>
+                <select class="input" id="daySel"></select>
+
+                <button class="btn primary" id="loadBtn" type="button" style="margin-top:10px">Cargar día</button>
+                <div id="selMsg" class="small" style="margin-top:8px"></div>
+              </div>
+            </div>
+
             <div id="dayPanel" style="display:none"></div>
 
-            <div id="dayEdit" style="display:none">
+            <div id="dayEdit" style="display:none; margin-top:12px">
+
+              <h3 id="dayTitle" style="margin:0">Día</h3>
+              <div class="small" id="dayMeta" style="opacity:.85;margin-top:6px"></div>
+
+              <div class="hr"></div>
 
               <h3>Metadata del día</h3>
               <div class="form">
@@ -674,14 +441,6 @@
 
                 <button class="btn primary" id="saveDayMetaBtn" type="button">Guardar metadata</button>
                 <div id="metaMsg" class="small"></div>
-              </div>
-
-              <div class="hr"></div>
-
-              <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">
-                <button class="btn" id="seedOverrideBtn" type="button">Copiar global → alumno (este día)</button>
-                <button class="btn" id="clearOverrideDayBtn" type="button">Restaurar global (este día)</button>
-                <span class="small" id="overrideDayMsg"></span>
               </div>
 
               <div class="hr"></div>
@@ -736,45 +495,39 @@
               <div class="small" id="studentStatusOut"></div>
               <div class="small" id="studentPaidOut"></div>
 
-              <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">
-                <button class="btn primary" id="editStudentModeBtn" type="button">Editar rutina de este alumno</button>
-                <button class="btn" id="exitStudentModeBtn" type="button" style="display:none">Volver a global</button>
-                <span class="small" id="studentModeMsg"></span>
+              <div class="hr"></div>
+
+              <div class="small" style="opacity:.85">Rutina personalizada</div>
+
+              <div class="form" style="margin-top:10px">
+                <label class="small">Mes a editar</label>
+                <select class="input" id="stuMonthSel"></select>
+
+                <div class="small" style="opacity:.8;margin-top:8px" id="stuPrefLine">Objetivo/Modalidad: —</div>
+
+                <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">
+                  <button class="btn primary" id="editStudentModeBtn" type="button">Editar rutina de este alumno</button>
+                  <button class="btn" id="exitStudentModeBtn" type="button" style="display:none">Salir de edición</button>
+
+                  <button class="btn primary" id="saveSendRoutineBtn" type="button" style="display:none">
+                    Guardar y enviar rutina
+                  </button>
+                </div>
+
+                <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">
+                  <span class="small" id="studentModeMsg"></span>
+                  <span class="small" id="saveSendRoutineMsg"></span>
+                </div>
               </div>
 
               <div class="hr"></div>
-
-              <div class="small" style="opacity:.8">Override de rutina (V1)</div>
-
-              <label class="small" style="margin-top:10px">Objetivo forzado (opcional)</label>
-              <select class="input" id="ovObjective">
-                <option value="">(sin override)</option>
-                <option value="fat_loss">Perder peso</option>
-                <option value="muscle_gain">Ganar masa</option>
-              </select>
-
-              <label class="small" style="margin-top:10px">Modalidad forzada (opcional)</label>
-              <select class="input" id="ovTrack">
-                <option value="">(sin override)</option>
-                <option value="gym">Gimnasio</option>
-                <option value="home">Casa</option>
-              </select>
-
-              <label class="small" style="margin-top:10px">Motivo (opcional)</label>
-              <textarea class="input" id="ovReason" rows="3" placeholder="Ej: lesión hombro, adaptar empujes, etc."></textarea>
-
-              <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">
-                <button class="btn primary" id="saveOverrideBtn" type="button">Guardar override</button>
-                <button class="btn" id="clearOverrideStudentBtn" type="button">Desactivar override</button>
-                <span class="small" id="ovMsg"></span>
-              </div>
 
               <button class="btn" id="openStudentCaseBtn" type="button">Abrir caso</button>
             </div>
 
             <div class="hr"></div>
 
-            <h3 style="margin:0">Rutina activa del alumno</h3>
+            <h3 style="margin:0">Rutina del mes seleccionado</h3>
             <div class="small" id="stuRoutineMeta" style="margin-top:6px;opacity:.8"></div>
             <div id="stuRoutineMsg" class="small" style="margin-top:8px"></div>
             <div id="stuRoutineBox" style="margin-top:10px"></div>
@@ -805,39 +558,31 @@
   </footer>
 
   <script>
-    // Año footer
     const y = document.getElementById("year");
     if (y) y.textContent = new Date().getFullYear();
 
-    // Header scroll
     const header = document.getElementById("siteHeader");
     const onScroll = () => {
+      if (!header) return;
       if (window.scrollY > 16) header.classList.add("is-scrolled");
       else header.classList.remove("is-scrolled");
     };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-
-    // UX: si navegás por #hash, abrimos el acordeón correspondiente (solo por interacción)
-    const openByHash = () => {
-      const id = (location.hash || "").replace("#", "");
-      if (!id) return;
-      const el = document.getElementById(id);
-      if (el && el.tagName === "DETAILS") el.open = true;
-    };
-    window.addEventListener("hashchange", openByHash);
   </script>
 
+  <!-- Mantengo tu UX entre “Cargar ejercicio” y “Biblioteca” -->
   <script>
-  document.querySelectorAll('#sec-create-exercise, #sec-exercise-library').forEach((acc) => {
-    acc.addEventListener('toggle', () => {
-      if (!acc.open) return;
-      document.querySelectorAll('#sec-create-exercise, #sec-exercise-library').forEach((other) => {
-        if (other !== acc) other.open = false;
+    document.querySelectorAll('#sec-create-exercise, #sec-exercise-library').forEach((acc) => {
+      acc.addEventListener('toggle', () => {
+        if (!acc.open) return;
+        document.querySelectorAll('#sec-create-exercise, #sec-exercise-library').forEach((other) => {
+          if (other !== acc) other.open = false;
+        });
       });
     });
-  });
-</script>
-<script src="./loader.js"></script>
+  </script>
+
+  <script src="./loader.js"></script>
 </body>
 </html>

@@ -1,5 +1,6 @@
-// admin.js — limpio + robusto
-// KPIs + editor de días + biblioteca ejercicios + rutinas activas + alumnos + premium + frase de la semana
+// admin.js — simplificado a flujo manual por alumna
+// Mantiene: KPIs, Frase semanal, Premium, Ejercicios, Editor del día, Alumnos, Alertas
+// Agrega: Usuarios activos + Mes a editar + Guardar y enviar rutina + no colapsar biblioteca al editar
 (() => {
   "use strict";
 
@@ -8,7 +9,7 @@
   // =====================================================
   if (!window.sb) {
     console.error("[ADMIN] sb no existe. Revisá supabaseClient.js y el orden de scripts.");
-    alert("Supabase client (sb) no está cargado. Revisá el orden de scripts.");
+    alert("Supabase client (sb) no está cargado.");
     return;
   }
   const sb = window.sb;
@@ -29,8 +30,12 @@
 
   function setMsg(el, text, kind = "small") {
     if (!el) return;
-    el.className = kind; // "notice" | "error" | "small"
+    el.className = kind;
     el.textContent = text || "";
+  }
+
+  function norm(v) {
+    return String(v ?? "").trim().toLowerCase();
   }
 
   function fmtARS(n) {
@@ -44,87 +49,30 @@
     }).format(v);
   }
 
-  function monthNameEs(m) {
-    const names = [
-      "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-      "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
-    ];
-    return names[m - 1] || `Mes ${m}`;
-  }
-
   const objLabel = (v) => (v === "muscle_gain" ? "Ganar masa" : "Perder peso");
   const trackLabel = (v) => (v === "home" ? "Casa" : "Gimnasio");
 
-  const AR_TZ = "America/Argentina/Buenos_Aires";
-
-// Convierte "YYYY-MM-DDTHH:mm" (datetime-local) a ISO UTC interpretándolo como hora AR.
-// Importante: NO depende de la TZ del dispositivo.
-function dtLocalArgentinaToIso(dtLocal) {
-  const v = String(dtLocal || "").trim();
-  const m = v.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
-  if (!m) throw new Error("Fecha/hora inválida (datetime-local).");
-
-  const year = Number(m[1]);
-  const month = Number(m[2]);
-  const day = Number(m[3]);
-  const hour = Number(m[4]);
-  const minute = Number(m[5]);
-  const second = Number(m[6] || 0);
-
-  // Creamos un string con offset AR fijo "-03:00"
-  // (evita que el Date() use la TZ del dispositivo).
-  const isoWithOffset = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:${String(second).padStart(2, "0")}-03:00`;
-  const d = new Date(isoWithOffset);
-  if (Number.isNaN(d.getTime())) throw new Error("No pude interpretar fecha/hora AR.");
-  return d.toISOString();
-}
-
-// Mes a partir del string "YYYY-MM-DDTHH:mm" (no depende de TZ)
-function monthFromDtLocal(dtLocal) {
-  const v = String(dtLocal || "").trim();
-  const m = Number(v.slice(5, 7));
-  return (m >= 1 && m <= 12) ? m : null;
-}
-
-// Formatea un ISO a “Argentina” (para listados), sin depender de TZ del dispositivo.
-function fmtArgentinaDateTime(iso) {
-  try {
-    const d = new Date(iso);
-    return new Intl.DateTimeFormat("es-AR", {
-      timeZone: AR_TZ,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(d);
-  } catch (_) {
-    return String(iso || "");
+  function buildMailto(to, subject, lines) {
+    const body = encodeURIComponent(lines.join("\n"));
+    return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${body}`;
   }
-}
 
-async function uploadLiveCoverIfAny() {
-  const file = lcCoverFile?.files?.[0];
-  if (!file) return (lcCoverUrl?.value || "").trim() || null;
+  function safeOpenMailto(mailto) {
+    const opened = window.open(mailto, "_blank");
+    if (!opened) window.location.href = mailto;
+  }
 
-  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-  const path = `live/${Date.now()}-${Math.random().toString(16).slice(2)}.${ext}`;
-
-  const up = await sb.storage.from("class_covers").upload(path, file, {
-    cacheControl: "3600",
-    upsert: false,
-    contentType: file.type || "image/jpeg",
-  });
-  if (up.error) throw new Error(up.error.message);
-
-  const pub = sb.storage.from("class_covers").getPublicUrl(path);
-  return pub.data?.publicUrl || null;
-}
+  function normalizeTrack(v) {
+    const raw = norm(v);
+    if (raw === "gym" || raw === "gimnasio") return "gym";
+    if (raw === "home" || raw === "casa") return "home";
+    return null;
+  }
 
   // =====================================================
-  // Cache meses
+  // Elements: Header + Auth
   // =====================================================
-  const monthTitles = {}; // { [month_number]: title }
+  const logoutBtn = $("logoutBtn");
 
   // =====================================================
   // Elements: KPIs
@@ -139,23 +87,25 @@ async function uploadLiveCoverIfAny() {
   const kpiByPlan = $("kpiByPlan");
 
   // =====================================================
-  // Elements: selector/editor
+  // Elements: Active Users
   // =====================================================
-  const monthSel = $("monthSel");
-  const objSel = $("objSel");
-  const trackSel = $("trackSel");
+  const activeUsersRefreshBtn = $("activeUsersRefreshBtn");
+  const activeUsersPlanSel = $("activeUsersPlanSel");
+  const activeUsersMsg = $("activeUsersMsg");
+  const activeUsersList = $("activeUsersList");
+
+  // =====================================================
+  // Elements: Editor del día
+  // =====================================================
+  const editorHint = $("editorHint");
   const weekSel = $("weekSel");
   const daySel = $("daySel");
   const loadBtn = $("loadBtn");
   const selMsg = $("selMsg");
 
-  const logoutBtn = $("logoutBtn");
-
   const dayTitle = $("dayTitle");
   const dayMeta = $("dayMeta");
-  const ctxBadge = $("ctxBadge");
   const dayEdit = $("dayEdit");
-  const dayPanel = $("dayPanel");
 
   const mgSel = $("mgSel");
   const focusInp = $("focusInp");
@@ -172,49 +122,21 @@ async function uploadLiveCoverIfAny() {
   const refreshItemsBtn = $("refreshItemsBtn");
 
   // =====================================================
-  // Biblioteca ejercicios
+  // Elements: Ejercicios
   // =====================================================
-  const exTrack = $("exTrack");
-  const exGroup = $("exGroup");
   const exName = $("exName");
   const exVideo = $("exVideo");
   const exCues = $("exCues");
+  const exObjective = $("exObjective");
+  const exTrack = $("exTrack");
+  const exGroup = $("exGroup");
   const createExerciseBtn = $("createExerciseBtn");
   const exMsg = $("exMsg");
   const exRefreshBtn = $("exRefreshBtn");
   const exList = $("exList");
-  const exObjective = $("exObjective");
 
   // =====================================================
-  // Rutinas activas
-  // =====================================================
-  const activeRefreshBtn = $("activeRefreshBtn");
-  const activeObjSel = $("activeObjSel");
-  const activeTrackSel = $("activeTrackSel");
-  const activeMonthTitle = $("activeMonthTitle");
-  const activeMonthSubtitle = $("activeMonthSubtitle");
-  const activeRoutinesMsg = $("activeRoutinesMsg");
-
-  // Fallback legacy table
-  const activeRoutinesTbody = $("activeRoutinesTbody");
-
-  // Duplicar mes
-  const copyMonthSrcSel = $("copyMonthSrcSel");
-  const copyMonthAllCtx = $("copyMonthAllCtx");
-  const copyMonthOverwrite = $("copyMonthOverwrite");
-  const copyMonthBtn = $("copyMonthBtn");
-  const copyMonthMsg = $("copyMonthMsg");
-
-  // Menú meses
-  const activeMonthMenuBtn = $("activeMonthMenuBtn");
-  const activeMonthMenu = $("activeMonthMenu");
-  const activeMonthMenuList = $("activeMonthMenuList");
-  const activeMonthMenuCloseBtn = $("activeMonthMenuCloseBtn");
-  const activePrevBtn = $("activePrevBtn");
-  const activeNextBtn = $("activeNextBtn");
-
-  // =====================================================
-  // Alumnos + alertas
+  // Elements: Alumnos
   // =====================================================
   const studentEmail = $("studentEmail");
   const findStudentBtn = $("findStudentBtn");
@@ -224,24 +146,31 @@ async function uploadLiveCoverIfAny() {
   const studentPlanOut = $("studentPlanOut");
   const studentStatusOut = $("studentStatusOut");
   const studentPaidOut = $("studentPaidOut");
-  const openStudentCaseBtn = $("openStudentCaseBtn");
 
-  const ovObjective = $("ovObjective");
-  const ovTrack = $("ovTrack");
-  const ovReason = $("ovReason");
-  const saveOverrideBtn = $("saveOverrideBtn");
-  const clearOverrideStudentBtn = $("clearOverrideStudentBtn");
-  const ovMsg = $("ovMsg");
+  const stuMonthSel = $("stuMonthSel");
+  const stuPrefLine = $("stuPrefLine");
+
+  const editStudentModeBtn = $("editStudentModeBtn");
+  const exitStudentModeBtn = $("exitStudentModeBtn");
+  const studentModeMsg = $("studentModeMsg");
+
+  const saveSendRoutineBtn = $("saveSendRoutineBtn");
+  const saveSendRoutineMsg = $("saveSendRoutineMsg");
+
+  const openStudentCaseBtn = $("openStudentCaseBtn");
 
   const stuRoutineMeta = $("stuRoutineMeta");
   const stuRoutineMsg = $("stuRoutineMsg");
   const stuRoutineBox = $("stuRoutineBox");
 
+  // =====================================================
+  // Elements: Alertas
+  // =====================================================
   const alertsMsg = $("alertsMsg");
   const alertsList = $("alertsList");
 
   // =====================================================
-  // Premium: clases
+  // Premium
   // =====================================================
   const rcMonth = $("rcMonth");
   const rcDate = $("rcDate");
@@ -270,28 +199,8 @@ async function uploadLiveCoverIfAny() {
   const lcCoverUrl = $("lcCoverUrl");
   const lcCoverPreview = $("lcCoverPreview");
 
-
   // =====================================================
-  // State
-  // =====================================================
-  const state = {
-    month: null,
-    week: null,
-    day: null,
-    objective: "fat_loss",
-    track: "gym",
-    week_id: null,
-    day_id: null,
-    day_label: null,
-  };
-
-  let foundUserId = null;
-  let activeMonthOverride = null; // number|null
-  let activeMonthsList = []; // [{month_number,title,published:boolean}]
-
-  // =====================================================
-  // Weekly Quote (Frase de la semana) — tabla weekly_quote
-  // Columnas: id(int), title(text), phrase(text), image_url(text), updated_at(timestamptz)
+  // Weekly Quote Admin
   // =====================================================
   function initWeeklyQuoteAdmin() {
     const elTitle = $("wqTitle");
@@ -306,12 +215,11 @@ async function uploadLiveCoverIfAny() {
     const pvPhrase = $("wqPreviewCopy");
     const pvImg = $("wqPreviewImg");
 
-    // Si esta sección no está en el HTML, no rompemos el admin
     if (!elTitle || !elPhrase || !btnSave || !btnRefresh) return;
 
     const TABLE = "weekly_quote";
     const SINGLETON_ID = 1;
-    const BUCKET = "class_covers"; // ✅ ya lo usás en Premium
+    const BUCKET = "class_covers";
     const FOLDER = "weekly_quote";
 
     const setLocalMsg = (t, ok = false) => {
@@ -412,7 +320,6 @@ async function uploadLiveCoverIfAny() {
     btnRefresh.addEventListener("click", load);
     btnSave.addEventListener("click", save);
 
-    // Preview por URL en vivo
     elUrl.addEventListener("input", () => {
       updatePreview({
         title: elTitle.value,
@@ -421,7 +328,6 @@ async function uploadLiveCoverIfAny() {
       });
     });
 
-    // Preview si elige archivo (sin subir todavía)
     elFile?.addEventListener("change", () => {
       const f = elFile.files?.[0];
       if (!f) return;
@@ -435,6 +341,99 @@ async function uploadLiveCoverIfAny() {
 
     load();
   }
+
+  // =====================================================
+  // State
+  // =====================================================
+  const state = {
+    mode: "idle", // idle | student
+    user_id: null,
+    email: null,
+    month: null,
+    objective: "fat_loss",
+    track: "gym",
+    week_id: null,
+    day_id: null,
+    week_number: null,
+    day_number: null,
+  };
+
+  function setStudentModeMsg(t, kind = "small") {
+    if (!studentModeMsg) return;
+    studentModeMsg.className = kind;
+    studentModeMsg.textContent = t || "";
+  }
+
+  function setSaveSendMsg(t, kind = "small") {
+    if (!saveSendRoutineMsg) return;
+    saveSendRoutineMsg.className = kind;
+    saveSendRoutineMsg.textContent = t || "";
+  }
+
+  function setEditorHint(t) {
+    if (!editorHint) return;
+    editorHint.textContent = t || "";
+  }
+
+  function enterStudentMode() {
+    state.mode = "student";
+    setStudentModeMsg("Modo alumno ✅ Editando rutina personalizada.", "notice");
+
+    if (exitStudentModeBtn) exitStudentModeBtn.style.display = "inline-flex";
+    if (editStudentModeBtn) editStudentModeBtn.style.display = "none";
+    if (saveSendRoutineBtn) saveSendRoutineBtn.style.display = "inline-flex";
+
+    setEditorHint("Elegí semana/día y cargá ejercicios para este mes.");
+  }
+
+  function exitStudentMode() {
+    state.mode = "idle";
+    state.user_id = null;
+    state.email = null;
+    state.month = null;
+    state.week_id = null;
+    state.day_id = null;
+    state.week_number = null;
+    state.day_number = null;
+
+    if (exitStudentModeBtn) exitStudentModeBtn.style.display = "none";
+    if (editStudentModeBtn) editStudentModeBtn.style.display = "inline-flex";
+    if (saveSendRoutineBtn) saveSendRoutineBtn.style.display = "none";
+
+    setStudentModeMsg("");
+    setSaveSendMsg("");
+    setEditorHint("Primero buscá un alumno y elegí mes.");
+
+    if (dayEdit) dayEdit.style.display = "none";
+    if (itemsList) itemsList.innerHTML = "";
+    if (weekSel) weekSel.innerHTML = "";
+    if (daySel) daySel.innerHTML = "";
+  }
+
+  // =====================================================
+  // Auth / Admin
+  // =====================================================
+  async function ensureAdminSession() {
+    const { data: sdata } = await sb.auth.getSession();
+    if (!sdata?.session) {
+      window.location.href = "./admin-login.html";
+      return false;
+    }
+
+    const { data: isAdmin } = await sb.rpc("is_admin");
+    if (isAdmin !== true) {
+      alert("Tu usuario no tiene permisos admin.");
+      window.location.href = "./index.html";
+      return false;
+    }
+
+    return true;
+  }
+
+  logoutBtn?.addEventListener("click", async () => {
+    try { await sb.auth.signOut(); } catch (_) {}
+    window.location.href = "./index.html";
+  });
 
   // =====================================================
   // KPIs
@@ -495,430 +494,114 @@ async function uploadLiveCoverIfAny() {
     }
   }
 
-  // =====================================================
-  // Auth / Admin
-  // =====================================================
-  async function ensureAdminSession() {
-    const { data: sdata, error: sErr } = await sb.auth.getSession();
-    if (sErr) console.error("[ADMIN] getSession error:", sErr);
-
-    if (!sdata?.session) {
-      window.location.href = "./admin-login.html";
-      return false;
-    }
-
-    const { data: isAdmin, error: aErr } = await sb.rpc("is_admin");
-    if (aErr) console.error("[ADMIN] is_admin error:", aErr);
-
-    if (isAdmin !== true) {
-      alert("Tu usuario no tiene permisos admin.");
-      window.location.href = "./index.html";
-      return false;
-    }
-
-    return true;
-  }
+  kpiRefreshBtn?.addEventListener("click", () => loadKPIs().catch(console.error));
 
   // =====================================================
-  // Mes publicado + menú meses
+  // Usuarios activos
   // =====================================================
-  async function getPublishedMonthNumber() {
+  async function loadPlansIntoActiveUsersFilter() {
+    if (!activeUsersPlanSel) return;
+
     const { data, error } = await sb
-      .from("month_release")
-      .select("month_number, release_at")
-      .eq("is_published", true)
-      .lte("release_at", new Date().toISOString())
-      .order("release_at", { ascending: false })
-      .limit(1);
+      .from("plans")
+      .select("slug,name")
+      .order("id", { ascending: true });
 
-    if (error) throw new Error(error.message);
+    if (error) return;
 
-    const row = data?.[0];
-    if (!row?.month_number) throw new Error("No hay mes publicado en month_release.");
-
-    return Number(row.month_number);
+    const opts = (data || []).map((p) => `<option value="${esc(p.slug)}">${esc(p.name)} (${esc(p.slug)})</option>`).join("");
+    activeUsersPlanSel.innerHTML = `<option value="">(todos)</option>` + opts;
   }
 
-  async function getActiveMonthNumber() {
-    if (Number.isFinite(activeMonthOverride)) return Number(activeMonthOverride);
-    return await getPublishedMonthNumber();
-  }
+  async function loadActiveUsers() {
+    if (!activeUsersList || !activeUsersMsg) return;
 
-  async function buildActiveMonthMenu() {
-    if (!activeMonthMenuList) return;
+    setMsg(activeUsersMsg, "Cargando…", "small");
+    activeUsersList.innerHTML = "";
 
-    const { data: pm, error: pmErr } = await sb
-      .from("program_months")
-      .select("month_number,title")
-      .order("month_number", { ascending: true });
+    const planFilter = (activeUsersPlanSel?.value || "").trim();
 
-    if (pmErr) throw new Error(pmErr.message);
+    // 1) user_plan (embed plans por FK plan_id)
+    let q = sb
+      .from("user_plan")
+      .select("user_id, status, paid_through, plan_id, plans:plan_id (slug,name)")
+      .eq("status", "active")
+      .order("updated_at", { ascending: false })
+      .limit(200);
 
-    const { data: mr, error: mrErr } = await sb
-      .from("month_release")
-      .select("month_number")
-      .eq("is_published", true);
+    const { data: plansRows, error: upErr } = await q;
+    if (upErr) {
+      setMsg(activeUsersMsg, upErr.message, "error");
+      return;
+    }
 
-    if (mrErr) throw new Error(mrErr.message);
+    let rows = plansRows || [];
+    if (planFilter) rows = rows.filter((r) => String(r.plans?.slug || "") === planFilter);
 
-    const pubSet = new Set((mr || []).map((x) => Number(x.month_number)));
+    const userIds = rows.map((r) => r.user_id).filter(Boolean);
+    if (!userIds.length) {
+      setMsg(activeUsersMsg, "No hay usuarios activos con ese filtro.", "notice");
+      return;
+    }
 
-    activeMonthsList = (pm || []).map((x) => ({
-      month_number: Number(x.month_number),
-      title: x.title,
-      published: pubSet.has(Number(x.month_number)),
-    }));
+    // 2) profiles para email (no hay FK directo desde user_plan, así que 2 queries)
+    const { data: profRows, error: pfErr } = await sb
+      .from("profiles")
+      .select("user_id,email,full_name")
+      .in("user_id", userIds);
 
-    const current = await getActiveMonthNumber();
+    if (pfErr) {
+      setMsg(activeUsersMsg, `No pude cargar profiles: ${pfErr.message}`, "error");
+      return;
+    }
 
-    activeMonthMenuList.innerHTML = activeMonthsList.map((m) => {
-      const pills = [
-        m.published ? `<span class="pill pub">Publicado</span>` : "",
-        m.month_number === current ? `<span class="pill sel">Viendo</span>` : "",
-      ].filter(Boolean).join(" ");
+    const profById = {};
+    for (const p of (profRows || [])) profById[p.user_id] = p;
+
+    setMsg(activeUsersMsg, `Activos: ${rows.length}`, "small");
+
+    activeUsersList.innerHTML = rows.map((r) => {
+      const p = profById[r.user_id] || {};
+      const email = p.email || "—";
+      const name = p.full_name ? ` · ${esc(p.full_name)}` : "";
+      const planName = r.plans?.name || "Plan";
+      const planSlug = r.plans?.slug || "—";
+      const paid = r.paid_through ? new Date(r.paid_through).toLocaleDateString("es-AR") : "—";
 
       return `
-        <div class="rowline" data-set-active-month="${esc(m.month_number)}">
-          <div>
-            <div><b>Mes ${esc(m.month_number)}</b> <span class="small" style="opacity:.8">— ${esc(m.title || "")}</span></div>
+        <div class="item" style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+          <div style="min-width:260px">
+            <div><b>${esc(email)}</b><span class="small" style="opacity:.8">${name}</span></div>
+            <div class="small" style="opacity:.9">${esc(planName)} (${esc(planSlug)}) · Pago hasta: ${esc(paid)}</div>
           </div>
-          <div style="display:flex;gap:8px;align-items:center">${pills}</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn primary" type="button" data-open-student="${esc(email)}">Abrir</button>
+          </div>
         </div>
       `;
     }).join("");
 
-    activeMonthMenuList.querySelectorAll("[data-set-active-month]").forEach((row) => {
-      row.addEventListener("click", async () => {
-        const m = Number(row.getAttribute("data-set-active-month"));
-        if (!m) return;
-
-        activeMonthOverride = m;
-
-        if (activeMonthMenu) activeMonthMenu.style.display = "none";
-        if (activeMonthMenuBtn) activeMonthMenuBtn.setAttribute("aria-expanded", "false");
-
-        await loadActiveRoutinesTable();
-        await buildActiveMonthMenu().catch(() => {});
-      });
-    });
-  }
-
-  function wireActiveMonthMenu() {
-    if (!activeMonthMenuBtn || !activeMonthMenu) return;
-
-    const openMenu = async () => {
-      activeMonthMenu.style.display = "block";
-      activeMonthMenuBtn.setAttribute("aria-expanded", "true");
-      await buildActiveMonthMenu().catch(console.error);
-    };
-
-    const closeMenu = () => {
-      activeMonthMenu.style.display = "none";
-      activeMonthMenuBtn.setAttribute("aria-expanded", "false");
-    };
-
-    activeMonthMenuBtn.addEventListener("click", async (e) => {
-      e.preventDefault();
-      const isOpen = activeMonthMenu.style.display === "block";
-      if (isOpen) closeMenu();
-      else await openMenu();
-    });
-
-    activeMonthMenuCloseBtn?.addEventListener("click", (e) => {
-      e.preventDefault();
-      closeMenu();
-    });
-
-    document.addEventListener("click", (e) => {
-      if (!activeMonthMenu || !activeMonthMenuBtn) return;
-      const inside = activeMonthMenu.contains(e.target) || activeMonthMenuBtn.contains(e.target);
-      if (!inside) closeMenu();
-    });
-
-    activePrevBtn?.addEventListener("click", async () => {
-      const current = await getActiveMonthNumber();
-      const idx = activeMonthsList.findIndex((x) => x.month_number === current);
-      if (idx > 0) {
-        activeMonthOverride = activeMonthsList[idx - 1].month_number;
-        await loadActiveRoutinesTable();
-        await buildActiveMonthMenu().catch(() => {});
-      }
-    });
-
-    activeNextBtn?.addEventListener("click", async () => {
-      const current = await getActiveMonthNumber();
-      const idx = activeMonthsList.findIndex((x) => x.month_number === current);
-      if (idx >= 0 && idx < activeMonthsList.length - 1) {
-        activeMonthOverride = activeMonthsList[idx + 1].month_number;
-        await loadActiveRoutinesTable();
-        await buildActiveMonthMenu().catch(() => {});
-      }
-    });
-  }
-
-  // =====================================================
-  // Rutinas activas — render por semanas
-  // =====================================================
-  function getWeekTbody(weekNumber) {
-    return document.querySelector(`tbody[data-week="${weekNumber}"]`);
-  }
-  function hasWeekVisor() {
-    return !!getWeekTbody(1);
-  }
-  function setWeekPlaceholder(text) {
-    for (let w = 1; w <= 4; w++) {
-      const tb = getWeekTbody(w);
-      if (!tb) continue;
-      tb.innerHTML = `<tr><td colspan="6" class="small" style="padding:12px;opacity:.8">${esc(text)}</td></tr>`;
-    }
-  }
-  function clearLegacyPlaceholder(text) {
-    if (!activeRoutinesTbody) return;
-    activeRoutinesTbody.innerHTML = `<tr><td colspan="7" class="small" style="padding:12px;opacity:.8">${esc(text)}</td></tr>`;
-  }
-
-  function wireActiveEditButtons(month, objective, track) {
-    document.querySelectorAll('button[data-active-edit="1"]').forEach((btn) => {
+    activeUsersList.querySelectorAll("[data-open-student]").forEach((btn) => {
       btn.addEventListener("click", async () => {
-        const w = btn.getAttribute("data-week");
-        const d = btn.getAttribute("data-day");
-        if (!w || !d) return;
-
-        if (monthSel) monthSel.value = String(month);
-        if (objSel) objSel.value = objective;
-        if (trackSel) trackSel.value = track;
-        if (weekSel) weekSel.value = String(w);
-        if (daySel) daySel.value = String(d);
-
-        const secSelector = document.getElementById("sec-selector");
-        const secEditor = document.getElementById("sec-editor");
-
-        if (secSelector?.tagName === "DETAILS") secSelector.open = true;
-        if (secEditor?.tagName === "DETAILS") secEditor.open = true;
-
-        setMsg(selMsg, "Cargando día…", "small");
-
-        try {
-          const ok = await loadDay();
-          if (ok) dayTitle?.scrollIntoView({ behavior: "smooth", block: "start" });
-        } catch (e) {
-          console.error(e);
-          setMsg(selMsg, e?.message || String(e), "error");
-          alert(e?.message || String(e));
-        }
-      }, { once: true });
+        const email = btn.getAttribute("data-open-student");
+        if (!email) return;
+        if (studentEmail) studentEmail.value = email;
+        await findStudent(email);
+        const secAlu = document.getElementById("sec-alumnos");
+        if (secAlu?.tagName === "DETAILS") secAlu.open = true;
+        studentCard?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
     });
   }
 
-  async function loadActiveRoutinesTable() {
-    if (!activeObjSel || !activeTrackSel) return;
-
-    const month = await getActiveMonthNumber();
-    const objective = activeObjSel.value || "fat_loss";
-    const track = activeTrackSel.value || "gym";
-
-    const title = monthTitles[month] || "";
-    if (activeMonthTitle) activeMonthTitle.textContent = `Mes ${month} — ${monthNameEs(month)}`;
-    if (activeMonthSubtitle) {
-      activeMonthSubtitle.textContent = `${title ? `${title} · ` : ""}${objLabel(objective)} · ${trackLabel(track)}`;
-    }
-
-    if (activeRoutinesMsg) setMsg(activeRoutinesMsg, "Cargando…", "small");
-    if (hasWeekVisor()) setWeekPlaceholder("Cargando…");
-    else clearLegacyPlaceholder("Cargando…");
-
-    try {
-      const { data: weeksRows, error: wErr } = await sb
-        .from("weeks")
-        .select("id, week_number")
-        .eq("month_number", month)
-        .order("week_number", { ascending: true });
-
-      if (wErr) throw new Error(wErr.message);
-
-      if (!weeksRows?.length) {
-        if (activeRoutinesMsg) setMsg(activeRoutinesMsg, "No hay semanas para este mes.", "notice");
-        if (hasWeekVisor()) setWeekPlaceholder("Sin datos.");
-        else clearLegacyPlaceholder("Sin datos.");
-        return;
-      }
-
-      const weekIds = weeksRows.map((w) => w.id);
-      const weekNumById = {};
-      for (const w of weeksRows) weekNumById[w.id] = w.week_number;
-
-      const { data: daysRows, error: dErr } = await sb
-        .from("week_days")
-        .select("id, week_id, day_number, label, muscle_group, focus")
-        .in("week_id", weekIds)
-        .order("day_number", { ascending: true });
-
-      if (dErr) throw new Error(dErr.message);
-
-      if (!daysRows?.length) {
-        if (activeRoutinesMsg) setMsg(activeRoutinesMsg, "No hay días para este mes.", "notice");
-        if (hasWeekVisor()) setWeekPlaceholder("Sin datos.");
-        else clearLegacyPlaceholder("Sin datos.");
-        return;
-      }
-
-      const dayIds = daysRows.map((d) => d.id);
-
-      const { data: itemsRows, error: iErr } = await sb
-        .from("day_items")
-        .select("day_id")
-        .in("day_id", dayIds)
-        .eq("objective", objective)
-        .eq("track", track);
-
-      if (iErr) throw new Error(iErr.message);
-
-      const countByDayId = {};
-      for (const it of (itemsRows || [])) {
-        countByDayId[it.day_id] = (countByDayId[it.day_id] || 0) + 1;
-      }
-
-      const ordered = daysRows
-        .map((d) => ({ ...d, week_number: weekNumById[d.week_id] || 0 }))
-        .sort((a, b) => (a.week_number - b.week_number) || (a.day_number - b.day_number));
-
-      const activeDays = ordered.filter((d) => (countByDayId[d.id] || 0) > 0).length;
-
-      if (activeRoutinesMsg) {
-        setMsg(
-          activeRoutinesMsg,
-          `Mes ${month}: ${ordered.length} día(s) · Activos (con items): ${activeDays} · ${objLabel(objective)} · ${trackLabel(track)}`,
-          "small"
-        );
-      }
-
-      if (hasWeekVisor()) {
-        for (let w = 1; w <= 4; w++) {
-          const tb = getWeekTbody(w);
-          if (!tb) continue;
-
-          const days = ordered.filter((x) => Number(x.week_number) === w);
-          if (!days.length) {
-            tb.innerHTML = `<tr><td colspan="6" class="small" style="padding:12px;opacity:.8">Sin datos.</td></tr>`;
-            continue;
-          }
-
-          tb.innerHTML = days.map((d) => {
-            const cnt = countByDayId[d.id] || 0;
-            return `
-              <tr>
-                <td style="padding:12px;border-bottom:1px solid rgba(0,0,0,.06)">Día ${esc(d.day_number)}</td>
-                <td style="padding:12px;border-bottom:1px solid rgba(0,0,0,.06)">${esc(d.label)}</td>
-                <td style="padding:12px;border-bottom:1px solid rgba(0,0,0,.06)">${esc(d.muscle_group || "—")}</td>
-                <td style="padding:12px;border-bottom:1px solid rgba(0,0,0,.06)">${esc(d.focus || "—")}</td>
-                <td style="padding:12px;border-bottom:1px solid rgba(0,0,0,.06)">${esc(cnt)}</td>
-                <td style="padding:12px;border-bottom:1px solid rgba(0,0,0,.06)">
-                  <button class="btn primary" type="button" data-active-edit="1"
-                    data-week="${esc(d.week_number)}" data-day="${esc(d.day_number)}"
-                    style="white-space:nowrap">Editar</button>
-                </td>
-              </tr>
-            `;
-          }).join("");
-        }
-      } else if (activeRoutinesTbody) {
-        activeRoutinesTbody.innerHTML = ordered.map((d) => {
-          const cnt = countByDayId[d.id] || 0;
-          return `
-            <tr>
-              <td style="padding:12px;border-bottom:1px solid rgba(0,0,0,.06)">Semana ${esc(d.week_number)}</td>
-              <td style="padding:12px;border-bottom:1px solid rgba(0,0,0,.06)">Día ${esc(d.day_number)}</td>
-              <td style="padding:12px;border-bottom:1px solid rgba(0,0,0,.06)">${esc(d.label)}</td>
-              <td style="padding:12px;border-bottom:1px solid rgba(0,0,0,.06)">${esc(d.muscle_group || "—")}</td>
-              <td style="padding:12px;border-bottom:1px solid rgba(0,0,0,.06)">${esc(d.focus || "—")}</td>
-              <td style="padding:12px;border-bottom:1px solid rgba(0,0,0,.06)">${esc(cnt)}</td>
-              <td style="padding:12px;border-bottom:1px solid rgba(0,0,0,.06)">
-                <button class="btn primary" type="button" data-active-edit="1"
-                  data-week="${esc(d.week_number)}" data-day="${esc(d.day_number)}"
-                  style="white-space:nowrap">Editar</button>
-              </td>
-            </tr>
-          `;
-        }).join("") || `<tr><td colspan="7" class="small" style="padding:12px;opacity:.8">Sin datos.</td></tr>`;
-      }
-
-      wireActiveEditButtons(month, objective, track);
-    } catch (e) {
-      console.error("[ADMIN] loadActiveRoutinesTable error:", e);
-      if (activeRoutinesMsg) setMsg(activeRoutinesMsg, e?.message || String(e), "error");
-      if (hasWeekVisor()) setWeekPlaceholder("Error cargando datos.");
-      else clearLegacyPlaceholder("Error cargando datos.");
-    }
-  }
-
-  function initActiveRoutinesUI() {
-    activeRefreshBtn?.addEventListener("click", () => loadActiveRoutinesTable().catch(console.error));
-    activeObjSel?.addEventListener("change", () => loadActiveRoutinesTable().catch(console.error));
-    activeTrackSel?.addEventListener("change", () => loadActiveRoutinesTable().catch(console.error));
-    copyMonthBtn?.addEventListener("click", () =>
-      copyMonthToPublished().catch((e) => setMsg(copyMonthMsg, e?.message || String(e), "error"))
-    );
-  }
-
-  async function copyMonthToPublished() {
-    if (!copyMonthSrcSel) return;
-
-    const srcMonth = Number(copyMonthSrcSel.value || 0);
-    if (!srcMonth) return setMsg(copyMonthMsg, "Elegí mes origen.", "error");
-
-    const dstMonth = await getPublishedMonthNumber();
-    if (srcMonth === dstMonth) return setMsg(copyMonthMsg, "Mes origen y destino son el mismo.", "error");
-
-    const overwrite = !!copyMonthOverwrite?.checked;
-    const allCtx = !!copyMonthAllCtx?.checked;
-
-    const objective = activeObjSel?.value || "fat_loss";
-    const track = activeTrackSel?.value || "gym";
-
-    setMsg(copyMonthMsg, "Duplicando…", "small");
-
-    const contexts = allCtx
-      ? [
-          { objective: "fat_loss", track: "gym" },
-          { objective: "fat_loss", track: "home" },
-          { objective: "muscle_gain", track: "gym" },
-          { objective: "muscle_gain", track: "home" },
-        ]
-      : [{ objective, track }];
-
-    let totalInserted = 0;
-    let totalDeleted = 0;
-
-    for (const c of contexts) {
-      const { data, error } = await sb.rpc("admin_copy_month", {
-        p_src_month: srcMonth,
-        p_dst_month: dstMonth,
-        p_objective: c.objective,
-        p_track: c.track,
-        p_overwrite: overwrite,
-      });
-
-      if (error) {
-        setMsg(copyMonthMsg, `Error (${objLabel(c.objective)} · ${trackLabel(c.track)}): ${error.message}`, "error");
-        return;
-      }
-
-      totalInserted += Number(data?.inserted || 0);
-      totalDeleted += Number(data?.deleted || 0);
-    }
-
-    setMsg(copyMonthMsg, `Listo ✅ Insertados: ${totalInserted} · Borrados: ${totalDeleted} · Destino: Mes ${dstMonth}`, "notice");
-    await loadActiveRoutinesTable();
-    await buildActiveMonthMenu().catch(() => {});
-  }
+  activeUsersRefreshBtn?.addEventListener("click", () => loadActiveUsers().catch(console.error));
+  activeUsersPlanSel?.addEventListener("change", () => loadActiveUsers().catch(console.error));
 
   // =====================================================
-  // Months loader (selector + copyMonthSrcSel)
+  // Alumnos: meses
   // =====================================================
-  async function loadMonths() {
-    if (!monthSel) return;
-
-    monthSel.innerHTML = `<option value="">Cargando…</option>`;
+  async function loadMonthsIntoStudentSelect() {
+    if (!stuMonthSel) return;
 
     const { data, error } = await sb
       .from("program_months")
@@ -926,48 +609,32 @@ async function uploadLiveCoverIfAny() {
       .order("month_number", { ascending: true });
 
     if (error) {
-      monthSel.innerHTML = `<option value="">Error</option>`;
-      throw new Error(error.message);
-    }
-
-    if (!data?.length) {
-      monthSel.innerHTML = `<option value="">Sin meses cargados</option>`;
+      stuMonthSel.innerHTML = `<option value="">Error</option>`;
       return;
     }
 
-    for (const m of data) monthTitles[m.month_number] = m.title;
-
-    const html = data.map((m) =>
-      `<option value="${m.month_number}">Mes ${m.month_number} — ${esc(m.title)}</option>`
-    ).join("");
-
-    monthSel.innerHTML = html;
-
-    if (copyMonthSrcSel) {
-      copyMonthSrcSel.innerHTML = html;
-      const nowM = new Date().getMonth() + 1;
-      const exists = data.some((x) => Number(x.month_number) === nowM);
-      copyMonthSrcSel.value = exists ? String(nowM) : String(data[0].month_number);
+    const rows = data || [];
+    if (!rows.length) {
+      stuMonthSel.innerHTML = `<option value="">Sin meses</option>`;
+      return;
     }
+
+    stuMonthSel.innerHTML = rows
+      .map((m) => `<option value="${esc(m.month_number)}">Mes ${esc(m.month_number)} — ${esc(m.title || "")}</option>`)
+      .join("");
+
+    const nowM = new Date().getMonth() + 1;
+    const hasNow = rows.some((x) => Number(x.month_number) === nowM);
+    stuMonthSel.value = hasNow ? String(nowM) : String(rows[0].month_number);
   }
 
   async function loadWeeksForMonth(month) {
-    if (!weekSel) {
-      console.warn("[ADMIN] No existe #weekSel en el HTML.");
-      setMsg(selMsg, "Falta selector de semana (id=weekSel) en admin.html.", "error");
-      return;
-    }
-
-    if (!month) {
-      weekSel.innerHTML = `<option value="">Elegí un mes…</option>`;
-      return;
-    }
-
+    if (!weekSel) return;
     weekSel.innerHTML = `<option value="">Cargando…</option>`;
 
     const { data, error } = await sb
       .from("weeks")
-      .select("id, week_number, title")
+      .select("id,week_number,title")
       .eq("month_number", month)
       .order("week_number", { ascending: true });
 
@@ -977,33 +644,22 @@ async function uploadLiveCoverIfAny() {
       return;
     }
 
-    const rows = Array.isArray(data) ? data : [];
+    const rows = data || [];
     if (!rows.length) {
-      weekSel.innerHTML = `<option value="">Sin semanas para este mes</option>`;
+      weekSel.innerHTML = `<option value="">Sin semanas</option>`;
       return;
     }
 
-    weekSel.innerHTML =
-      `<option value="">Elegí semana…</option>` +
-      rows.map((w) =>
-        `<option value="${w.week_number}">Semana ${w.week_number}${w.title ? ` — ${esc(w.title)}` : ""}</option>`
-      ).join("");
+    weekSel.innerHTML = rows.map((w) =>
+      `<option value="${esc(w.week_number)}">Semana ${esc(w.week_number)}${w.title ? ` — ${esc(w.title)}` : ""}</option>`
+    ).join("");
 
-    const has = rows.some((r) => String(r.week_number) === String(weekSel.value));
-    if (!weekSel.value || !has) weekSel.value = String(rows[0].week_number);
-
+    weekSel.value = String(rows[0].week_number);
     await loadDaysForMonthWeek(month, Number(weekSel.value));
   }
 
   async function loadDaysForMonthWeek(month, weekNumber) {
     if (!daySel) return;
-
-    if (!month || !weekNumber) {
-      daySel.innerHTML = `<option value="">Elegí mes y semana…</option>`;
-      updateLoadDayUI();
-      return;
-    }
-
     daySel.innerHTML = `<option value="">Cargando…</option>`;
 
     const { data: w, error: wErr } = await sb
@@ -1015,196 +671,111 @@ async function uploadLiveCoverIfAny() {
 
     if (wErr || !w?.id) {
       daySel.innerHTML = `<option value="">Sin días</option>`;
-      updateLoadDayUI();
       return;
     }
 
-    const { data: days, error: dErr } = await sb
+    const { data, error } = await sb
       .from("week_days")
-      .select("day_number, label")
+      .select("day_number,label")
       .eq("week_id", w.id)
       .order("day_number", { ascending: true });
 
-    if (dErr) {
-      daySel.innerHTML = `<option value="">Error</option>`;
-      setMsg(selMsg, dErr.message, "error");
-      updateLoadDayUI();
-      return;
-    }
-
-    const rows = Array.isArray(days) ? days : [];
-    if (!rows.length) {
-      daySel.innerHTML =
-        `<option value="">Elegí día…</option>` +
-        [1, 2, 3, 4, 5].map((n) => `<option value="${n}">Día ${n}</option>`).join("");
-      daySel.value = "1";
-      updateLoadDayUI();
-      return;
-    }
-
-    daySel.innerHTML =
-      `<option value="">Elegí día…</option>` +
-      rows.map((d) =>
-        `<option value="${d.day_number}">Día ${d.day_number}${d.label ? ` — ${esc(d.label)}` : ""}</option>`
-      ).join("");
-
-    const has = rows.some((r) => String(r.day_number) === String(daySel.value));
-    if (!daySel.value || !has) daySel.value = String(rows[0].day_number);
-
-    updateLoadDayUI();
-  }
-
-  // =====================================================
-  // Exercises dropdown (para agregar al día)
-  // =====================================================
-  async function loadExercisesDropdown() {
-    if (!exerciseSel) return;
-
-    const ctxTrack = trackSel?.value || state.track || "gym";
-    exerciseSel.innerHTML = `<option value="">Cargando…</option>`;
-
-    const { data, error } = await sb
-      .from("exercises")
-      .select("id,name,track,objective,muscle_group,is_active")
-      .eq("is_active", true)
-      .order("name", { ascending: true });
-
     if (error) {
-      exerciseSel.innerHTML = `<option value="">Error</option>`;
-      throw new Error(error.message);
-    }
-
-    const rows = Array.isArray(data) ? data : [];
-    if (!rows.length) {
-      exerciseSel.innerHTML = `<option value="">Sin ejercicios</option>`;
+      daySel.innerHTML = `<option value="">Error</option>`;
+      setMsg(selMsg, error.message, "error");
       return;
     }
 
-    const MG_LABEL = {
-      lower: "Tren inferior",
-      upper: "Tren superior",
-      abs: "Abdominales",
-      activation: "Activación",
-      cardio: "Cardio",
-      unknown: "Sin grupo",
-    };
-
-    const normTrack = (v) => (v === "gym" || v === "home" || v === "both") ? v : "both";
-
-    const normMG = (v) => {
-      const raw = String(v || "").trim();
-      const key = raw.toLowerCase();
-      if (["lower", "upper", "abs", "activation", "cardio"].includes(key)) return key;
-
-      const k = key
-        .replaceAll("á", "a").replaceAll("é", "e").replaceAll("í", "i").replaceAll("ó", "o").replaceAll("ú", "u");
-
-      if (k.includes("tren inferior")) return "lower";
-      if (k.includes("tren superior")) return "upper";
-      if (k.includes("abdominal")) return "abs";
-      if (k.includes("activacion")) return "activation";
-      if (k.includes("cardio")) return "cardio";
-
-      return "unknown";
-    };
-
-    let filtered = rows.filter((e) => {
-      const t = normTrack(e.track);
-      return t === ctxTrack || t === "both";
-    });
-
-    if (!filtered.length) filtered = rows.slice();
-
-    const groups = {};
-    for (const e of filtered) {
-      const mg = normMG(e.muscle_group);
-      (groups[mg] ||= []).push(e);
+    const rows = data || [];
+    if (!rows.length) {
+      daySel.innerHTML = `<option value="">Sin días</option>`;
+      return;
     }
 
-    const order = ["lower", "upper", "abs", "activation", "cardio", "unknown"];
+    daySel.innerHTML = rows.map((d) =>
+      `<option value="${esc(d.day_number)}">Día ${esc(d.day_number)}${d.label ? ` — ${esc(d.label)}` : ""}</option>`
+    ).join("");
 
-    const html = order
-      .filter((k) => groups[k]?.length)
-      .map((k) => {
-        const opts = groups[k]
-          .map((e) => `<option value="${esc(e.id)}">${esc(e.name)}</option>`)
-          .join("");
-        return `<optgroup label="${esc(MG_LABEL[k] || "Ejercicios")}">${opts}</optgroup>`;
-      })
-      .join("");
-
-    exerciseSel.innerHTML =
-      `<option value="">Elegí un ejercicio…</option>` +
-      (html || `<option value="">No hay ejercicios disponibles</option>`);
+    daySel.value = String(rows[0].day_number);
   }
 
-  // =====================================================
-  // Day context loader + editor
-  // =====================================================
-  async function loadDay() {
-    const month = Number(monthSel?.value);
-    const week = Number(weekSel?.value);
-    const day = Number(daySel?.value);
-    const objective = objSel?.value || "fat_loss";
-    const track = trackSel?.value || "gym";
+  weekSel?.addEventListener("change", async () => {
+    if (!state.month) return;
+    await loadDaysForMonthWeek(state.month, Number(weekSel.value || 0));
+  });
 
-    if (!month || !week || !day) {
-      setMsg(selMsg, "Seleccioná mes, semana y día antes de cargar.", "error");
+  // =====================================================
+  // Editor: cargar día
+  // =====================================================
+  async function loadDayForStudent() {
+    if (state.mode !== "student" || !state.user_id || !state.month) {
+      setMsg(selMsg, "Primero buscá un alumno y entrá en edición.", "error");
       return false;
     }
 
-    state.month = month;
-    state.week = week;
-    state.day = day;
-    state.objective = objective;
-    state.track = track;
+    const weekNumber = Number(weekSel?.value || 0);
+    const dayNumber = Number(daySel?.value || 0);
+    if (!weekNumber || !dayNumber) {
+      setMsg(selMsg, "Elegí semana y día.", "error");
+      return false;
+    }
 
+    setMsg(selMsg, "Cargando día…", "small");
+
+    // Resolve week_id
     const { data: w, error: wErr } = await sb
       .from("weeks")
       .select("id,title")
-      .eq("month_number", month)
-      .eq("week_number", week)
-      .single();
+      .eq("month_number", state.month)
+      .eq("week_number", weekNumber)
+      .maybeSingle();
 
-    if (wErr) throw new Error(`No encontré week_id (mes ${month}, semana ${week}). ${wErr.message}`);
+    if (wErr || !w?.id) {
+      setMsg(selMsg, "No pude resolver la semana.", "error");
+      return false;
+    }
 
     state.week_id = w.id;
+    state.week_number = weekNumber;
 
+    // Resolve day_id
     const { data: d, error: dErr } = await sb
       .from("week_days")
       .select("id,label,muscle_group,focus")
       .eq("week_id", w.id)
-      .eq("day_number", day)
-      .single();
+      .eq("day_number", dayNumber)
+      .maybeSingle();
 
-    if (dErr) throw new Error(`No encontré day_id (día ${day}). ${dErr.message}`);
-
-    state.day_id = d.id;
-    state.day_label = d.label;
-
-    if (dayTitle) dayTitle.textContent = `Mes ${month} · Semana ${week} · Día ${day} (${d.label})`;
-    if (dayMeta) dayMeta.textContent = "Cargá items sin perder el contexto.";
-
-    if (ctxBadge) {
-      ctxBadge.style.display = "inline-flex";
-      ctxBadge.textContent = `${objective === "fat_loss" ? "Perder peso" : "Ganar masa"} · ${track === "gym" ? "Gimnasio" : "Casa"}`;
+    if (dErr || !d?.id) {
+      setMsg(selMsg, "No pude resolver el día.", "error");
+      return false;
     }
 
-    if (dayEdit) dayEdit.style.display = "block";
-    if (dayPanel) dayPanel.style.display = "none";
+    state.day_id = d.id;
+    state.day_number = dayNumber;
+
+    if (dayTitle) dayTitle.textContent = `Mes ${state.month} · Semana ${weekNumber} · Día ${dayNumber} (${d.label || ""})`;
+    if (dayMeta) dayMeta.textContent = `Editando rutina personalizada · ${objLabel(state.objective)} · ${trackLabel(state.track)}`;
 
     if (mgSel) mgSel.value = d.muscle_group || mgSel.value || "Tren inferior";
     if (focusInp) focusInp.value = d.focus || "";
 
-    setMsg(selMsg, "Día cargado ✅", "notice");
+    if (dayEdit) dayEdit.style.display = "block";
 
     await loadExercisesDropdown();
     await loadItems();
-    await loadKPIs();
-
+    setMsg(selMsg, "Día cargado ✅", "notice");
     return true;
   }
 
+  loadBtn?.addEventListener("click", () => loadDayForStudent().catch((e) => {
+    console.error(e);
+    setMsg(selMsg, e?.message || String(e), "error");
+  }));
+
+  // =====================================================
+  // Editor: metadata del día
+  // =====================================================
   async function saveDayMeta() {
     if (!state.day_id) throw new Error("Primero cargá un día.");
 
@@ -1222,13 +793,59 @@ async function uploadLiveCoverIfAny() {
     setMsg(metaMsg, "Metadata guardada ✅", "notice");
   }
 
+  saveDayMetaBtn?.addEventListener("click", () => saveDayMeta().catch((e) => {
+    console.error(e);
+    setMsg(metaMsg, e?.message || String(e), "error");
+  }));
+
   // =====================================================
-  // Items del día
+  // Editor: ejercicios dropdown (filtra por track si se puede)
+  // =====================================================
+  async function loadExercisesDropdown() {
+    if (!exerciseSel) return;
+
+    exerciseSel.innerHTML = `<option value="">Cargando…</option>`;
+
+    const { data, error } = await sb
+      .from("exercises")
+      .select("id,name,track,objective,muscle_group,is_active")
+      .eq("is_active", true)
+      .order("name", { ascending: true });
+
+    if (error) {
+      exerciseSel.innerHTML = `<option value="">Error</option>`;
+      throw new Error(error.message);
+    }
+
+    const rows = data || [];
+    if (!rows.length) {
+      exerciseSel.innerHTML = `<option value="">Sin ejercicios</option>`;
+      return;
+    }
+
+    const ctxTrack = state.track || "gym";
+
+    const normTrack = (v) => (v === "gym" || v === "home" || v === "both") ? v : "both";
+    const filtered = rows.filter((e) => {
+      const t = normTrack(e.track);
+      return t === "both" || t === ctxTrack;
+    });
+
+    const finalRows = filtered.length ? filtered : rows;
+
+    exerciseSel.innerHTML =
+      `<option value="">Elegí un ejercicio…</option>` +
+      finalRows.map((e) => `<option value="${esc(e.id)}">${esc(e.name)}</option>`).join("");
+  }
+
+  // =====================================================
+  // Items: siempre user_day_items (rutina personalizada)
   // =====================================================
   async function getNextSortOrder() {
     const { data, error } = await sb
-      .from("day_items")
+      .from("user_day_items")
       .select("sort_order")
+      .eq("user_id", state.user_id)
       .eq("day_id", state.day_id)
       .eq("objective", state.objective)
       .eq("track", state.track)
@@ -1242,7 +859,8 @@ async function uploadLiveCoverIfAny() {
   }
 
   async function addItemToDay() {
-    if (!state.day_id) throw new Error("Primero cargá un día (Cargar día).");
+    if (!state.user_id) throw new Error("Primero buscá un alumno y entrá en edición.");
+    if (!state.day_id) throw new Error("Primero cargá un día.");
 
     const exercise_id = exerciseSel?.value;
     if (!exercise_id) throw new Error("Elegí un ejercicio.");
@@ -1254,9 +872,11 @@ async function uploadLiveCoverIfAny() {
     if (!sets || sets < 1) throw new Error("Series inválidas.");
     if (!reps) throw new Error("Reps es obligatorio (ej: 8-10).");
 
+    // evitar duplicado
     const { data: existsRows, error: exErr } = await sb
-      .from("day_items")
+      .from("user_day_items")
       .select("id")
+      .eq("user_id", state.user_id)
       .eq("day_id", state.day_id)
       .eq("objective", state.objective)
       .eq("track", state.track)
@@ -1264,15 +884,15 @@ async function uploadLiveCoverIfAny() {
       .limit(1);
 
     if (exErr) throw new Error(exErr.message);
-
     if (existsRows?.length) {
-      setMsg(itemMsg, "Ese ejercicio ya está cargado en este día (mismo objetivo y modalidad).", "error");
+      setMsg(itemMsg, "Ese ejercicio ya está cargado en este día.", "error");
       return;
     }
 
     const sort_order = await getNextSortOrder();
 
-    const { error } = await sb.from("day_items").insert({
+    const { error } = await sb.from("user_day_items").insert({
+      user_id: state.user_id,
       day_id: state.day_id,
       sort_order,
       exercise_id,
@@ -1292,21 +912,31 @@ async function uploadLiveCoverIfAny() {
     if (notesInp) notesInp.value = "";
 
     await loadItems();
+    await loadStudentMonthOverview(); // refresca conteos del mes
   }
+
+  addItemBtn?.addEventListener("click", () => {
+    setMsg(itemMsg, "");
+    addItemToDay().catch((e) => {
+      console.error(e);
+      setMsg(itemMsg, e?.message || String(e), "error");
+    });
+  });
 
   async function loadItems() {
     if (!itemsList) return;
 
-    if (!state.day_id) {
-      itemsList.innerHTML = `<div class="small">Cargá un día para ver items.</div>`;
+    if (!state.user_id || !state.day_id) {
+      itemsList.innerHTML = `<div class="notice small">Cargá un alumno y un día para ver items.</div>`;
       return;
     }
 
     itemsList.innerHTML = `<div class="small">Cargando…</div>`;
 
     const { data, error } = await sb
-      .from("day_items")
+      .from("user_day_items")
       .select("id, sort_order, sets, reps, notes, exercises:exercise_id (name, video_url)")
+      .eq("user_id", state.user_id)
       .eq("day_id", state.day_id)
       .eq("objective", state.objective)
       .eq("track", state.track)
@@ -1345,16 +975,19 @@ async function uploadLiveCoverIfAny() {
         if (!id) return;
         if (!confirm("¿Eliminar este item?")) return;
 
-        const { error } = await sb.from("day_items").delete().eq("id", id);
+        const { error } = await sb.from("user_day_items").delete().eq("id", id);
         if (error) return alert(error.message);
 
         await loadItems();
+        await loadStudentMonthOverview();
       });
     });
   }
 
+  refreshItemsBtn?.addEventListener("click", () => loadItems().catch(console.error));
+
   // =====================================================
-  // Biblioteca ejercicios
+  // Biblioteca ejercicios: crear + listar (preserva acordeones abiertos)
   // =====================================================
   async function createExercise() {
     const name = (exName?.value || "").trim();
@@ -1395,12 +1028,50 @@ async function uploadLiveCoverIfAny() {
     if (exVideo) exVideo.value = "";
     if (exCues) exCues.value = "";
 
-    await loadExercisesDropdown();
     await loadExercisesLibrary();
+    await loadExercisesDropdown();
+  }
+
+  createExerciseBtn?.addEventListener("click", () => {
+    setMsg(exMsg, "");
+    createExercise().catch((e) => {
+      console.error(e);
+      setMsg(exMsg, e?.message || String(e), "error");
+    });
+  });
+
+  let lastEditedExerciseId = null;
+
+  function snapshotOpenAccordions() {
+    const open = new Set();
+    exList?.querySelectorAll('details[data-ex-acc-key]').forEach((d) => {
+      if (d.open) open.add(d.getAttribute("data-ex-acc-key"));
+    });
+    return open;
+  }
+
+  function restoreOpenAccordions(openSet) {
+    if (!openSet) return;
+    exList?.querySelectorAll('details[data-ex-acc-key]').forEach((d) => {
+      const key = d.getAttribute("data-ex-acc-key");
+      d.open = openSet.has(key);
+    });
+  }
+
+  function reopenExerciseEditorIfAny() {
+    if (!lastEditedExerciseId) return;
+    const id = lastEditedExerciseId;
+    const editBox = document.querySelector(`[data-ex-edit="${CSS.escape(id)}"]`);
+    if (editBox) {
+      editBox.style.display = "block";
+      editBox.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
   }
 
   async function loadExercisesLibrary() {
     if (!exList) return;
+
+    const openSet = snapshotOpenAccordions();
 
     exList.innerHTML = `<div class="small">Cargando…</div>`;
 
@@ -1415,45 +1086,29 @@ async function uploadLiveCoverIfAny() {
       return;
     }
 
-    if (!data?.length) {
-      exList.innerHTML = `<div class="notice small">Sin ejercicios cargados.</div>`;
-      return;
-    }
-
-    renderExercisesLibrary(data);
+    renderExercisesLibrary(data || []);
+    restoreOpenAccordions(openSet);
+    reopenExerciseEditorIfAny();
   }
 
   function renderExercisesLibrary(rows) {
     if (!exList) return;
 
-    const TRACK_LABEL = {
-      gym: "Gimnasio",
-      home: "Casa",
-      both: "Ambos",
-      unknown: "Sin modalidad",
-    };
-
-    const MG_LABEL = {
-      lower: "Tren inferior",
-      upper: "Tren superior",
-      abs: "Abdominales",
-      activation: "Activación",
-      cardio: "Cardio",
-      unknown: "Sin grupo",
-    };
+    const TRACK_LABEL = { gym: "Gimnasio", home: "Casa", both: "Ambos", unknown: "Sin modalidad" };
+    const MG_LABEL = { lower: "Tren inferior", upper: "Tren superior", abs: "Abdominales", activation: "Activación", cardio: "Cardio", unknown: "Sin grupo" };
 
     const trackOrder = ["gym", "home", "both", "unknown"];
     const mgOrder = ["lower", "upper", "abs", "activation", "cardio", "unknown"];
 
-    const normTrack = (v) => (v === "gym" || v === "home" || v === "both") ? v : "unknown";
-    const normMG = (v) => (v === "lower" || v === "upper" || v === "abs" || v === "activation" || v === "cardio") ? v : "unknown";
+    const normTrack2 = (v) => (v === "gym" || v === "home" || v === "both") ? v : "unknown";
+    const normMG2 = (v) => (v === "lower" || v === "upper" || v === "abs" || v === "activation" || v === "cardio") ? v : "unknown";
 
     const sel = (v, k) => (String(v || "") === String(k) ? "selected" : "");
 
     const tree = {};
     for (const e of (rows || [])) {
-      const t = normTrack(e.track);
-      const mg = normMG(e.muscle_group);
+      const t = normTrack2(e.track);
+      const mg = normMG2(e.muscle_group);
       (((tree[t] ||= {})[mg] ||= [])).push(e);
     }
 
@@ -1470,9 +1125,9 @@ async function uploadLiveCoverIfAny() {
                 const name = esc(e.name);
                 const video = esc(e.video_url || "");
                 const cues = esc(e.cues || "");
-                const tVal = normTrack(e.track);
+                const tVal = normTrack2(e.track);
                 const oVal = e.objective || "both";
-                const mgVal = normMG(e.muscle_group);
+                const mgVal = normMG2(e.muscle_group);
 
                 return `
                   <div class="item" data-ex-row="${id}" style="display:grid;gap:10px">
@@ -1539,7 +1194,7 @@ async function uploadLiveCoverIfAny() {
               .join("");
 
             return `
-              <details class="admin-acc" style="margin-top:10px">
+              <details class="admin-acc" data-ex-acc-key="t:${esc(t)}|mg:${esc(mg)}" style="margin-top:10px">
                 <summary>${esc(MG_LABEL[mg] || "Ejercicios")}</summary>
                 <div class="acc-body" style="padding:12px">
                   <div style="display:grid;gap:10px">${items}</div>
@@ -1550,7 +1205,7 @@ async function uploadLiveCoverIfAny() {
           .join("");
 
         return `
-          <details class="admin-acc" style="margin-top:10px">
+          <details class="admin-acc" data-ex-acc-key="t:${esc(t)}" style="margin-top:10px">
             <summary>${esc(TRACK_LABEL[t] || "Modalidad")}</summary>
             <div class="acc-body" style="padding:12px">
               ${mgBlocks || `<div class="small" style="opacity:.8">Sin ejercicios.</div>`}
@@ -1617,9 +1272,11 @@ async function uploadLiveCoverIfAny() {
 
         if (error) throw new Error(error.message);
 
-        setRowMsg("Guardado ✅", "notice");
+        lastEditedExerciseId = id; // ✅ reabrir luego del refresh
         await loadExercisesLibrary();
         await loadExercisesDropdown();
+
+        setRowMsg("Guardado ✅", "notice");
       } catch (e) {
         setRowMsg(e?.message || String(e), "error");
       }
@@ -1646,8 +1303,10 @@ async function uploadLiveCoverIfAny() {
     }
   });
 
+  exRefreshBtn?.addEventListener("click", () => loadExercisesLibrary().catch(console.error));
+
   // =====================================================
-  // Alertas
+  // Alertas (mantiene + añade “Abrir”)
   // =====================================================
   async function loadAlerts() {
     if (!alertsList) return;
@@ -1657,7 +1316,7 @@ async function uploadLiveCoverIfAny() {
 
     const { data, error } = await sb
       .from("admin_alerts")
-      .select("id, created_at, email, kind, message, resolved_at")
+      .select("id, created_at, user_id, email, kind, message, resolved_at")
       .is("resolved_at", null)
       .order("created_at", { ascending: false });
 
@@ -1678,11 +1337,24 @@ async function uploadLiveCoverIfAny() {
         <div><b>${esc(a.kind)}</b> · <span class="small">${new Date(a.created_at).toLocaleString()}</span></div>
         <div class="small">${esc(a.email || "sin email")}</div>
         <div class="small" style="margin-top:6px">${esc(a.message)}</div>
-        <div style="margin-top:10px">
+        <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
+          ${a.email ? `<button class="btn primary" data-open="${esc(a.email)}" type="button">Abrir</button>` : ""}
           <button class="btn" data-resolve="${esc(a.id)}" type="button">Marcar como resuelto</button>
         </div>
       </div>
     `).join("");
+
+    alertsList.querySelectorAll("[data-open]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const email = btn.getAttribute("data-open");
+        if (!email) return;
+        if (studentEmail) studentEmail.value = email;
+        await findStudent(email);
+        const sec = document.getElementById("sec-alumnos");
+        if (sec?.tagName === "DETAILS") sec.open = true;
+        studentCard?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
 
     alertsList.querySelectorAll("[data-resolve]").forEach((btn) => {
       btn.addEventListener("click", async () => {
@@ -1705,137 +1377,384 @@ async function uploadLiveCoverIfAny() {
   }
 
   // =====================================================
-  // Alumnos + override + preview
+  // Alumnos: buscar + preparar edición
   // =====================================================
-  async function loadOverrideForUser(userId) {
-    if (!userId) return;
+  async function adminLoadUserSummary(userId) {
+    const out = {};
 
-    setMsg(ovMsg, "Cargando override…", "small");
-
-    const { data, error } = await sb
-      .from("user_routine_overrides")
-      .select("active, objective, track, reason, updated_at")
+    const { data: planRow } = await sb
+      .from("user_plan")
+      .select("status, paid_through, plans:plan_id (slug, name)")
       .eq("user_id", userId)
       .maybeSingle();
+    if (planRow) out.plan = planRow;
 
+    const { data: prefRow } = await sb
+      .from("user_preferences")
+      .select("objective, track")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (prefRow) out.prefs = prefRow;
+
+    const { data: profRow } = await sb
+      .from("profiles")
+      .select("full_name, training_level, email")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (profRow) out.profile = profRow;
+
+    return out;
+  }
+
+  async function findStudent(email) {
+    const e = (email || "").trim();
+    if (!e) return;
+
+    setMsg(studentMsg, "Buscando…", "small");
+    setSaveSendMsg("");
+    setStudentModeMsg("");
+    if (dayEdit) dayEdit.style.display = "none";
+
+    // RPC existente
+    const { data, error } = await sb.rpc("admin_find_user_by_email", { p_email: e });
     if (error) {
-      setMsg(ovMsg, error.message, "error");
+      setMsg(studentMsg, error.message, "error");
       return;
     }
 
-    if (!data) {
-      if (ovObjective) ovObjective.value = "";
-      if (ovTrack) ovTrack.value = "";
-      if (ovReason) ovReason.value = "";
-      setMsg(ovMsg, "Sin override.", "small");
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row?.user_id) {
+      setMsg(studentMsg, "No encontrado.", "error");
+      if (studentCard) studentCard.style.display = "none";
+      exitStudentMode();
       return;
     }
 
-    if (ovObjective) ovObjective.value = data.objective || "";
-    if (ovTrack) ovTrack.value = data.track || "";
-    if (ovReason) ovReason.value = data.reason || "";
+    state.user_id = row.user_id;
+    state.email = row.email || e;
 
-    setMsg(ovMsg, data.active ? "Override activo ✅" : "Override desactivado.", data.active ? "notice" : "small");
+    const sum = await adminLoadUserSummary(state.user_id);
+
+    // Objetivo + track por preferencia del alumno
+    const obj = sum.prefs?.objective === "muscle_gain" ? "muscle_gain" : "fat_loss";
+    const trk = normalizeTrack(sum.prefs?.track) || "gym";
+
+    state.objective = obj;
+    state.track = trk;
+
+    if (studentEmailOut) studentEmailOut.textContent = state.email;
+
+    const planName = sum.plan?.plans?.name || row.plan_slug || "—";
+    const planSlug = sum.plan?.plans?.slug || row.plan_slug || "—";
+    const status = sum.plan?.status || row.plan_status || "—";
+    const paid = sum.plan?.paid_through || row.paid_through || null;
+
+    if (studentPlanOut) studentPlanOut.textContent = `Plan: ${esc(planName)} (${esc(planSlug)})`;
+    if (studentStatusOut) studentStatusOut.textContent = `Estado: ${esc(status)}`;
+    if (studentPaidOut) studentPaidOut.textContent = `Pago hasta: ${paid ? esc(new Date(paid).toLocaleDateString("es-AR")) : "—"}`;
+
+    if (stuPrefLine) stuPrefLine.textContent = `Objetivo/Modalidad: ${objLabel(state.objective)} · ${trackLabel(state.track)}`;
+
+    if (studentCard) studentCard.style.display = "block";
+    setMsg(studentMsg, "Encontrado ✅", "notice");
+
+    await loadMonthsIntoStudentSelect();
+
+    // default month
+    state.month = Number(stuMonthSel?.value || 0) || null;
+
+    // mostrar overview del mes por defecto
+    await loadStudentMonthOverview();
   }
 
-  async function loadStudentActiveRoutineByEmail(email) {
-    if (!email) return;
-
-    setMsg(stuRoutineMsg, "Cargando rutina activa…", "small");
-    if (stuRoutineBox) stuRoutineBox.innerHTML = "";
-
-    const { data, error } = await sb.rpc("admin_get_user_active_context", { p_email: email });
-    if (error) throw new Error(error.message);
-
-    const ctx = Array.isArray(data) ? data[0] : data;
-    if (!ctx?.user_id) {
-      setMsg(stuRoutineMsg, "No pude resolver contexto del alumno.", "error");
-      return;
-    }
-
-    if (monthSel) monthSel.value = String(ctx.month_number);
-    if (objSel) objSel.value = ctx.objective;
-    if (trackSel) trackSel.value = ctx.track;
-
-    if (stuRoutineMeta) {
-      const objL = ctx.objective === "fat_loss" ? "Perder peso" : "Ganar masa";
-      const trkL = ctx.track === "gym" ? "Gimnasio" : "Casa";
-      stuRoutineMeta.textContent = `Mes vigente: ${ctx.month_number} · Objetivo: ${objL} · Modalidad: ${trkL}`;
-    }
-
-    const res = await sb.rpc("get_month_content_v2", {
-      p_month: ctx.month_number,
-      p_objective: ctx.objective,
+  findStudentBtn?.addEventListener("click", () => {
+    const email = (studentEmail?.value || "").trim();
+    if (!email) return setMsg(studentMsg, "Ingresá un email.", "error");
+    findStudent(email).catch((e) => {
+      console.error(e);
+      setMsg(studentMsg, e?.message || String(e), "error");
     });
+  });
 
-    if (res.error) throw new Error(res.error.message);
+  stuMonthSel?.addEventListener("change", () => {
+    const m = Number(stuMonthSel.value || 0);
+    state.month = m || null;
+    loadStudentMonthOverview().catch(console.error);
+  });
 
-    renderStudentRoutinePreview(res.data, ctx);
-    setMsg(stuRoutineMsg, "Rutina cargada ✅ (clickeá un día para editarlo).", "notice");
-  }
+  editStudentModeBtn?.addEventListener("click", async () => {
+    if (!state.user_id) return alert("Primero buscá un alumno.");
+    const m = Number(stuMonthSel?.value || 0);
+    if (!m) return alert("Elegí un mes.");
+    state.month = m;
 
-  function renderStudentRoutinePreview(json, ctx) {
-    if (!stuRoutineBox) return;
+    enterStudentMode();
+    setSaveSendMsg("");
 
-    const track = ctx.track;
+    await loadWeeksForMonth(state.month);
+    // deja selects listos, pero no carga día automáticamente
+    setMsg(selMsg, "Elegí semana y día para cargar.", "small");
+  });
+
+  exitStudentModeBtn?.addEventListener("click", () => {
+    exitStudentMode();
+  });
+
+  // =====================================================
+  // Overview: rutina del mes (estructura + conteos)
+  // =====================================================
+  async function loadStudentMonthOverview() {
+    if (!stuRoutineBox || !stuRoutineMsg || !stuRoutineMeta) return;
+
+    stuRoutineBox.innerHTML = "";
+    setMsg(stuRoutineMsg, "", "small");
+
+    if (!state.user_id || !state.month) {
+      stuRoutineMeta.textContent = "Seleccioná un alumno y un mes.";
+      return;
+    }
+
+    setMsg(stuRoutineMsg, "Cargando mes…", "small");
+    stuRoutineMeta.textContent = `Mes: ${state.month} · ${objLabel(state.objective)} · ${trackLabel(state.track)}`;
+
+    // 1) weeks
+    const { data: weeksRows, error: wErr } = await sb
+      .from("weeks")
+      .select("id,week_number,title")
+      .eq("month_number", state.month)
+      .order("week_number", { ascending: true });
+
+    if (wErr) {
+      setMsg(stuRoutineMsg, wErr.message, "error");
+      return;
+    }
+    if (!weeksRows?.length) {
+      setMsg(stuRoutineMsg, "No hay semanas para este mes.", "notice");
+      return;
+    }
+
+    const weekIds = weeksRows.map((w) => w.id);
+
+    // 2) days
+    const { data: daysRows, error: dErr } = await sb
+      .from("week_days")
+      .select("id,week_id,day_number,label,muscle_group,focus")
+      .in("week_id", weekIds)
+      .order("day_number", { ascending: true });
+
+    if (dErr) {
+      setMsg(stuRoutineMsg, dErr.message, "error");
+      return;
+    }
+
+    const dayIds = (daysRows || []).map((d) => d.id);
+    if (!dayIds.length) {
+      setMsg(stuRoutineMsg, "No hay días para este mes.", "notice");
+      return;
+    }
+
+    // 3) count items por día (user_day_items)
+    const { data: itemsRows, error: iErr } = await sb
+      .from("user_day_items")
+      .select("day_id")
+      .eq("user_id", state.user_id)
+      .eq("objective", state.objective)
+      .eq("track", state.track)
+      .in("day_id", dayIds);
+
+    if (iErr) {
+      setMsg(stuRoutineMsg, iErr.message, "error");
+      return;
+    }
+
+    const countByDay = {};
+    for (const it of (itemsRows || [])) {
+      countByDay[it.day_id] = (countByDay[it.day_id] || 0) + 1;
+    }
+
+    const weekNumById = {};
+    for (const w of weeksRows) weekNumById[w.id] = w.week_number;
+
+    const grouped = {};
+    for (const d of (daysRows || [])) {
+      const wn = weekNumById[d.week_id] || 0;
+      (grouped[wn] ||= []).push(d);
+    }
+
+    const totalItems = (itemsRows || []).length;
+    setMsg(stuRoutineMsg, `Items cargados en el mes: ${totalItems}`, "notice");
+
+    // Render
     const DAY_NAMES = { 1: "Lunes", 2: "Martes", 3: "Miércoles", 4: "Jueves", 5: "Viernes" };
 
-    if (!json?.weeks?.length) {
-      stuRoutineBox.innerHTML = `<div class="notice small">Este mes todavía no tiene contenido cargado.</div>`;
-      return;
-    }
+    stuRoutineBox.innerHTML = [1, 2, 3, 4].map((wn) => {
+      const days = grouped[wn] || [];
+      if (!days.length) return "";
 
-    const html = json.weeks.map((w) => {
-      const daysHtml = (w.days || []).map((d) => {
-        const dayName = DAY_NAMES[d.day_number] || d.label || `Día ${d.day_number}`;
-        const items = track === "gym" ? (d.items_gym || []) : (d.items_home || []);
-        const count = items.length;
-        const first = items.slice(0, 3).map((x) => esc(x.exercise)).join(" · ");
-        const subtitle = count ? `${count} ejercicios${first ? ` — ${first}` : ""}` : "Sin ejercicios";
+      const daysHtml = days.map((d) => {
+        const cnt = countByDay[d.id] || 0;
+        const dayName = DAY_NAMES[d.day_number] || `Día ${d.day_number}`;
+        const subtitle = `${cnt} item(s) · ${d.muscle_group || "—"}${d.focus ? ` · ${d.focus}` : ""}`;
 
         return `
           <div class="item" style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
             <div>
-              <div><b>${esc(dayName)}</b> <span class="small" style="opacity:.8">(${esc(d.muscle_group || "")})</span></div>
+              <div><b>${esc(dayName)}</b> <span class="small" style="opacity:.8">${esc(d.label || "")}</span></div>
               <div class="small" style="margin-top:4px;opacity:.9">${esc(subtitle)}</div>
             </div>
-            <button class="btn" type="button" data-jump-week="${esc(w.week_number)}" data-jump-day="${esc(d.day_number)}">Editar</button>
+            <button class="btn primary" type="button"
+              data-edit-week="${esc(wn)}" data-edit-day="${esc(d.day_number)}">Editar</button>
           </div>
         `;
       }).join("");
 
       return `
-        <details class="week" style="margin-top:10px">
-          <summary style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-            <div><b>Semana ${esc(w.week_number)}</b></div>
-            <span class="small">Ver</span>
-          </summary>
-          <div class="week-body" style="margin-top:10px;display:grid;gap:10px">
+        <details class="admin-acc" style="margin-top:10px" ${wn === 1 ? "open" : ""}>
+          <summary>Semana ${esc(wn)}</summary>
+          <div class="acc-body" style="display:grid;gap:10px">
             ${daysHtml}
           </div>
         </details>
       `;
     }).join("");
 
-    stuRoutineBox.innerHTML = html;
-
-    stuRoutineBox.querySelectorAll("[data-jump-week]").forEach((btn) => {
+    // Wire edit buttons
+    stuRoutineBox.querySelectorAll("[data-edit-week]").forEach((btn) => {
       btn.addEventListener("click", async () => {
-        const w = btn.getAttribute("data-jump-week");
-        const d = btn.getAttribute("data-jump-day");
-        if (!w || !d) return;
+        if (state.mode !== "student") {
+          // entra en modo alumno automáticamente si todavía no entró
+          enterStudentMode();
+          await loadWeeksForMonth(state.month);
+        }
+
+        const w = Number(btn.getAttribute("data-edit-week") || 0);
+        const d = Number(btn.getAttribute("data-edit-day") || 0);
 
         if (weekSel) weekSel.value = String(w);
+        await loadDaysForMonthWeek(state.month, w);
         if (daySel) daySel.value = String(d);
 
-        const ok = await loadDay();
-        if (ok) dayTitle?.scrollIntoView({ behavior: "smooth", block: "start" });
+        const secEditor = document.getElementById("sec-editor");
+        if (secEditor?.tagName === "DETAILS") secEditor.open = true;
+
+        await loadDayForStudent();
+        dayTitle?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     });
   }
 
+  openStudentCaseBtn?.addEventListener("click", () => loadStudentMonthOverview().catch(console.error));
+
   // =====================================================
-  // Premium — storage + recorded/live
+  // Guardar y enviar rutina
+  // =====================================================
+  async function countItemsForMonth() {
+    // cuenta items del mes seleccionado (user_day_items)
+    const { data: weeksRows, error: wErr } = await sb
+      .from("weeks")
+      .select("id")
+      .eq("month_number", state.month);
+
+    if (wErr) throw new Error(wErr.message);
+
+    const weekIds = (weeksRows || []).map((w) => w.id);
+    if (!weekIds.length) return 0;
+
+    const { data: daysRows, error: dErr } = await sb
+      .from("week_days")
+      .select("id")
+      .in("week_id", weekIds);
+
+    if (dErr) throw new Error(dErr.message);
+
+    const dayIds = (daysRows || []).map((d) => d.id);
+    if (!dayIds.length) return 0;
+
+    const { count, error: cErr } = await sb
+      .from("user_day_items")
+      .select("id", { head: true, count: "exact" })
+      .eq("user_id", state.user_id)
+      .eq("objective", state.objective)
+      .eq("track", state.track)
+      .in("day_id", dayIds);
+
+    if (cErr) throw new Error(cErr.message);
+
+    return Number(count || 0);
+  }
+
+  async function saveAndSendRoutine() {
+    if (!state.user_id || !state.email) return alert("Primero buscá un alumno.");
+    if (!state.month) return alert("Elegí un mes.");
+    if (state.mode !== "student") return alert("Entrá a: Editar rutina de este alumno.");
+
+    setSaveSendMsg("Validando…", "small");
+
+    const total = await countItemsForMonth();
+    if (total <= 0) {
+      const ok = confirm("Este mes no tiene ejercicios cargados.\n\n¿Querés enviar igual?");
+      if (!ok) {
+        setSaveSendMsg("Cancelado.", "small");
+        return;
+      }
+    }
+
+    const nowIso = new Date().toISOString();
+
+    // 1) marcar routine_delivery
+    // (si no existe fila, update no afecta; lo reportamos)
+    const upd = await sb
+      .from("routine_delivery")
+      .update({ ready_at: nowIso, notified_at: nowIso })
+      .eq("user_id", state.user_id)
+      .select("user_id")
+      .maybeSingle();
+
+    // 2) resolver alertas pendientes del usuario
+    try {
+      const me = await sb.auth.getUser();
+      const myId = me?.data?.user?.id || null;
+
+      await sb
+        .from("admin_alerts")
+        .update({ resolved_at: nowIso, resolved_by: myId })
+        .eq("user_id", state.user_id)
+        .is("resolved_at", null);
+    } catch (_) {}
+
+    // 3) “enviar alerta” al alumno: mailto con copy pedido
+    const subject = "Ya está lista tu rutina ✅";
+    const body = [
+      "Hola!",
+      "",
+      "Ya está lista tu rutina 100% personalizada.",
+      "Ingresá a tu campus virtual para verla:",
+      "https://www.maricelconse.com.ar/academia360/app.html",
+      "",
+      "— Maricel Conse · Academia de Mujeres",
+    ];
+
+    safeOpenMailto(buildMailto(state.email, subject, body));
+
+    if (upd.error) {
+      setSaveSendMsg(`Enviado ✅ (pero no pude marcar routine_delivery: ${upd.error.message})`, "notice");
+    } else if (!upd.data?.user_id) {
+      setSaveSendMsg("Enviado ✅ (no existe routine_delivery para este alumno).", "notice");
+    } else {
+      setSaveSendMsg("Guardado y enviado ✅", "notice");
+    }
+
+    await loadAlerts().catch(() => {});
+    await loadStudentMonthOverview().catch(() => {});
+  }
+
+  saveSendRoutineBtn?.addEventListener("click", () => saveAndSendRoutine().catch((e) => {
+    console.error(e);
+    setSaveSendMsg(e?.message || String(e), "error");
+  }));
+
+  // =====================================================
+  // Premium — Storage + Recorded/Live (mantengo tu lógica esencial)
   // =====================================================
   async function uploadCoverIfAny() {
     const file = rcCoverFile?.files?.[0];
@@ -1897,7 +1816,6 @@ async function uploadLiveCoverIfAny() {
     if (ins.error) throw new Error(ins.error.message);
 
     setMsg(rcMsg, "Clase grabada guardada ✅", "notice");
-
     if (rcCoverFile) rcCoverFile.value = "";
     if (rcCoverUrl) rcCoverUrl.value = "";
     if (rcNotes) rcNotes.value = "";
@@ -1956,58 +1874,115 @@ async function uploadLiveCoverIfAny() {
     });
   }
 
- async function saveLiveClass() {
-  setMsg(lcMsg, "Guardando…", "small");
+  function setLiveCoverPreview(url) {
+    if (!lcCoverPreview) return;
+    if (!url) {
+      lcCoverPreview.style.display = "none";
+      lcCoverPreview.removeAttribute("src");
+      return;
+    }
+    lcCoverPreview.src = url;
+    lcCoverPreview.style.display = "block";
+  }
 
-  const startsLocal = (lcStartsAt?.value || "").trim();
-  const title = (lcTitle?.value || "").trim();
-  const topic = (lcTopic?.value || "").trim();
-  const zoom = (lcZoom?.value || "").trim();
-  const pass = (lcPasscode?.value || "").trim() || null;
-  const reminder = Number(lcReminderMin?.value || 60);
+  async function uploadLiveCoverIfAny() {
+    const file = lcCoverFile?.files?.[0];
+    if (!file) return (lcCoverUrl?.value || "").trim() || null;
 
-  if (!startsLocal) throw new Error("Falta fecha/hora.");
-  if (!title) throw new Error("Falta título.");
-  if (!topic) throw new Error("Falta temática.");
-  if (!zoom) throw new Error("Falta link Zoom.");
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    const path = `live/${Date.now()}-${Math.random().toString(16).slice(2)}.${ext}`;
 
-  // ✅ Interpretar SIEMPRE como hora AR, independientemente del dispositivo
-  const starts_at_iso = dtLocalArgentinaToIso(startsLocal);
+    const up = await sb.storage.from("class_covers").upload(path, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type || "image/jpeg",
+    });
+    if (up.error) throw new Error(up.error.message);
 
-  // ✅ Mes desde el string (no depende de TZ)
-  const month_number = monthFromDtLocal(startsLocal);
-  if (!month_number) throw new Error("No pude resolver el mes desde la fecha/hora.");
+    const pub = sb.storage.from("class_covers").getPublicUrl(path);
+    return pub.data?.publicUrl || null;
+  }
 
-  // ✅ Portada
-  const cover_url = await uploadLiveCoverIfAny();
+  // datetime-local AR -> ISO UTC (-03:00)
+  function dtLocalArgentinaToIso(dtLocal) {
+    const v = String(dtLocal || "").trim();
+    const m = v.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
+    if (!m) throw new Error("Fecha/hora inválida.");
 
-  const { data: me } = await sb.auth.getUser();
-  const created_by = me?.user?.id || null;
+    const isoWithOffset = `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6] || "00"}-03:00`;
+    const d = new Date(isoWithOffset);
+    if (Number.isNaN(d.getTime())) throw new Error("No pude interpretar fecha/hora AR.");
+    return d.toISOString();
+  }
+  function monthFromDtLocal(dtLocal) {
+    const v = String(dtLocal || "").trim();
+    const m = Number(v.slice(5, 7));
+    return (m >= 1 && m <= 12) ? m : null;
+  }
+  const AR_TZ = "America/Argentina/Buenos_Aires";
+  function fmtArgentinaDateTime(iso) {
+    try {
+      const d = new Date(iso);
+      return new Intl.DateTimeFormat("es-AR", {
+        timeZone: AR_TZ,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(d);
+    } catch (_) {
+      return String(iso || "");
+    }
+  }
 
-  const ins = await sb.from("live_classes").insert({
-    title,
-    topic,
-    starts_at: starts_at_iso,
-    zoom_join_url: zoom,
-    zoom_passcode: pass,
-    month_number,
-    reminder_minutes_before: reminder,
-    status: "scheduled",
-    created_by,
-    cover_url, // <- requiere columna; ver SQL arriba si no existe
-  });
+  async function saveLiveClass() {
+    setMsg(lcMsg, "Guardando…", "small");
 
-  if (ins.error) throw new Error(ins.error.message);
+    const startsLocal = (lcStartsAt?.value || "").trim();
+    const title = (lcTitle?.value || "").trim();
+    const topic = (lcTopic?.value || "").trim();
+    const zoom = (lcZoom?.value || "").trim();
+    const pass = (lcPasscode?.value || "").trim() || null;
+    const reminder = Number(lcReminderMin?.value || 60);
 
-  setMsg(lcMsg, "Clase en vivo publicada ✅", "notice");
+    if (!startsLocal) throw new Error("Falta fecha/hora.");
+    if (!title) throw new Error("Falta título.");
+    if (!topic) throw new Error("Falta temática.");
+    if (!zoom) throw new Error("Falta link Zoom.");
 
-  // Limpieza
-  if (lcCoverFile) lcCoverFile.value = "";
-  if (lcCoverUrl) lcCoverUrl.value = "";
-  setLiveCoverPreview("");
+    const starts_at_iso = dtLocalArgentinaToIso(startsLocal);
+    const month_number = monthFromDtLocal(startsLocal);
+    if (!month_number) throw new Error("No pude resolver el mes.");
 
-  await loadLiveClassesAdmin();
-}
+    const cover_url = await uploadLiveCoverIfAny();
+
+    const { data: me } = await sb.auth.getUser();
+    const created_by = me?.user?.id || null;
+
+    const ins = await sb.from("live_classes").insert({
+      title,
+      topic,
+      starts_at: starts_at_iso,
+      zoom_join_url: zoom,
+      zoom_passcode: pass,
+      month_number,
+      reminder_minutes_before: reminder,
+      status: "scheduled",
+      created_by,
+      cover_url,
+    });
+
+    if (ins.error) throw new Error(ins.error.message);
+
+    setMsg(lcMsg, "Clase en vivo publicada ✅", "notice");
+
+    if (lcCoverFile) lcCoverFile.value = "";
+    if (lcCoverUrl) lcCoverUrl.value = "";
+    setLiveCoverPreview("");
+
+    await loadLiveClassesAdmin();
+  }
 
   async function loadLiveClassesAdmin() {
     if (!lcList) return;
@@ -2030,25 +2005,25 @@ async function uploadLiveCoverIfAny() {
       return;
     }
 
-   lcList.innerHTML = data.map((c) => `
-  <div class="item" style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
-    <div style="display:flex;gap:12px;align-items:flex-start">
-      ${c.cover_url ? `<img src="${esc(c.cover_url)}" alt="cover" style="width:64px;height:64px;object-fit:cover;border-radius:12px">` : ""}
-      <div>
-        <div><b>${esc(c.title)}</b></div>
-        <div class="small">${esc(c.topic)} · ${esc(fmtArgentinaDateTime(c.starts_at))} (AR)</div>
-        <div class="small" style="margin-top:6px;opacity:.9">
-          Reminder: ${esc(c.reminder_minutes_before)} min · Estado: ${esc(c.status || "")}
-          ${c.reminded_at ? ` · Recordatorio enviado: ${esc(fmtArgentinaDateTime(c.reminded_at))} (AR)` : ""}
+    lcList.innerHTML = data.map((c) => `
+      <div class="item" style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          ${c.cover_url ? `<img src="${esc(c.cover_url)}" alt="cover" style="width:64px;height:64px;object-fit:cover;border-radius:12px">` : ""}
+          <div>
+            <div><b>${esc(c.title)}</b></div>
+            <div class="small">${esc(c.topic)} · ${esc(fmtArgentinaDateTime(c.starts_at))} (AR)</div>
+            <div class="small" style="margin-top:6px;opacity:.9">
+              Reminder: ${esc(c.reminder_minutes_before)} min · Estado: ${esc(c.status || "")}
+              ${c.reminded_at ? ` · Recordatorio enviado: ${esc(fmtArgentinaDateTime(c.reminded_at))} (AR)` : ""}
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <a class="btn" target="_blank" rel="noopener" href="${esc(c.zoom_join_url)}">Zoom</a>
+          <button class="btn" type="button" data-lc-del="${esc(c.id)}">Eliminar</button>
         </div>
       </div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <a class="btn" target="_blank" rel="noopener" href="${esc(c.zoom_join_url)}">Zoom</a>
-      <button class="btn" type="button" data-lc-del="${esc(c.id)}">Eliminar</button>
-    </div>
-  </div>
-`).join("");
+    `).join("");
 
     lcList.querySelectorAll("[data-lc-del]").forEach((btn) => {
       btn.addEventListener("click", async () => {
@@ -2064,263 +2039,18 @@ async function uploadLiveCoverIfAny() {
     });
   }
 
-  // =====================================================
-  // UI bindings
-  // =====================================================
-  kpiRefreshBtn?.addEventListener("click", () => loadKPIs().catch(console.error));
-
-  logoutBtn?.addEventListener("click", async () => {
-    try { await sb.auth.signOut(); } catch (_) {}
-    window.location.href = "./index.html";
-  });
-
-  function selectionsOk() {
-    return !!(monthSel?.value && weekSel?.value && daySel?.value);
-  }
-
-  function updateLoadDayUI() {
-    const ok = selectionsOk();
-    if (loadBtn) loadBtn.disabled = !ok;
-    if (!ok) setMsg(selMsg, "Elegí mes, semana y día.", "small");
-    else setMsg(selMsg, "", "small");
-  }
-
-  ["change", "input"].forEach((evt) => {
-    monthSel?.addEventListener(evt, updateLoadDayUI);
-    weekSel?.addEventListener(evt, updateLoadDayUI);
-    daySel?.addEventListener(evt, updateLoadDayUI);
-  });
-
-  monthSel?.addEventListener("change", async () => {
-    const m = Number(monthSel.value || 0);
-    await loadWeeksForMonth(m);
-  });
-
-  weekSel?.addEventListener("change", async () => {
-    const m = Number(monthSel?.value || 0);
-    const w = Number(weekSel?.value || 0);
-    await loadDaysForMonthWeek(m, w);
-  });
-
-  updateLoadDayUI();
-
-  loadBtn?.addEventListener("click", async () => {
-    updateLoadDayUI();
-    if (loadBtn?.disabled) return;
-
-    setMsg(selMsg, "Cargando día…", "small");
-
-    try {
-      await loadDay();
-    } catch (e) {
-      console.error("[ADMIN] loadDay crash:", e);
-      setMsg(selMsg, e?.message || String(e), "error");
-      alert(e?.message || String(e));
-    }
-  });
-
-  saveDayMetaBtn?.addEventListener("click", async () => {
-    try {
-      await saveDayMeta();
-    } catch (e) {
-      console.error("[ADMIN] saveDayMeta crash:", e);
-      setMsg(metaMsg, e?.message || String(e), "error");
-      alert(e?.message || String(e));
-    }
-  });
-
-  refreshItemsBtn?.addEventListener("click", async () => {
-    try { await loadItems(); } catch (e) { console.error(e); }
-  });
-
-  addItemBtn?.addEventListener("click", async () => {
-    setMsg(itemMsg, "");
-    try {
-      await addItemToDay();
-    } catch (e) {
-      console.error("[ADMIN] addItemToDay crash:", e);
-      setMsg(itemMsg, e?.message || String(e), "error");
-      alert(e?.message || String(e));
-    }
-  });
-
-  createExerciseBtn?.addEventListener("click", async () => {
-    setMsg(exMsg, "");
-    try {
-      await createExercise();
-    } catch (e) {
-      console.error("[ADMIN] createExercise crash:", e);
-      setMsg(exMsg, e?.message || String(e), "error");
-      alert(e?.message || String(e));
-    }
-  });
-
-  exRefreshBtn?.addEventListener("click", () => loadExercisesLibrary().catch(console.error));
-
-  trackSel?.addEventListener("change", () => loadExercisesDropdown().catch(console.error));
-  objSel?.addEventListener("change", () => loadExercisesDropdown().catch(console.error));
-
-  findStudentBtn?.addEventListener("click", async () => {
-    try {
-      const email = (studentEmail?.value || "").trim();
-      if (!email) return setMsg(studentMsg, "Ingresá un email.", "error");
-
-      setMsg(studentMsg, "Buscando…", "small");
-
-      const { data, error } = await sb.rpc("admin_find_user_by_email", { p_email: email });
-      if (error) throw new Error(error.message);
-
-      const row = Array.isArray(data) ? data[0] : data;
-
-      if (!row?.user_id) {
-        foundUserId = null;
-        if (studentCard) studentCard.style.display = "none";
-        setMsg(studentMsg, "No encontrado.", "error");
-
-        setMsg(ovMsg, "", "small");
-        setMsg(stuRoutineMsg, "", "small");
-        if (stuRoutineBox) stuRoutineBox.innerHTML = "";
-        if (stuRoutineMeta) stuRoutineMeta.textContent = "";
-        return;
-      }
-
-      foundUserId = row.user_id;
-
-      const sum = await adminLoadUserSummary(foundUserId);
-
-if (sum.plan){
-  studentPlanOut.textContent = `Plan: ${sum.plan.plans?.slug || "—"} ${sum.plan.plans?.name ? `(${sum.plan.plans.name})` : ""}`;
-  studentStatusOut.textContent = `Estado: ${sum.plan.status || "—"}`;
-  studentPaidOut.textContent = `Pago hasta: ${sum.plan.paid_through || "—"}`;
-} else {
-  studentPlanOut.textContent = "Plan: —";
-  studentStatusOut.textContent = "Estado: —";
-  studentPaidOut.textContent = "Pago hasta: —";
-}
-
-// opcional: mostrar track/objetivo/nivel en el msg
-console.log("[ADMIN] prefs/profile:", sum.prefs, sum.profile);
-
-      if (studentEmailOut) studentEmailOut.textContent = row.email;
-      if (studentPlanOut) studentPlanOut.textContent = `Plan: ${row.plan_slug || "—"}`;
-      if (studentStatusOut) studentStatusOut.textContent = `Estado: ${row.plan_status || "—"}`;
-      if (studentPaidOut) studentPaidOut.textContent = `Pago hasta: ${row.paid_through || "—"}`;
-
-      if (studentCard) studentCard.style.display = "block";
-      setMsg(studentMsg, "Encontrado ✅", "notice");
-
-      await loadOverrideForUser(foundUserId);
-      await loadStudentActiveRoutineByEmail(row.email);
-    } catch (e) {
-      console.error(e);
-      setMsg(studentMsg, e?.message || String(e), "error");
-    }
-  });
-
-  openStudentCaseBtn?.addEventListener("click", async () => {
-    const email = (studentEmailOut?.textContent || studentEmail?.value || "").trim();
-    if (!email) return alert("Primero buscá un alumno.");
-
-    try {
-      await loadStudentActiveRoutineByEmail(email);
-      stuRoutineBox?.scrollIntoView({ behavior: "smooth", block: "start" });
-    } catch (e) {
-      alert(e?.message || String(e));
-    }
-  });
-
-  saveOverrideBtn?.addEventListener("click", async () => {
-    try {
-      if (!foundUserId) return alert("Primero buscá un alumno.");
-
-      setMsg(ovMsg, "Guardando…", "small");
-
-      const obj = (ovObjective?.value || "").trim() || null;
-      const trk = (ovTrack?.value || "").trim() || null;
-      const reason = (ovReason?.value || "").trim() || null;
-
-      const me = await sb.auth.getUser();
-      const myId = me?.data?.user?.id || null;
-
-      const { error } = await sb
-        .from("user_routine_overrides")
-        .upsert({
-          user_id: foundUserId,
-          active: true,
-          objective: obj,
-          track: trk,
-          reason,
-          updated_by: myId,
-        }, { onConflict: "user_id" });
-
-      if (error) throw new Error(error.message);
-
-      setMsg(ovMsg, "Override guardado ✅", "notice");
-    } catch (e) {
-      console.error("[ADMIN] saveOverride crash:", e);
-      setMsg(ovMsg, e?.message || String(e), "error");
-      alert(e?.message || String(e));
-    }
-  });
-
-  clearOverrideStudentBtn?.addEventListener("click", async () => {
-    try {
-      if (!foundUserId) return alert("Primero buscá un alumno.");
-
-      setMsg(ovMsg, "Desactivando…", "small");
-
-      const me = await sb.auth.getUser();
-      const myId = me?.data?.user?.id || null;
-
-      const { error } = await sb
-        .from("user_routine_overrides")
-        .upsert({
-          user_id: foundUserId,
-          active: false,
-          objective: null,
-          track: null,
-          reason: null,
-          updated_by: myId,
-        }, { onConflict: "user_id" });
-
-      if (error) return setMsg(ovMsg, error.message, "error");
-
-      if (ovObjective) ovObjective.value = "";
-      if (ovTrack) ovTrack.value = "";
-      if (ovReason) ovReason.value = "";
-
-      setMsg(ovMsg, "Override desactivado.", "notice");
-    } catch (e) {
-      setMsg(ovMsg, e?.message || String(e), "error");
-    }
-  });
-
   rcSaveBtn?.addEventListener("click", () => saveRecordedClass().catch((e) => setMsg(rcMsg, e?.message || String(e), "error")));
   rcRefreshBtn?.addEventListener("click", () => loadRecordedClasses().catch(console.error));
 
   lcSaveBtn?.addEventListener("click", () => saveLiveClass().catch((e) => setMsg(lcMsg, e?.message || String(e), "error")));
   lcRefreshBtn?.addEventListener("click", () => loadLiveClassesAdmin().catch(console.error));
 
-  function setLiveCoverPreview(url) {
-  if (!lcCoverPreview) return;
-  if (!url) {
-    lcCoverPreview.style.display = "none";
-    lcCoverPreview.removeAttribute("src");
-    return;
-  }
-  lcCoverPreview.src = url;
-  lcCoverPreview.style.display = "block";
-}
-
-lcCoverUrl?.addEventListener("input", () => {
-  setLiveCoverPreview((lcCoverUrl.value || "").trim());
-});
-
-lcCoverFile?.addEventListener("change", () => {
-  const f = lcCoverFile.files?.[0];
-  if (!f) return setLiveCoverPreview("");
-  setLiveCoverPreview(URL.createObjectURL(f));
-});
+  lcCoverUrl?.addEventListener("input", () => setLiveCoverPreview((lcCoverUrl.value || "").trim()));
+  lcCoverFile?.addEventListener("change", () => {
+    const f = lcCoverFile.files?.[0];
+    if (!f) return setLiveCoverPreview("");
+    setLiveCoverPreview(URL.createObjectURL(f));
+  });
 
   // =====================================================
   // Init
@@ -2330,31 +2060,21 @@ lcCoverFile?.addEventListener("change", () => {
       const ok = await ensureAdminSession();
       if (!ok) return;
 
-      await loadMonths();
-
-      const m = Number(monthSel?.value || 0);
-      if (m) await loadWeeksForMonth(m);
-      else updateLoadDayUI();
-
-      if (weekSel && !weekSel.value) weekSel.value = "1";
-      if (daySel && !daySel.value) daySel.value = "1";
-      updateLoadDayUI();
+      // base
+      exitStudentMode();
 
       await loadKPIs();
-
-      initActiveRoutinesUI();
-      wireActiveMonthMenu();
-      await loadActiveRoutinesTable();
-      await buildActiveMonthMenu().catch(() => {});
+      await loadPlansIntoActiveUsersFilter();
+      await loadActiveUsers();
 
       await loadExercisesDropdown();
-
-      await loadAlerts();
-      await loadRecordedClasses();
-      await loadLiveClassesAdmin();
       await loadExercisesLibrary();
 
-      // ✅ Frase de la semana (no rompe si no está el acordeón en el HTML)
+      await loadAlerts();
+
+      await loadRecordedClasses();
+      await loadLiveClassesAdmin();
+
       initWeeklyQuoteAdmin();
 
       console.log("[ADMIN] Ready ✅");
@@ -2364,32 +2084,3 @@ lcCoverFile?.addEventListener("change", () => {
     }
   })();
 })();
-async function adminLoadUserSummary(userId){
-  const out = {};
-
-  const { data: planRow, error: pErr } = await sb
-    .from("user_plan")
-    .select("status, paid_through, plans:plan_id (slug, name)")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (!pErr && planRow) out.plan = planRow;
-
-  const { data: prefRow, error: prErr } = await sb
-    .from("user_preferences")
-    .select("objective, track")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (!prErr && prefRow) out.prefs = prefRow;
-
-  const { data: profRow, error: pfErr } = await sb
-    .from("profiles")
-    .select("training_level")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (!pfErr && profRow) out.profile = profRow;
-
-  return out;
-}
