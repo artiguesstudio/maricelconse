@@ -391,21 +391,6 @@
       window.addEventListener("scroll", onScroll, { passive: true });
     })();
 
-    // CTA Planes -> register con plan (evita clicks en el video)
-    document.addEventListener("click", (e) => {
-    // Evitar redirección si el tap fue en el video o sus controles
-    if (e.target.closest("video") || e.target.closest(".plan-media")) return;
-
-    const b = e.target.closest("[data-plan]");
-    if (!b) return;
-
-    const plan = b.getAttribute("data-plan");
-    if (!plan) return;
-
-    localStorage.setItem("A360_SELECTED_PLAN", plan);
-    window.location.href = `./register.html?plan=${encodeURIComponent(plan)}`;
-  });
-
     // Pausar video al salir del modal
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -422,29 +407,145 @@
     videos.forEach(v => io.observe(v));
   });
 
-    // Sesión: si está logueada, mostrar "Mi panel" y ocultar login
-    (async () => {
-      try {
-        const sb = window.sb;
-        if (!sb?.auth) return;
+   document.addEventListener("DOMContentLoaded", () => {
+  const sb = window.sb;
+  if (!sb?.auth) return;
 
-        const { data } = await sb.auth.getSession();
-        const hasSession = !!data?.session;
+  const goAppBtn = document.getElementById("goAppBtn");
+  const loginBtn = document.getElementById("loginBtn");
 
-        const goAppBtn = document.getElementById("goAppBtn");
-        const loginBtn = document.getElementById("loginBtn");
+  const planBtns = () => Array.from(document.querySelectorAll('button[data-plan]'));
 
-        if (!goAppBtn || !loginBtn) return;
+  function applyHeader(hasSession) {
+    if (!goAppBtn || !loginBtn) return;
+    goAppBtn.style.display = hasSession ? "inline-flex" : "none";
+    loginBtn.style.display = hasSession ? "none" : "inline-flex";
+  }
 
-        if (hasSession) {
-          goAppBtn.style.display = "inline-flex";
-          loginBtn.style.display = "none";
-        } else {
-          goAppBtn.style.display = "none";
-          loginBtn.style.display = "inline-flex";
-        }
-      } catch (_) {}
-    })();
+  async function getMyPlanMode(uid) {
+    // register | checkout | go_app
+    try {
+      const { data, error } = await sb
+        .from("user_plan")
+        .select("status, plans:plan_id (slug,name)")
+        .eq("user_id", uid)
+        .maybeSingle();
+
+      if (error) return "go_app"; // fallback seguro (sin romper UX)
+
+      const status = String(data?.status || "").toLowerCase();
+      if (status === "active") return "go_app";
+
+      // logueada pero no activa -> completar pago
+      return "checkout";
+    } catch (_) {
+      return "go_app";
+    }
+  }
+
+  function setPlansMode(mode) {
+  for (const b of planBtns()) {
+    // Limpieza base
+    b.classList.remove("btn-disabled");
+    b.disabled = false;
+
+    if (mode === "go_app") {
+      // ✅ No mostrar “Ir a mi panel” en cards
+      b.dataset.a360Mode = "disabled";
+      b.textContent = "Plan activo";
+      b.disabled = true;
+      b.classList.add("btn-disabled");
+      continue;
+    }
+
+    if (mode === "checkout") {
+      b.dataset.a360Mode = "checkout";
+      b.textContent = "Suscribirme";
+      continue;
+    }
+
+    // mode === "register"
+    b.dataset.a360Mode = "register";
+    b.textContent = "Suscribirme";
+  }
+}
+
+  async function startCheckout(planSlug) {
+    const { data, error } = await sb.functions.invoke("mp-checkout", {
+      body: { plan_slug: planSlug },
+    });
+    if (error) throw error;
+    if (!data?.url) throw new Error("No llegó URL de checkout.");
+    window.location.href = data.url;
+  }
+
+  async function syncIndexAuthUI() {
+    const { data } = await sb.auth.getSession();
+    const session = data?.session || null;
+
+    const hasSession = !!session?.user;
+    applyHeader(hasSession);
+
+    if (!hasSession) {
+      setPlansMode("register");
+      return;
+    }
+
+    const mode = await getMyPlanMode(session.user.id);
+    setPlansMode(mode);
+  }
+
+  // ✅ Click handler único para botones de plan
+  document.addEventListener("click", async (e) => {
+    if (e.target.closest("video") || e.target.closest(".plan-media")) return;
+
+    const btn = e.target.closest('button[data-plan]');
+if (!btn) return;
+
+// ✅ Si está deshabilitado, no hacer nada
+if (btn.disabled || btn.dataset.a360Mode === "disabled") return;
+
+    const plan = btn.getAttribute("data-plan");
+    if (!plan) return;
+
+    // Re-chequeo sesión al click (evita estados viejos por cache)
+    const { data } = await sb.auth.getSession();
+    const session = data?.session || null;
+
+    if (!session?.user) {
+      localStorage.setItem("A360_SELECTED_PLAN", plan);
+      window.location.href = `./register.html?plan=${encodeURIComponent(plan)}`;
+      return;
+    }
+
+    const mode = btn.dataset.a360Mode || "checkout";
+
+    if (mode === "go_app") {
+      window.location.href = "./app.html";
+      return;
+    }
+
+    // mode === "checkout"
+    try {
+      await startCheckout(plan);
+    } catch (err) {
+      alert(err?.message || String(err));
+    }
+  });
+
+  // ✅ Sincroniza en carga y en casos de BFCache / volver a pestaña
+  syncIndexAuthUI();
+  sb.auth.onAuthStateChange((_ev, session) => applyHeader(!!session)); // header instantáneo
+
+  window.addEventListener("pageshow", () => {
+    // BFCache: cuando volvés al index, recalculamos todo (header + planes)
+    syncIndexAuthUI();
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) syncIndexAuthUI();
+  });
+});
 
     // FAQ accordion — solo 1 abierta
     (function initFAQ() {

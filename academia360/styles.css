@@ -392,8 +392,8 @@ textarea.input{ min-height:92px; resize:vertical; }
 /* =========================================================
    COACHING (index)
    ========================================================= */
-.coaching-copy{ margin: 0 0 12px 0; }
-.coaching-btn{ margin-top: 12px; }
+.coaching-copy{ margin: 0 0 12px 0; margin-left: 12px; margin-right: 12px; }
+.coaching-btn{ margin-top: 12px; margin-left: 12px; }
 
 /* =========================================================
    PLANES (index)
@@ -1598,3 +1598,10 @@ body{
 .danger-zone{ margin-top: 8px; }
 .danger-zone > summary{ list-style: none; }
 .danger-zone > summary::-webkit-details-marker{ display:none; }
+button.btn[disabled],
+.btn.btn-disabled{
+  opacity: .55;
+  cursor: not-allowed;
+  filter: grayscale(1);
+  pointer-events: none; /* extra seguro */
+}

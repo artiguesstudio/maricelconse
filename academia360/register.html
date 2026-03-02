@@ -71,10 +71,10 @@
         <div class="small">Completá estos datos para iniciar tu suscripción.</div>
         <div class="hr"></div>
 
-       <form id="registerForm" class="form" autocomplete="on">
+<form id="registerForm" class="form" autocomplete="on">
 
-  <!-- PLAN (UNICO) -->
-  <label class="small">Plan al que te suscribiste</label>
+  <!-- PLAN -->
+  <label class="small">Plan</label>
   <select class="input" id="planSelect" required>
     <option value="">Seleccionar plan</option>
     <option value="basic">Básico</option>
@@ -88,47 +88,15 @@
 
   <div class="hr"></div>
 
+  <!-- DATOS MÍNIMOS -->
   <label class="small">Nombre y apellido</label>
   <input class="input" id="fullName" type="text" placeholder="Ej: Ana Pérez" required />
-
-  <label class="small">Edad</label>
-  <input class="input" id="age" type="number" min="10" max="90" placeholder="Ej: 32" required />
-
-  <label class="small" for="regWeight">Peso (kg)</label>
-  <input class="input" id="regWeight" type="number" min="20" max="300" step="0.1" placeholder="Ej: 72.5" />
-
-  <label class="small" for="regHeight">Altura (cm)</label>
-  <input class="input" id="regHeight" type="number" min="100" max="250" step="1" placeholder="Ej: 172" />  
 
   <label class="small">Email</label>
   <input class="input" id="email" type="email" placeholder="tu@email.com" required />
 
   <label class="small">Teléfono</label>
   <input class="input" id="phone" type="tel" placeholder="Ej: 2964 123456" required />
-
-  <div class="hr"></div>
-
-  <label class="small">¿Cuál es tu principal objetivo en este momento?</label>
-  <select class="input" id="objective" required>
-    <option value="fat_loss">Perder peso</option>
-    <option value="muscle_gain">Ganar masa muscular</option>
-  </select>
-
-  <label class="small">¿Dónde vas a entrenar?</label>
-  <select class="input" id="track" required>
-    <option value="home">Casa</option>
-    <option value="gym">Gimnasio</option>
-  </select>
-
-  <label class="small">¿Cómo consideras tu nivel de entrenamiento?</label>
-  <select class="input" id="level" required>
-    <option value="beginner">Principiante</option>
-    <option value="intermediate">Intermedio</option>
-    <option value="advanced">Avanzado</option>
-  </select>
-
-  <label class="small">¿Tenés alguna lesión o condición física a tener en cuenta?</label>
-  <textarea class="input" id="notes" rows="4" placeholder="Especificar (opcional)"></textarea>
 
   <div class="hr"></div>
 
@@ -141,20 +109,24 @@
   <label class="small">Repetir contraseña</label>
   <input class="input" id="password2" type="password" minlength="6" placeholder="Repetí la contraseña" required />
 
-  <button class="btn primary" id="createBtn" type="submit">Crear</button>
+  <button class="btn primary" id="createBtn" type="submit">Crear cuenta y pagar</button>
 
-  <!-- MENSAJE (UNICO) -->
   <div id="regMsg" class="small" style="margin-top:10px"></div>
 
-  <!-- PAGO (UNICO) -->
+  <!-- Fallback si el checkout falla -->
   <div id="payBox" style="display:none;margin-top:14px">
-    <div class="notice small" id="payHint">Debés realizar el pago para completar la suscripción.</div>
+    <div class="notice small" id="payHint">No pude abrir el pago automáticamente. Podés intentarlo de nuevo.</div>
     <div style="margin-top:10px">
       <button class="btn primary" id="payBtn" type="button">Ir a pagar</button>
     </div>
   </div>
 
 </form>
+
+<div class="hr"></div>
+<div class="small" style="opacity:.8">
+  Acceso al campus <b>se activa al instante</b>. Luego del pago te pedimos 2 minutos para completar tu ficha y tu rutina personalizada llega dentro de <b>48 hs</b>.
+</div>
         <div class="hr"></div>
         <div class="small" style="opacity:.8">
           Importante: Tu rutina estará disponible dentro de las 48 horas posteriores a la confirmación del pago.

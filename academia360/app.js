@@ -295,22 +295,21 @@
   }
 
   function renderRoutineLockedNotice(availableAt) {
-    const when = availableAt ? formatDateTimeEs(availableAt) : "";
-    const msg = `
-      <div class="notice">
-        <b>Pago recibido ✅</b><br>
-        Dentro de las próximas <b>24 a 48hs</b> recibirás tu rutina 100% personalizada.
-        <br><br>
-        ${when
-          ? `<b>Se habilita:</b> ${esc(when)} (AR)`
-          : `Se habilita mañana entre <b>08:00 y 14:00</b> (AR).`}
-        <br><br>
-        Te avisaremos por email cuando esté lista.
-      </div>
-    `;
-
-    if (monthContent) monthContent.innerHTML = msg;
-  }
+  const when = availableAt ? formatDateTimeEs(availableAt) : "";
+  const msg = `
+    <div class="notice">
+      <b>Acceso activado ✅</b><br>
+      Tu rutina 100% personalizada se arma y llega dentro de <b>48 hs</b>.
+      <br><br>
+      <a class="btn primary" href="./onboarding.html">Completar ficha (2 min)</a>
+      <br><br>
+      ${when
+        ? `<b>Se habilita:</b> ${esc(when)} (AR)`
+        : `Te avisamos apenas esté lista.`}
+    </div>
+  `;
+  if (monthContent) monthContent.innerHTML = msg;
+}
 
     function showToast(message) {
     const existing = document.getElementById("a360Toast");
@@ -1054,10 +1053,10 @@
 
   async function rpcMonthContent(monthNumber, objective) {
     // 1) Gate (nuevo)
-    const res = await sb.rpc("get_month_content_gate", {
-      p_month: monthNumber,
-      p_objective: objective,
-    });
+    const res = await sb.rpc("get_month_content_gate_secure", {
+  p_month: monthNumber,
+  p_objective: objective,
+});
 
     if (!res.error) return res;
 
@@ -1611,7 +1610,12 @@
 
     if (profileUpgradeMidBtn) profileUpgradeMidBtn.style.display = slug === "basic" ? "inline-flex" : "none";
     if (profileUpgradeProBtn) profileUpgradeProBtn.style.display = show ? "inline-flex" : "none";
-  }
+    if (upgradeMidBtn) upgradeMidBtn.textContent = "Pasar a Intermedio";
+    if (upgradeProBtn) upgradeProBtn.textContent = "Pasar a Premium";
+
+    if (profileUpgradeMidBtn) profileUpgradeMidBtn.textContent = "Pasar a Intermedio";
+    if (profileUpgradeProBtn) profileUpgradeProBtn.textContent = "Pasar a Premium";
+   }
 
   async function loadMyProfile() {
     const { data: userRes } = await sb.auth.getUser();
@@ -1787,6 +1791,68 @@
 
   // Necesitamos plan/admin antes de sincronizar UI de plan
   await Promise.all([adminP, planP]);
+  // ✅ GATE: sin plan activo NO se ve contenido, NO hay onboarding
+if (!planInfo || norm(planInfo.status) !== "active") {
+  // UI mínima: mostrar paywall y cortar init
+  if (monthTitle) monthTitle.textContent = "Acceso pendiente";
+  if (monthContent) {
+    monthContent.innerHTML = `
+      <div class="notice">
+        <b>Tu cuenta todavía no tiene una suscripción activa.</b><br><br>
+        Para ver tu rutina y contenidos, completá el pago.
+        <br><br>
+        <a class="btn primary" href="./index.html#planes">Ver planes</a>
+      </div>
+    `;
+  }
+
+  // Ocultar secciones premium si existen
+  if (classesList) classesList.innerHTML = "";
+  if (recordedList) recordedList.innerHTML = "";
+  if (classesMsg) setNotice(classesMsg, "Disponible con suscripción activa.", "notice small");
+  if (recordedMsg) setNotice(recordedMsg, "Disponible con suscripción activa.", "notice small");
+
+  // Si tenés upgradeBox, lo podés mostrar como CTA (opcional)
+  if (upgradeBox) {
+    upgradeBox.style.display = "block";
+    // Dejá solo Pro/Premium como CTA si querés:
+    if (upgradeMidBtn) upgradeMidBtn.style.display = "none";
+    if (upgradeProBtn) {
+      upgradeProBtn.style.display = "inline-flex";
+      upgradeProBtn.textContent = "Activar Premium";
+    }
+  }
+
+  syncCampusExperience();
+  return; // ⛔ corta init
+}
+  async function needsOnboarding(uid) {
+  const { data: p } = await sb.from("profiles")
+    .select("age, training_level")
+    .eq("user_id", uid)
+    .maybeSingle();
+
+  const { data: pref } = await sb.from("user_preferences")
+    .select("objective, track")
+    .eq("user_id", uid)
+    .maybeSingle();
+
+  const missingAge = p?.age == null;
+  const missingLevel = !p?.training_level;
+  const missingObj = !pref?.objective;
+  const missingTrack = !pref?.track;
+
+  return missingAge || missingLevel || missingObj || missingTrack;
+}
+
+// ... dentro de init(), luego de planP:
+if (isPlanActive()) {
+  const must = await needsOnboarding(session.user.id);
+  if (must) {
+    window.location.replace("./onboarding.html");
+    return;
+  }
+}
 
   syncUpgradeUI(planSlug);
   syncProfileAccountUI();
