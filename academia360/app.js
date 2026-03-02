@@ -245,7 +245,7 @@
   // =====================================================
   // State
   // =====================================================
-  let currentObjective = localStorage.getItem("A360_OBJECTIVE") || "fat_loss";
+  let currentObjective = "fat_loss"; // siempre lo fija el perfil del alumno
   let currentTrack = "gym"; // se pisa por user_preferences / user_metadata
 
   let planSlug = null; // normalizado (lower)
@@ -262,6 +262,9 @@
   let routineLocked = false;
   let routineAvailableAt = null;
   let gateRefreshTimer = null;
+    // Rutina lista (avisos)
+  let routineReadyAt = null;
+  let routineNotifiedAt = null;
 
   // =====================================================
   // Gate helpers (rutina en preparación)
@@ -307,6 +310,66 @@
     `;
 
     if (monthContent) monthContent.innerHTML = msg;
+  }
+
+    function showToast(message) {
+    const existing = document.getElementById("a360Toast");
+    if (existing) existing.remove();
+
+    const wrap = document.createElement("div");
+    wrap.id = "a360Toast";
+    wrap.style.cssText = `
+      position:fixed; left:12px; right:12px; bottom:14px; z-index:9999;
+      background:rgba(255,255,255,.95); border:1px solid rgba(0,0,0,.10);
+      border-radius:14px; padding:12px 12px; box-shadow:0 14px 40px rgba(0,0,0,.14);
+      max-width:720px; margin:0 auto; display:flex; gap:10px; align-items:flex-start;
+    `;
+
+    const txt = document.createElement("div");
+    txt.style.cssText = "flex:1; font-size:14px; line-height:1.35; color:#111;";
+    txt.textContent = message;
+
+    const btn = document.createElement("button");
+    btn.className = "btn";
+    btn.type = "button";
+    btn.textContent = "OK";
+    btn.addEventListener("click", () => wrap.remove());
+
+    wrap.appendChild(txt);
+    wrap.appendChild(btn);
+    document.body.appendChild(wrap);
+
+    // autocierre suave
+    setTimeout(() => { try { wrap.remove(); } catch (_) {} }, 12000);
+  }
+
+  async function loadRoutineDeliveryStatus(userId) {
+    routineReadyAt = null;
+    routineNotifiedAt = null;
+
+    if (!userId) return;
+
+    const { data, error } = await sb
+      .from("routine_delivery")
+      .select("paid_at, available_at, ready_at, notified_at")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error || !data) return;
+
+    routineReadyAt = data.ready_at || null;
+    routineNotifiedAt = data.notified_at || null;
+
+    // Aviso “Rutina lista” (una sola vez por notified_at)
+    if (routineNotifiedAt) {
+      const key = `A360_ROUTINE_READY_SEEN_${routineNotifiedAt}`;
+      const seen = localStorage.getItem(key);
+
+      if (!seen) {
+        showToast("✅ Ya está lista tu rutina 100% personalizada. Entrá en “Rutina” para verla.");
+        localStorage.setItem(key, "1");
+      }
+    }
   }
 
   // =====================================================
@@ -391,6 +454,22 @@
     // No hay switch; solo mostramos la modalidad elegida
     if (trackHint) trackHint.textContent = labelTrack(currentTrack);
   }
+  function lockRoutineToStudentPreferencesUI() {
+  // Oculta “Modificar objetivos” y todo el panel de objetivo
+  if (editObjectiveBtn) editObjectiveBtn.style.display = "none";
+  if (objectivePanel) objectivePanel.style.display = "none";
+
+  // Por si existieran inputs/selects, los deja inactivos
+  if (objectiveSel) objectiveSel.disabled = true;
+  if (saveObjectiveBtn) saveObjectiveBtn.disabled = true;
+  if (cancelObjectiveBtn) cancelObjectiveBtn.disabled = true;
+
+  // Si tenés algún texto explicativo, podés setearlo acá
+  if (objectiveMsg) {
+    objectiveMsg.className = "small";
+    objectiveMsg.textContent = "";
+  }
+}
 
   // =====================================================
   // UX campus (si existen esos nodos en el HTML)
@@ -431,7 +510,9 @@
         const when = routineAvailableAt ? formatDateTimeShort(routineAvailableAt) : "";
         campusWelcomeMeta.textContent =
           `Pago recibido · Rutina de ${monthName} en preparación${when ? ` · Se habilita: ${when} (AR)` : ""}`;
-      } else if (nextClassLabel) {
+            } else if (routineReadyAt) {
+        campusWelcomeMeta.textContent = `Rutina lista ✅ · Entrá en “Rutina” para verla.`;
+        } else if (nextClassLabel) {
         campusWelcomeMeta.textContent = `${planName} activo · Rutina de ${monthName} · Próxima clase: ${nextClassLabel}`;
       } else {
         campusWelcomeMeta.textContent = `${planName} activo · Rutina de ${monthName} lista para continuar.`;
@@ -1694,6 +1775,7 @@
 
   campusEmailCache = session.user.email || "";
   await loadCampusIdentity();
+  const routineP = loadRoutineDeliveryStatus(session.user.id); // no bloquea
 
   // ⚡ Disparar tareas en paralelo lo antes posible
   const adminP = maybeShowAdminLink();
@@ -1713,10 +1795,13 @@
   // Preferencias (objective/track)
   const prefs = await prefsP;
   currentObjective = prefs.objective;
-  currentTrack = prefs.track;
+currentTrack = prefs.track;
 
-  localStorage.setItem("A360_OBJECTIVE", currentObjective);
-  syncTrackUI();
+// Evita desincronización histórica del alumno
+try { localStorage.removeItem("A360_OBJECTIVE"); } catch (_) {}
+
+syncTrackUI();
+lockRoutineToStudentPreferencesUI();
 
   // Contenido pesado
   const publishedMonth = await getPublishedMonthNumber();
@@ -1726,7 +1811,7 @@
 
   // No es necesario esperar quote, pero si querés asegurar que termine:
   await quoteP;
-
+  await routineP;
   syncCampusExperience();
 })();
 })();
