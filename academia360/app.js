@@ -757,66 +757,37 @@
   }
 
   async function startCheckout(targetSlug) {
-    try {
-      const { data, error } = await sb.functions.invoke("mp-checkout", {
-        body: { plan_slug: targetSlug },
-      });
+  try {
+    // ✅ FORZAR refresh de sesión (evita "Invalid JWT")
+    const { data: refreshRes, error: refreshErr } = await sb.auth.refreshSession();
+    const session = refreshRes?.session;
 
-      if (error) {
-        alert(error.message || "No pude iniciar el checkout.");
-        return;
-      }
-      if (!data?.url) {
-        alert("No llegó URL de checkout.");
-        return;
-      }
-      window.location.href = data.url;
-    } catch (e) {
-      alert(e?.message || String(e));
-    }
-  }
+    if (refreshErr) console.warn("[APP] refreshSession error:", refreshErr);
 
-  upgradeMidBtn?.addEventListener("click", () => startCheckout("mid"));
-  upgradeProBtn?.addEventListener("click", () => startCheckout("pro"));
-
-  // =====================================================
-  // Objetivo
-  // =====================================================
-  function setObjective(objective) {
-    currentObjective = objective === "muscle_gain" ? "muscle_gain" : "fat_loss";
-    localStorage.setItem("A360_OBJECTIVE", currentObjective);
-  }
-
-  function openObjectivePanel(open) {
-    if (!objectivePanel) return;
-
-    objectivePanel.style.display = open ? "block" : "none";
-
-    if (objectiveSel) objectiveSel.value = currentObjective;
-    if (objectiveMsg) {
-      objectiveMsg.textContent = "";
-      objectiveMsg.className = "small";
-    }
-  }
-
-  editObjectiveBtn?.addEventListener("click", () => openObjectivePanel(true));
-  cancelObjectiveBtn?.addEventListener("click", () => openObjectivePanel(false));
-
-  saveObjectiveBtn?.addEventListener("click", async () => {
-    const value = objectiveSel?.value || "fat_loss";
-    setObjective(value);
-
-    if (objectiveMsg) {
-      objectiveMsg.className = "notice";
-      objectiveMsg.textContent = "Objetivo actualizado ✅";
+    if (!session?.access_token) {
+      window.location.href = "./login.html";
+      return;
     }
 
-    if (currentMonth) await openMonth(currentMonth, { force: true });
+    const { data, error } = await sb.functions.invoke("mp-checkout", {
+      body: { plan_slug: targetSlug },
+      headers: { authorization: `Bearer ${session.access_token}` },
+    });
 
-    syncCampusExperience();
-    setTimeout(() => openObjectivePanel(false), 600);
-  });
+    if (error) {
+      alert(error.message || "No pude iniciar el checkout.");
+      return;
+    }
+    if (!data?.url) {
+      alert("No llegó URL de checkout.");
+      return;
+    }
 
+    window.location.href = data.url;
+  } catch (e) {
+    alert(e?.message || String(e));
+  }
+}
   // =====================================================
   // Video modal
   // =====================================================
