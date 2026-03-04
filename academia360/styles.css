@@ -1635,3 +1635,98 @@ button.btn[disabled],
   filter: grayscale(1);
   pointer-events: none; /* extra seguro */
 }
+/* =========================================================
+   Rutina — layout prolijo + acciones (Ver video / Comentarios)
+   ========================================================= */
+
+/* Lista de ejercicios */
+.ex-list{
+  display:grid;
+  gap:10px;
+  margin-top:10px;
+}
+
+/* Card de ejercicio: texto izq + botón der */
+.ex-card{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+
+  padding:12px 12px;
+  border:1px solid rgba(0,0,0,.08);
+  border-radius:16px;
+  background: rgba(255,255,255,.62);
+}
+
+.ex-card > div:first-child{ min-width:0; }
+
+.ex-name{
+  font-weight:800;
+  font-size:13px;
+  line-height:1.25;
+  letter-spacing:.01em;
+  margin:0;
+}
+
+.ex-meta{
+  margin-top:3px;
+  font-size:12px;
+  opacity:.78;
+}
+
+/* Acciones del ejercicio */
+.ex-actions{
+  flex:0 0 auto;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+/* Botón “Ver video” estilo link/ghost */
+.btn-video{
+  padding:7px 10px !important;
+  font-size:12px !important;
+  line-height:1 !important;
+  border-radius:12px !important;
+  min-height:30px !important;
+
+  border:1px solid rgba(0,0,0,.10) !important;
+  background: rgba(0,0,0,.035) !important;
+  color: rgba(0,0,0,.82) !important;
+
+  box-shadow:none !important;
+  white-space:nowrap;
+}
+.btn-video:hover{
+  background: rgba(0,0,0,.055) !important;
+  border-color: rgba(0,0,0,.14) !important;
+}
+
+/* Botón “Agregar comentarios” más fino (no “pastilla grotesca”) */
+.btn-comment{
+  padding:8px 12px !important;
+  font-size:12px !important;
+  line-height:1 !important;
+  border-radius:14px !important;
+  min-height:32px !important;
+
+  border:1px solid rgba(0,0,0,.10) !important;
+  background: rgba(255,255,255,.72) !important;
+  color: rgba(0,0,0,.85) !important;
+
+  box-shadow:none !important;
+  white-space:nowrap;
+}
+.btn-comment:hover{
+  background: rgba(255,255,255,.92) !important;
+  border-color: rgba(0,0,0,.14) !important;
+}
+
+/* Tip más discreto */
+.day-body .notice.small{
+  border:1px dashed rgba(0,0,0,.12);
+  background: rgba(0,0,0,.02);
+  padding:10px 12px;
+  border-radius:14px;
+}

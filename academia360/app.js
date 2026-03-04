@@ -878,7 +878,7 @@
   function renderExerciseCard(item) {
     const videoBtn = item.video_url
       ? `
-        <button class="btn" type="button"
+        <button class="btn btn-mini" type="button"
           data-video-url="${esc(item.video_url)}"
           data-video-title="${esc(item.exercise)}">
           Ver video
@@ -972,7 +972,7 @@
 
         // ✅ Acciones: comentarios
         const commentBtn = `
-          <button class="btn campus-ghost" type="button"
+          <button class="btn btn-comment" type="button"
             data-comment-open="1"
             data-comment-month="${esc(currentMonth)}"
             data-comment-week="${esc(week.week_number)}"
