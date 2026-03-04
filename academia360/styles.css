@@ -62,7 +62,7 @@ body{
 }
 .hr{ height:1px; background:var(--border); margin:14px 0; }
 .row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-.small{ font-size:13px; color:var(--muted); }
+.small{ font-size:11px; color:var(--muted); }
 .small2{ font-size:13px; color:var(--muted); text-align:center; }
 
 .badge{
@@ -1729,4 +1729,21 @@ button.btn[disabled],
   background: rgba(0,0,0,.02);
   padding:10px 12px;
   border-radius:14px;
+}
+/* WhatsApp box: texto izq + botón centrado (robusto) */
+#helpWhatsappBox{
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;     /* centra el botón */
+  justify-content: center !important;
+  gap: 10px !important;
+}
+
+#helpWhatsappBox > .small{
+  width: 100%;
+  text-align: center
+}
+
+#helpWhatsappBox > a.btn{
+  margin-top: 6px !important;         /* ajustá a gusto */
 }

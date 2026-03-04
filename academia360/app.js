@@ -1,4 +1,4 @@
-// app.js — limpio (con comentarios por día + UX mejorada)
+// app.js — limpio (comentarios por día + replies admin + badge)
 // Rutinas + gate + clases en vivo + biblioteca grabadas + descarga + perfil + comentarios a coach
 (() => {
   "use strict";
@@ -9,8 +9,7 @@
   // Guard rails
   // =====================================================
   const sb = window.sb;
-  const A360 = window.A360Auth || {};
-  const requireAuth = A360.requireAuthOrRedirect;
+  const requireAuth = window.A360Auth?.requireAuthOrRedirect;
 
   if (!sb) {
     console.error("[A360] sb no existe. Revisa el orden de scripts.");
@@ -22,13 +21,10 @@
   }
 
   // =====================================================
-  // Constantes / helpers base
+  // Constantes / helpers
   // =====================================================
   const AR_TZ = "America/Argentina/Buenos_Aires";
-  const MONTHS_ES = [
-    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
-  ];
+  const MONTHS_ES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
   const MP_FALLBACK_URL = {
     basic: "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=a744205529154c91bdfe7811443a9e41",
@@ -36,30 +32,24 @@
     pro:   "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=4e5b56a866274858ad36638487349115",
   };
 
-  function norm(v) { return String(v ?? "").trim().toLowerCase(); }
+  const $id = (id) => document.getElementById(id);
 
+  function norm(v) { return String(v ?? "").trim().toLowerCase(); }
   function esc(value) {
     return String(value ?? "").replace(/[&<>"']/g, (m) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;",
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
     }[m]));
   }
 
   function monthLabel(n) { return MONTHS_ES[n - 1] || "Mes"; }
   function monthNameEs(monthIndex) { return MONTHS_ES[monthIndex] || "Mes"; }
-
   function labelTrack(track) { return track === "gym" ? "Gimnasio" : track === "both" ? "Ambos" : "Casa"; }
-  function objectiveLabel(objective) { return objective === "muscle_gain" ? "Ganar masa muscular" : "Perder peso"; }
 
   function setNotice(el, text, kind = "notice") {
     if (!el) return;
     el.className = kind;
     el.textContent = text || "";
   }
-
   function clearText(el) {
     if (!el) return;
     el.className = "small";
@@ -70,41 +60,20 @@
     if (!value) return "";
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return "";
-    return new Intl.DateTimeFormat("es-AR", {
-      timeZone: AR_TZ, year: "numeric", month: "2-digit", day: "2-digit",
-    }).format(d);
+    return new Intl.DateTimeFormat("es-AR", { timeZone: AR_TZ, year:"numeric", month:"2-digit", day:"2-digit" }).format(d);
   }
-
-  function formatDateTimeEs(value) {
-    if (!value) return "";
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "";
-
-    const date = new Intl.DateTimeFormat("es-AR", {
-      timeZone: AR_TZ, day: "2-digit", month: "2-digit", year: "numeric",
-    }).format(d);
-
-    const time = new Intl.DateTimeFormat("es-AR", {
-      timeZone: AR_TZ, hour: "2-digit", minute: "2-digit", hour12: false, hourCycle: "h23",
-    }).format(d);
-
-    return `${date}, ${time}hs`;
-  }
-
   function formatDateTimeShort(value) {
     if (!value) return "";
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return "";
-
-    const date = new Intl.DateTimeFormat("es-AR", { timeZone: AR_TZ, day: "2-digit", month: "2-digit" }).format(d);
-    const time = new Intl.DateTimeFormat("es-AR", { timeZone: AR_TZ, hour: "2-digit", minute: "2-digit", hour12: false, hourCycle: "h23" }).format(d);
+    const date = new Intl.DateTimeFormat("es-AR", { timeZone: AR_TZ, day:"2-digit", month:"2-digit" }).format(d);
+    const time = new Intl.DateTimeFormat("es-AR", { timeZone: AR_TZ, hour:"2-digit", minute:"2-digit", hour12:false, hourCycle:"h23" }).format(d);
     return `${date} ${time}hs`;
   }
-
   function formatPaidThrough(value) {
     if (!value) return "—";
     try {
-      return new Intl.DateTimeFormat("es-AR", { timeZone: AR_TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value));
+      return new Intl.DateTimeFormat("es-AR", { timeZone: AR_TZ, year:"numeric", month:"2-digit", day:"2-digit" }).format(new Date(value));
     } catch (_) {
       return String(value);
     }
@@ -112,25 +81,9 @@
 
   function filenameSafe(value) {
     return String(value || "")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-zA-Z0-9_-]+/g, "_")
-      .replace(/_+/g, "_")
-      .replace(/^_+|_+$/g, "");
-  }
-
-  function firstNameFromEmail(email) {
-    const left = String(email || "").split("@")[0] || "Bienvenida";
-    const clean = left.replace(/[._-]+/g, " ").trim();
-    const first = clean.split(" ").filter(Boolean)[0] || "Bienvenida";
-    return first.charAt(0).toUpperCase() + first.slice(1);
-  }
-
-  function firstNameFromFullName(fullName, fallbackEmail) {
-    const raw = String(fullName || "").trim();
-    if (!raw) return firstNameFromEmail(fallbackEmail);
-    const first = raw.split(/\s+/)[0] || "";
-    return first.charAt(0).toUpperCase() + first.slice(1);
+      .replace(/_+/g, "_").replace(/^_+|_+$/g, "");
   }
 
   function normalizeTrack(v) {
@@ -142,89 +95,68 @@
   }
 
   // =====================================================
-  // DOM
+  // DOM (generales)
   // =====================================================
-  const siteHeader = document.getElementById("siteHeader");
-  const yearEl = document.getElementById("year");
+  const siteHeader = $id("siteHeader");
+  const yearEl = $id("year");
 
-  const monthTitle = document.getElementById("monthTitle");
-  const monthContent = document.getElementById("monthContent");
-  const userEmail = document.getElementById("userEmail");
-  const planBadge = document.getElementById("planBadge");
-  const adminLink = document.getElementById("adminLink");
-  const trackHint = document.getElementById("trackHint");
+  const monthTitle = $id("monthTitle");
+  const monthContent = $id("monthContent");
+  const userEmail = $id("userEmail");
+  const adminLink = $id("adminLink");
+  const trackHint = $id("trackHint");
 
-  const downloadRoutineBtn = document.getElementById("downloadRoutineBtn");
+  const downloadRoutineBtn = $id("downloadRoutineBtn");
 
-  // Objetivo (queda oculto/lockeado)
-  const editObjectiveBtn = document.getElementById("editObjectiveBtn");
-  const objectivePanel = document.getElementById("objectivePanel");
-  const objectiveSel = document.getElementById("objectiveSel");
-  const saveObjectiveBtn = document.getElementById("saveObjectiveBtn");
-  const cancelObjectiveBtn = document.getElementById("cancelObjectiveBtn");
-  const objectiveMsg = document.getElementById("objectiveMsg");
+  const classesMsg = $id("classesMsg");
+  const classesList = $id("classesList");
+  const recordedMsg = $id("recordedMsg");
+  const recordedList = $id("recordedList");
 
-  // Clases
-  const classesMsg = document.getElementById("classesMsg");
-  const classesList = document.getElementById("classesList");
-  const recordedMsg = document.getElementById("recordedMsg");
-  const recordedList = document.getElementById("recordedList");
+  const helpWhatsappBox = $id("helpWhatsappBox");
 
-  const helpWhatsappBox = document.getElementById("helpWhatsappBox");
+  const upgradeBox = $id("upgradeBox");
+  const upgradeMidBtn = $id("upgradeMidBtn");
+  const upgradeProBtn = $id("upgradeProBtn");
 
-  // Upgrade panel principal
-  const upgradeBox = document.getElementById("upgradeBox");
-  const upgradeMidBtn = document.getElementById("upgradeMidBtn");
-  const upgradeProBtn = document.getElementById("upgradeProBtn");
+  const videoModal = $id("videoModal");
+  const videoModalBackdrop = $id("videoModalBackdrop");
+  const videoModalClose = $id("videoModalClose");
+  const videoModalFrame = $id("videoModalFrame");
+  const videoModalTitle = $id("videoModalTitle");
 
-  // Video modal
-  const videoModal = document.getElementById("videoModal");
-  const videoModalBackdrop = document.getElementById("videoModalBackdrop");
-  const videoModalClose = document.getElementById("videoModalClose");
-  const videoModalFrame = document.getElementById("videoModalFrame");
-  const videoModalTitle = document.getElementById("videoModalTitle");
+  // Perfil
+  const profileBtn = $id("profileBtn");
+  const profilePanel = $id("profilePanel");
+  const profileCloseBtn = $id("profileCloseBtn");
+  const profileEmail = $id("profileEmail");
+  const profilePlanLine = $id("profilePlanLine");
+  const profilePaidLine = $id("profilePaidLine");
 
-  // Comment modal
-  const commentModal = document.getElementById("commentModal");
-  const commentModalBackdrop = document.getElementById("commentModalBackdrop");
-  const commentModalClose = document.getElementById("commentModalClose");
-  const commentModalSend = document.getElementById("commentModalSend");
-  const commentModalText = document.getElementById("commentModalText");
-  const commentModalTitle = document.getElementById("commentModalTitle");
-  const commentModalMsg = document.getElementById("commentModalMsg");
+  const profileUpgradeBox = $id("profileUpgradeBox");
+  const profileUpgradeMidBtn = $id("profileUpgradeMidBtn");
+  const profileUpgradeProBtn = $id("profileUpgradeProBtn");
 
-  // Mi perfil
-  const profileBtn = document.getElementById("profileBtn");
-  const profilePanel = document.getElementById("profilePanel");
-  const profileCloseBtn = document.getElementById("profileCloseBtn");
-  const profileEmail = document.getElementById("profileEmail");
+  const pfFullName = $id("pfFullName");
+  const pfPhone = $id("pfPhone");
+  const pfAge = $id("pfAge");
+  const pfWeight = $id("pfWeight");
+  const pfHeight = $id("pfHeight");
+  const pfLevel = $id("pfLevel");
 
-  const profilePlanLine = document.getElementById("profilePlanLine");
-  const profilePaidLine = document.getElementById("profilePaidLine");
+  const profileSaveBtn = $id("profileSaveBtn");
+  const profileMsg = $id("profileMsg");
 
-  const profileUpgradeBox = document.getElementById("profileUpgradeBox");
-  const profileUpgradeMidBtn = document.getElementById("profileUpgradeMidBtn");
-  const profileUpgradeProBtn = document.getElementById("profileUpgradeProBtn");
-
-  const pfFullName = document.getElementById("pfFullName");
-  const pfPhone = document.getElementById("pfPhone");
-  const pfAge = document.getElementById("pfAge");
-  const pfWeight = document.getElementById("pfWeight");
-  const pfHeight = document.getElementById("pfHeight");
-  const pfLevel = document.getElementById("pfLevel");
-
-  const profileSaveBtn = document.getElementById("profileSaveBtn");
-  const profileMsg = document.getElementById("profileMsg");
-  const deleteAccountBtn = document.getElementById("deleteAccountBtn");
-  const deleteAccountMsg = document.getElementById("deleteAccountMsg");
+  const deleteAccountBtn = $id("deleteAccountBtn");
+  const deleteAccountMsg = $id("deleteAccountMsg");
 
   // Weekly quote
-  const weeklyQuoteTitleEl = document.getElementById("weeklyQuoteTitle");
-  const weeklyQuotePhraseEl = document.getElementById("weeklyQuotePhrase");
-  const weeklyQuoteImgEl = document.getElementById("weeklyQuoteImg");
+  const weeklyQuoteTitleEl = $id("weeklyQuoteTitle");
+  const weeklyQuotePhraseEl = $id("weeklyQuotePhrase");
+  const weeklyQuoteImgEl = $id("weeklyQuoteImg");
 
   // =====================================================
-  // State
+  // Estado
   // =====================================================
   let currentObjective = "fat_loss";
   let currentTrack = "gym";
@@ -233,10 +165,6 @@
   let planInfo = null;
 
   let currentMonth = null;
-  let nextLiveClass = null;
-
-  let campusFirstName = "";
-  let campusEmailCache = "";
 
   const monthCache = new Map();
 
@@ -245,132 +173,15 @@
   let routineAvailableAt = null;
   let gateRefreshTimer = null;
 
-  // Routine delivery info
-  let routineReadyAt = null;
-  let routineNotifiedAt = null;
+  // Replies badge/toast
+  let repliesPollTimer = null;
+  let lastToastKey = "";
 
-  // Comentarios modal context
-  let commentCtx = null;
-
-  // Cache resolver day_id
-  const dayIdCache = new Map(); // key = `${month}:${week}:${day}` => uuid
+  // Comentarios: cache day_id
+  const dayIdCache = new Map(); // key `${month}:${week}:${day}` => uuid
 
   // =====================================================
-  // Gate helpers (rutina en preparación)
-  // =====================================================
-  function clearGateTimer() {
-    if (gateRefreshTimer) {
-      clearTimeout(gateRefreshTimer);
-      gateRefreshTimer = null;
-    }
-  }
-
-  function scheduleGateRefresh(availableAt) {
-    clearGateTimer();
-    if (!availableAt) return;
-
-    const d = new Date(availableAt);
-    if (Number.isNaN(d.getTime())) return;
-
-    const ms = d.getTime() - Date.now() + 15_000;
-    if (ms <= 0 || ms > 1000 * 60 * 60 * 50) return;
-
-    gateRefreshTimer = setTimeout(() => {
-      if (currentMonth) openMonth(currentMonth, { force: true });
-    }, ms);
-  }
-
-  function renderRoutineLockedNotice(availableAt) {
-    const when = availableAt ? formatDateTimeEs(availableAt) : "";
-    const msg = `
-      <div class="notice">
-        <b>Acceso activado ✅</b><br>
-        Tu rutina 100% personalizada se arma y llega dentro de <b>48 hs</b>.
-        <br><br>
-        <a class="btn primary" href="./onboarding.html">Completar ficha (2 min)</a>
-        <br><br>
-        ${when ? `<b>Se habilita:</b> ${esc(when)} (AR)` : `Te avisamos apenas esté lista.`}
-      </div>
-    `;
-    if (monthContent) monthContent.innerHTML = msg;
-  }
-
-  function showToast(message) {
-    const existing = document.getElementById("a360Toast");
-    if (existing) existing.remove();
-
-    const wrap = document.createElement("div");
-    wrap.id = "a360Toast";
-    wrap.style.cssText = `
-      position:fixed; left:12px; right:12px; bottom:14px; z-index:9999;
-      background:rgba(255,255,255,.95); border:1px solid rgba(0,0,0,.10);
-      border-radius:14px; padding:12px 12px; box-shadow:0 14px 40px rgba(0,0,0,.14);
-      max-width:720px; margin:0 auto; display:flex; gap:10px; align-items:flex-start;
-    `;
-
-    const txt = document.createElement("div");
-    txt.style.cssText = "flex:1; font-size:14px; line-height:1.35; color:#111;";
-    txt.textContent = message;
-
-    const btn = document.createElement("button");
-    btn.className = "btn";
-    btn.type = "button";
-    btn.textContent = "OK";
-    btn.addEventListener("click", () => wrap.remove());
-
-    wrap.appendChild(txt);
-    wrap.appendChild(btn);
-    document.body.appendChild(wrap);
-
-    setTimeout(() => { try { wrap.remove(); } catch (_) {} }, 12000);
-  }
-
-  async function loadRoutineDeliveryStatus(userId) {
-    routineReadyAt = null;
-    routineNotifiedAt = null;
-    if (!userId) return;
-
-    const { data, error } = await sb
-      .from("routine_delivery")
-      .select("paid_at, available_at, ready_at, notified_at")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (error || !data) return;
-
-    routineReadyAt = data.ready_at || null;
-    routineNotifiedAt = data.notified_at || null;
-
-    if (routineNotifiedAt) {
-      const key = `A360_ROUTINE_READY_SEEN_${routineNotifiedAt}`;
-      const seen = localStorage.getItem(key);
-      if (!seen) {
-        showToast("✅ Ya está lista tu rutina 100% personalizada. Entrá en “Rutina” para verla.");
-        localStorage.setItem(key, "1");
-      }
-    }
-  }
-
-  // =====================================================
-  // Accesos por plan
-  // =====================================================
-  function isPlanActive() { return norm(planInfo?.status) === "active"; }
-
-  function canSeePremiumContent() {
-    return isPlanActive() && ["pro", "premium"].includes(norm(planSlug));
-  }
-
-  function canSeeWhatsappHelp() {
-    return isPlanActive() && ["mid", "pro"].includes(norm(planSlug));
-  }
-
-  function syncHelpWhatsappUI() {
-    if (!helpWhatsappBox) return;
-    helpWhatsappBox.style.display = canSeeWhatsappHelp() ? "block" : "none";
-  }
-
-  // =====================================================
-  // Header UI
+  // Header
   // =====================================================
   function syncHeaderUI() {
     if (yearEl) yearEl.textContent = new Date().getFullYear();
@@ -380,7 +191,6 @@
       if (window.scrollY > 16) siteHeader.classList.add("is-scrolled");
       else siteHeader.classList.remove("is-scrolled");
     };
-
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
   }
@@ -390,59 +200,27 @@
     window.location.href = "./index.html";
   }
 
-  // =====================================================
-  // Perfil / identidad
-  // =====================================================
-  async function loadCampusIdentity() {
-    try {
-      const { data: userRes } = await sb.auth.getUser();
-      const uid = userRes?.user?.id;
-      const email = userRes?.user?.email || campusEmailCache || "";
-      campusEmailCache = email;
-
-      if (!uid) {
-        campusFirstName = firstNameFromEmail(email);
-        return;
-      }
-
-      const { data, error } = await sb.from("profiles").select("full_name").eq("user_id", uid).maybeSingle();
-      if (error) {
-        campusFirstName = firstNameFromEmail(email);
-        return;
-      }
-
-      campusFirstName = firstNameFromFullName(data?.full_name, email);
-    } catch (_) {
-      campusFirstName = firstNameFromEmail(campusEmailCache);
-    }
+  function openProfilePanel() {
+    try { profileBtn?.click(); } catch (_) {}
   }
 
-  function syncTrackUI() {
-    if (trackHint) trackHint.textContent = labelTrack(currentTrack);
-  }
-
-  function lockRoutineToStudentPreferencesUI() {
-    if (editObjectiveBtn) editObjectiveBtn.style.display = "none";
-    if (objectivePanel) objectivePanel.style.display = "none";
-    if (objectiveSel) objectiveSel.disabled = true;
-    if (saveObjectiveBtn) saveObjectiveBtn.disabled = true;
-    if (cancelObjectiveBtn) cancelObjectiveBtn.disabled = true;
-    if (objectiveMsg) { objectiveMsg.className = "small"; objectiveMsg.textContent = ""; }
-  }
-
-  // =====================================================
-  // Nav actions
-  // =====================================================
   document.addEventListener("click", async (e) => {
     const actionEl = e.target.closest("[data-action]");
     if (!actionEl) return;
-
     const action = actionEl.getAttribute("data-action");
     if (!action) return;
 
     e.preventDefault();
 
-    if (action === "logout") await doLogout();
+    if (action === "logout") {
+      await doLogout();
+      return;
+    }
+
+    if (action === "upgrade-comments") {
+      openProfilePanel();
+      return;
+    }
   });
 
   // =====================================================
@@ -451,7 +229,6 @@
   async function maybeShowAdminLink() {
     if (!adminLink) return;
     adminLink.style.display = "none";
-
     const { data, error } = await sb.rpc("is_admin");
     if (!error && data === true) adminLink.style.display = "inline-flex";
   }
@@ -461,11 +238,10 @@
   // =====================================================
   async function loadWeeklyQuoteIntoApp() {
     if (!weeklyQuoteTitleEl || !weeklyQuotePhraseEl || !weeklyQuoteImgEl) return;
-
     try {
       const { data, error } = await sb
         .from("weekly_quote")
-        .select("id,title,phrase,image_url,updated_at")
+        .select("id,title,phrase,image_url")
         .eq("id", 1)
         .maybeSingle();
 
@@ -483,12 +259,12 @@
         weeklyQuoteImgEl.style.display = "none";
       }
     } catch (e) {
-      console.error("[APP] weekly_quote load error:", e);
+      console.warn("[APP] weekly_quote:", e);
     }
   }
 
   // =====================================================
-  // Preferencias usuario (objective/track)
+  // Preferencias usuario
   // =====================================================
   async function loadUserPreferences() {
     const { data: u } = await sb.auth.getUser();
@@ -517,28 +293,33 @@
     };
   }
 
-  // =====================================================
-  // Mes publicado (month_release)
-  // =====================================================
-  async function getPublishedMonthNumber() {
-    const nowIso = new Date().toISOString();
-    const { data, error } = await sb
-      .from("month_release")
-      .select("month_number, release_at")
-      .eq("is_published", true)
-      .lte("release_at", nowIso)
-      .order("release_at", { ascending: false })
-      .limit(1);
-
-    if (error) throw error;
-
-    const m = Number(data?.[0]?.month_number || 0);
-    return m || (new Date().getMonth() + 1);
+  function syncTrackUI() {
+    if (trackHint) trackHint.textContent = labelTrack(currentTrack);
   }
 
   // =====================================================
-  // Plan badge
+  // Plan
   // =====================================================
+  function isPlanActive() { return norm(planInfo?.status) === "active"; }
+
+  function canSeePremiumContent() {
+    return isPlanActive() && ["pro", "premium"].includes(norm(planSlug));
+  }
+
+  function canSeeWhatsappHelp() {
+    return isPlanActive() && ["mid", "pro", "premium"].includes(norm(planSlug));
+  }
+
+  // ✅ Comentarios SOLO mid/pro (acepta "premium" como alias del pro)
+  function canUseComments() {
+    return isPlanActive() && ["mid", "pro", "premium"].includes(norm(planSlug));
+  }
+
+  function syncHelpWhatsappUI() {
+    if (!helpWhatsappBox) return;
+    helpWhatsappBox.style.display = canSeeWhatsappHelp() ? "block" : "none";
+  }
+
   async function loadPlanBadge() {
     const { data: userRes } = await sb.auth.getUser();
     const uid = userRes?.user?.id;
@@ -550,53 +331,26 @@
       .eq("user_id", uid)
       .maybeSingle();
 
-    if (error) {
+    if (error || !row) {
       planInfo = null;
       planSlug = null;
-      if (planBadge) planBadge.style.display = "none";
       return null;
     }
 
-    if (!row) {
-      planInfo = null;
-      planSlug = null;
-      if (planBadge) {
-        planBadge.style.display = "inline-flex";
-        planBadge.textContent = "Plan · pendiente de pago";
-      }
-      return null;
-    }
-
-    // Fallback si embed plans viene null
     if (!row.plans?.slug && row.plan_id) {
       const { data: pRow } = await sb.from("plans").select("slug,name").eq("id", row.plan_id).maybeSingle();
       row.plans = pRow || row.plans;
     }
 
     planInfo = row;
-
-    const statusNorm = norm(row.status);
-    const slugNorm = norm(row.plans?.slug);
-
-    planSlug = statusNorm === "active" ? (slugNorm || null) : null;
-
-    if (planBadge) {
-      planBadge.style.display = "inline-flex";
-      planBadge.textContent = `${row.plans?.name ?? "Plan"} · ${row.status ?? "—"}`;
-    }
-
+    planSlug = norm(row.status) === "active" ? (norm(row.plans?.slug) || null) : null;
     return row;
   }
 
-  // =====================================================
-  // Upgrade UI + checkout
-  // =====================================================
   function syncUpgradeUI(currentSlug) {
     if (!upgradeBox) return;
-
     const slug = norm(currentSlug);
     const show = slug === "basic" || slug === "mid";
-
     upgradeBox.style.display = show ? "block" : "none";
     if (upgradeMidBtn) upgradeMidBtn.style.display = slug === "basic" ? "inline-flex" : "none";
     if (upgradeProBtn) upgradeProBtn.style.display = show ? "inline-flex" : "none";
@@ -604,7 +358,6 @@
 
   async function startCheckout(targetSlug) {
     try {
-      // refresco para evitar JWT inválido
       const { data: refreshRes } = await sb.auth.refreshSession();
       const session = refreshRes?.session;
 
@@ -615,7 +368,7 @@
 
       const { data, error } = await sb.functions.invoke("mp-checkout", {
         body: { plan_slug: targetSlug },
-        headers: { authorization: `Bearer ${session.access_token}` },
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
 
       if (!error && data?.url) {
@@ -637,140 +390,101 @@
   upgradeProBtn?.addEventListener("click", () => startCheckout("pro"));
 
   // =====================================================
-  // Video modal
+  // Gate rutina
   // =====================================================
-  function ytEmbedUrl(url) {
-    if (!url) return "";
-    const raw = String(url).trim();
+  function clearGateTimer() {
+    if (gateRefreshTimer) clearTimeout(gateRefreshTimer);
+    gateRefreshTimer = null;
+  }
 
-    if (raw.includes("/embed/")) {
-      return raw.replace("www.youtube.com", "www.youtube-nocookie.com");
+  function scheduleGateRefresh(availableAt) {
+    clearGateTimer();
+    if (!availableAt) return;
+
+    const d = new Date(availableAt);
+    if (Number.isNaN(d.getTime())) return;
+
+    const ms = d.getTime() - Date.now() + 15_000;
+    if (ms <= 0 || ms > 1000 * 60 * 60 * 50) return;
+
+    gateRefreshTimer = setTimeout(() => {
+      if (currentMonth) openMonth(currentMonth, { force: true }).catch(() => {});
+    }, ms);
+  }
+
+  function renderRoutineLockedNotice(availableAt) {
+    const when = availableAt ? formatDateTimeShort(availableAt) : "";
+    const msg = `
+      <div class="notice">
+        <b>Acceso activado ✅</b><br>
+        Tu rutina 100% personalizada se arma y llega dentro de <b>48 hs</b>.
+        <br><br>
+        <a class="btn primary" href="./onboarding.html">Completar ficha (2 min)</a>
+        <br><br>
+        ${when ? `<b>Se habilita:</b> ${esc(when)} (AR)` : `Te avisamos apenas esté lista.`}
+      </div>
+    `;
+    if (monthContent) monthContent.innerHTML = msg;
+  }
+
+  // =====================================================
+  // RPC Mes (gate + fallback)
+  // =====================================================
+  async function rpcMonthContent(monthNumber, objective) {
+    const res = await sb.rpc("get_month_content_gate_secure", { p_month: monthNumber, p_objective: objective });
+    if (!res.error) return res;
+
+    const msg = String(res.error?.message || "");
+    if (msg.includes("schema cache") || msg.includes("Could not find the function")) {
+      const r3 = await sb.rpc("get_month_content_v3", { p_month: monthNumber, p_objective: objective });
+      if (!r3.error) return r3;
+      return await sb.rpc("get_month_content_v2", { p_month: monthNumber, p_objective: objective });
     }
-
-    try {
-      const u = new URL(raw);
-
-      if (u.hostname.includes("youtu.be")) {
-        const id = u.pathname.split("/").filter(Boolean)[0];
-        return id ? `https://www.youtube-nocookie.com/embed/${id}` : "";
-      }
-
-      if (u.pathname.startsWith("/shorts/")) {
-        const id = u.pathname.split("/").filter(Boolean)[1];
-        return id ? `https://www.youtube-nocookie.com/embed/${id}` : "";
-      }
-
-      if (u.pathname === "/watch") {
-        const id = u.searchParams.get("v");
-        return id ? `https://www.youtube-nocookie.com/embed/${id}` : "";
-      }
-
-      const v = u.searchParams.get("v");
-      if (v) return `https://www.youtube-nocookie.com/embed/${v}`;
-    } catch (_) {}
-
-    const match = raw.match(/[?&]v=([a-zA-Z0-9_-]{6,})/);
-    if (match?.[1]) return `https://www.youtube-nocookie.com/embed/${match[1]}`;
-
-    return "";
+    return res;
   }
-
-  function openVideoModal(url, title) {
-    if (!videoModal || !videoModalBackdrop || !videoModalFrame) return;
-
-    const embed = ytEmbedUrl(url);
-    if (!embed) return;
-
-    const wrap = videoModal.querySelector(".video-wrap");
-    const isShort = /\/shorts\//i.test(String(url));
-
-    wrap?.classList.toggle("is-vertical", isShort);
-    wrap?.classList.toggle("is-horizontal", !isShort);
-
-    if (videoModalTitle) videoModalTitle.textContent = title || "Video";
-
-    const params = "autoplay=0&controls=1&rel=0&playsinline=1&modestbranding=1";
-
-    videoModal.classList.add("is-open");
-    videoModalBackdrop.classList.add("is-open");
-    videoModal.setAttribute("aria-hidden", "false");
-    videoModalBackdrop.setAttribute("aria-hidden", "false");
-
-    videoModalFrame.src = "about:blank";
-    requestAnimationFrame(() => {
-      videoModalFrame.src = `${embed}?${params}`;
-    });
-  }
-
-  function closeVideoModal() {
-    if (!videoModal || !videoModalBackdrop || !videoModalFrame) return;
-
-    videoModal.classList.remove("is-open");
-    videoModalBackdrop.classList.remove("is-open");
-    videoModal.setAttribute("aria-hidden", "true");
-    videoModalBackdrop.setAttribute("aria-hidden", "true");
-    videoModalFrame.src = "about:blank";
-  }
-
-  videoModalBackdrop?.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); closeVideoModal(); });
-  videoModalClose?.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); closeVideoModal(); });
-
-  document.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-video-url]");
-    if (!btn) return;
-    e.preventDefault();
-    e.stopPropagation();
-
-    openVideoModal(btn.getAttribute("data-video-url"), btn.getAttribute("data-video-title") || "Video");
-  }, true);
 
   // =====================================================
-  // Comentarios modal (rutina)
+  // Comentarios modal (robusto: scoping dentro de #commentModal)
   // =====================================================
+  const commentModal = $id("commentModal");
+  const commentModalBackdrop = $id("commentModalBackdrop");
+
+  const commentModalSend = commentModal?.querySelector("#commentModalSend") || null;
+  const commentModalText = commentModal?.querySelector("#commentModalText") || null;
+  const commentModalClose = commentModal?.querySelector("#commentModalClose") || null;
+  const commentModalTitle = commentModal?.querySelector("#commentModalTitle") || null;
+  const commentModalMsg = commentModal?.querySelector("#commentModalMsg") || null;
+
+  const commentsDomReady = !!(commentModal && commentModalBackdrop && commentModalSend && commentModalText && commentModalClose);
+  const commentsAvailableNow = () => commentsDomReady && canUseComments();
+
+  let commentCtx = null;
+
   function setCommentMsg(text, kind = "small") {
     if (!commentModalMsg) return;
     commentModalMsg.className = kind;
     commentModalMsg.textContent = text || "";
   }
 
-  function openCommentModal(ctx) {
-    if (!commentModal || !commentModalBackdrop) return;
-    commentCtx = ctx || null;
+  function ensureCommentThreadEl() {
+    if (!commentModal) return null;
 
-    if (commentModalTitle) {
-      const title = ctx?.title || "Agregar comentario";
-      commentModalTitle.textContent = title;
-    }
+    let el = commentModal.querySelector("#commentModalThread");
+    if (el) return el;
 
-    if (commentModalText) commentModalText.value = "";
-    setCommentMsg("");
-
-    commentModal.classList.add("is-open");
-    commentModalBackdrop.classList.add("is-open");
-    commentModal.setAttribute("aria-hidden", "false");
-    commentModalBackdrop.setAttribute("aria-hidden", "false");
-
-    setTimeout(() => commentModalText?.focus?.(), 20);
+    el = document.createElement("div");
+    el.id = "commentModalThread";
+    el.style.cssText = "display:grid; gap:10px; margin-top:10px; margin-bottom:12px;";
+    const ta = commentModal.querySelector("#commentModalText");
+    if (ta?.parentNode) ta.parentNode.insertBefore(el, ta);
+    else commentModal.appendChild(el);
+    return el;
   }
-
-  function closeCommentModal() {
-    if (!commentModal || !commentModalBackdrop) return;
-    commentModal.classList.remove("is-open");
-    commentModalBackdrop.classList.remove("is-open");
-    commentModal.setAttribute("aria-hidden", "true");
-    commentModalBackdrop.setAttribute("aria-hidden", "true");
-    commentCtx = null;
-    setCommentMsg("");
-  }
-
-  commentModalBackdrop?.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); closeCommentModal(); });
-  commentModalClose?.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); closeCommentModal(); });
 
   async function resolveDayId(monthNumber, weekNumber, dayNumber) {
     const key = `${monthNumber}:${weekNumber}:${dayNumber}`;
     if (dayIdCache.has(key)) return dayIdCache.get(key);
 
-    // 1) weeks -> week_id
     const { data: w, error: wErr } = await sb
       .from("weeks")
       .select("id")
@@ -780,7 +494,6 @@
 
     if (wErr || !w?.id) throw new Error("No pude resolver la semana para guardar el comentario.");
 
-    // 2) week_days -> day_id
     const { data: d, error: dErr } = await sb
       .from("week_days")
       .select("id")
@@ -794,7 +507,125 @@
     return d.id;
   }
 
+  function renderCommentBubble(c) {
+    const when = c.created_at ? formatDateTimeShort(c.created_at) : "";
+    const replyWhen = c.replied_at ? formatDateTimeShort(c.replied_at) : "";
+
+    const userMsg = `
+      <div style="border:1px solid rgba(0,0,0,.08);background:rgba(255,255,255,.65);border-radius:14px;padding:10px 12px">
+        <div class="small" style="opacity:.65">Tu comentario ${when ? `· ${esc(when)}` : ""}</div>
+        <div style="margin-top:6px">${esc(c.message || "")}</div>
+      </div>
+    `;
+
+    const adminMsg = (c.admin_reply && String(c.admin_reply).trim())
+      ? `
+        <div style="border:1px solid rgba(0,0,0,.10);background:rgba(0,0,0,.03);border-radius:14px;padding:10px 12px">
+          <div class="small" style="opacity:.75">Respuesta de Maricel ${replyWhen ? `· ${esc(replyWhen)}` : ""}</div>
+          <div style="margin-top:6px">${esc(c.admin_reply)}</div>
+          <div class="small" style="margin-top:8px;opacity:.65">
+            ${c.user_seen_reply_at ? `Visto · ${esc(formatDateTimeShort(c.user_seen_reply_at))}` : "Nueva respuesta"}
+          </div>
+        </div>
+      `
+      : "";
+
+    return `<div style="display:grid;gap:8px">${userMsg}${adminMsg}</div>`;
+  }
+
+  async function loadCommentThread(ctx) {
+    if (!commentsAvailableNow()) return;
+
+    const thread = ensureCommentThreadEl();
+    if (!thread) return;
+
+    thread.innerHTML = `<div class="small" style="opacity:.75">Cargando…</div>`;
+
+    const { data: u } = await sb.auth.getUser();
+    const uid = u?.user?.id;
+    if (!uid) throw new Error("Sesión inválida.");
+
+    const monthNumber = Number(ctx?.month || 0);
+    const weekNumber  = Number(ctx?.week  || 0);
+    const dayNumber   = Number(ctx?.day   || 0);
+    if (!monthNumber || !weekNumber || !dayNumber) throw new Error("Contexto inválido para comentarios.");
+
+    const day_id = await resolveDayId(monthNumber, weekNumber, dayNumber);
+
+    const { data, error } = await sb
+      .from("routine_comments")
+      .select("id, created_at, message, admin_reply, replied_at, user_seen_reply_at")
+      .eq("user_id", uid)
+      .eq("day_id", day_id)
+      .order("created_at", { ascending: true })
+      .limit(200);
+
+    if (error) throw new Error(error.message);
+
+    if (!data?.length) {
+      thread.innerHTML = `<div class="small" style="opacity:.75">Todavía no hay comentarios en este día.</div>`;
+      return;
+    }
+
+    // ✅ marcar vistos EN DB (lote por día) si hay replies no vistas
+    const unseenInThisDay = (data || []).some((c) => c.admin_reply && !c.user_seen_reply_at);
+
+    if (unseenInThisDay) {
+      const markRes = await sb.rpc("user_mark_comment_replies_seen_for_day", { p_day_id: day_id });
+      if (markRes.error) {
+        console.warn("[A360] mark seen (day) failed:", markRes.error);
+      } else {
+        // Reflejo inmediato en UI (sin re-fetch)
+        const nowIso = new Date().toISOString();
+        for (const c of data) {
+          if (c.admin_reply && !c.user_seen_reply_at) c.user_seen_reply_at = nowIso;
+        }
+        // re-chequear contador/toast
+        loadUnseenReplySummary(uid).catch(() => {});
+      }
+    }
+
+    thread.innerHTML = data.map(renderCommentBubble).join("");
+  }
+
+  function openCommentModal(ctx) {
+    if (!commentsAvailableNow()) return;
+
+    commentCtx = ctx || null;
+
+    if (commentModalTitle) commentModalTitle.textContent = ctx?.title || "Comentarios";
+    if (commentModalText) commentModalText.value = "";
+    setCommentMsg("");
+
+    commentModal.classList.add("is-open");
+    commentModalBackdrop.classList.add("is-open");
+    commentModal.setAttribute("aria-hidden", "false");
+    commentModalBackdrop.setAttribute("aria-hidden", "false");
+
+    loadCommentThread(ctx).catch((e) => {
+      console.warn("[A360] loadCommentThread:", e);
+      setCommentMsg(e?.message || String(e), "error");
+    });
+
+    setTimeout(() => commentModalText?.focus?.(), 30);
+  }
+
+  function closeCommentModal() {
+    if (!commentsDomReady) return;
+    commentModal.classList.remove("is-open");
+    commentModalBackdrop.classList.remove("is-open");
+    commentModal.setAttribute("aria-hidden", "true");
+    commentModalBackdrop.setAttribute("aria-hidden", "true");
+    commentCtx = null;
+    setCommentMsg("");
+  }
+
+  commentModalBackdrop?.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); closeCommentModal(); });
+  commentModalClose?.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); closeCommentModal(); });
+
   async function submitRoutineComment(ctx, message) {
+    if (!commentsAvailableNow()) throw new Error("Comentarios disponibles solo en Plan Intermedio/Premium.");
+
     const { data: u } = await sb.auth.getUser();
     const uid = u?.user?.id;
     if (!uid) throw new Error("Sesión inválida. Volvé a iniciar sesión.");
@@ -802,7 +633,6 @@
     const monthNumber = Number(ctx?.month || 0);
     const weekNumber = Number(ctx?.week || 0);
     const dayNumber = Number(ctx?.day || 0);
-
     if (!monthNumber || !weekNumber || !dayNumber) throw new Error("Contexto inválido para comentario.");
 
     const day_id = await resolveDayId(monthNumber, weekNumber, dayNumber);
@@ -814,71 +644,243 @@
       read_at: null,
     });
 
-    if (error) {
-      const msg = String(error.message || "");
-      if (msg.includes('relation "routine_comments" does not exist')) {
-        throw new Error("La función de comentarios todavía no está habilitada. En el próximo paso la activamos en SQL.");
-      }
-      throw new Error(error.message || "No pude enviar el comentario.");
-    }
+    if (error) throw new Error(error.message || "No pude enviar el comentario.");
+
+    await loadCommentThread(ctx);
   }
 
-  commentModalSend?.addEventListener("click", async () => {
-    try {
-      const txt = String(commentModalText?.value || "").trim();
-      if (txt.length < 3) {
-        setCommentMsg("Escribí un comentario un poquito más largo 🙂", "error");
+  if (commentsDomReady) {
+    // Abrir modal por botón en la rutina
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-comment-open]");
+      if (!btn) return;
+
+      e.preventDefault();
+
+      if (!canUseComments()) {
+        // CTA para basic
+        openProfilePanel();
         return;
       }
-      if (!commentCtx) {
-        setCommentMsg("No pude determinar a qué día corresponde el comentario.", "error");
-        return;
+
+      const month = Number(btn.getAttribute("data-comment-month") || 0);
+      const week = Number(btn.getAttribute("data-comment-week") || 0);
+      const day = Number(btn.getAttribute("data-comment-day") || 0);
+      const dayName = btn.getAttribute("data-comment-dayname") || `Día ${day}`;
+
+      openCommentModal({ month, week, day, title: `Comentarios — Mes ${month} · Semana ${week} · ${dayName}` });
+    });
+
+    // Enviar
+    commentModalSend.addEventListener("click", async () => {
+      try {
+        if (!canUseComments()) {
+          openProfilePanel();
+          return;
+        }
+
+        const txt = String(commentModalText?.value || "").trim();
+        if (txt.length < 3) {
+          setCommentMsg("Escribí un comentario un poquito más largo 🙂", "error");
+          return;
+        }
+        if (!commentCtx) {
+          setCommentMsg("No pude determinar a qué día corresponde el comentario.", "error");
+          return;
+        }
+
+        commentModalSend.disabled = true;
+        setCommentMsg("Enviando…", "small");
+
+        await submitRoutineComment(commentCtx, txt);
+
+        if (commentModalText) commentModalText.value = "";
+        setCommentMsg("Enviado ✅", "notice");
+      } catch (e) {
+        console.error("[A360] submitRoutineComment:", e);
+        setCommentMsg(e?.message || String(e), "error");
+      } finally {
+        commentModalSend.disabled = false;
       }
+    });
 
-      commentModalSend.disabled = true;
-      setCommentMsg("Enviando…", "small");
-
-      await submitRoutineComment(commentCtx, txt);
-
-      setCommentMsg("Enviado ✅", "notice");
-      setTimeout(() => closeCommentModal(), 600);
-    } catch (e) {
-      console.error("[A360] comment error:", e);
-      setCommentMsg(e?.message || String(e), "error");
-    } finally {
-      if (commentModalSend) commentModalSend.disabled = false;
-    }
-  });
-
-  document.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-comment-open]");
-    if (!btn) return;
-
-    e.preventDefault();
-
-    const month = Number(btn.getAttribute("data-comment-month") || 0);
-    const week = Number(btn.getAttribute("data-comment-week") || 0);
-    const day = Number(btn.getAttribute("data-comment-day") || 0);
-    const dayName = btn.getAttribute("data-comment-dayname") || `Día ${day}`;
-
-    const title = `Comentario — Mes ${month} · Semana ${week} · ${dayName}`;
-    openCommentModal({ month, week, day, title });
-  });
+    // Ctrl+Enter / Cmd+Enter
+    commentModalText?.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        commentModalSend?.click();
+      }
+    });
+  }
 
   // =====================================================
-  // Render rutinas
+  // Toast (notificación de replies)
+  // =====================================================
+  function showToastAction(message, actionText, onAction) {
+    const existing = document.getElementById("a360Toast");
+    if (existing) existing.remove();
+
+    const wrap = document.createElement("div");
+    wrap.id = "a360Toast";
+    wrap.style.cssText = `
+      position:fixed; left:12px; right:12px; bottom:14px; z-index:9999;
+      background:rgba(255,255,255,.95); border:1px solid rgba(0,0,0,.10);
+      border-radius:14px; padding:12px;
+      box-shadow:0 14px 40px rgba(0,0,0,.14);
+      max-width:720px; margin:0 auto; display:flex; gap:10px; align-items:flex-start;
+    `;
+
+    const txt = document.createElement("div");
+    txt.style.cssText = "flex:1; font-size:14px; line-height:1.35; color:#111;";
+    txt.textContent = message;
+
+    const btn1 = document.createElement("button");
+    btn1.className = "btn primary";
+    btn1.type = "button";
+    btn1.textContent = actionText || "Ver";
+    btn1.addEventListener("click", () => {
+      try { onAction?.(); } catch (_) {}
+      try { wrap.remove(); } catch (_) {}
+    });
+
+    const btn2 = document.createElement("button");
+    btn2.className = "btn";
+    btn2.type = "button";
+    btn2.textContent = "Cerrar";
+    btn2.addEventListener("click", () => wrap.remove());
+
+    wrap.appendChild(txt);
+    wrap.appendChild(btn1);
+    wrap.appendChild(btn2);
+    document.body.appendChild(wrap);
+
+    setTimeout(() => { try { wrap.remove(); } catch (_) {} }, 16000);
+  }
+
+  async function loadUnseenReplySummary(uid) {
+    // ✅ replies/toast solo si el plan permite comentarios
+    if (!uid) return;
+    if (!planInfo) return;
+    if (!canUseComments()) return;
+
+    // Count unseen replies
+    const countRes = await sb
+      .from("routine_comments")
+      .select("id", { head: true, count: "exact" })
+      .eq("user_id", uid)
+      .not("admin_reply", "is", null)
+      .is("user_seen_reply_at", null);
+
+    if (countRes.error) {
+      console.warn("[A360] unseen count error:", countRes.error);
+      return;
+    }
+
+    const unseenCount = Number(countRes.count || 0);
+
+    // Si ya no hay nada → apagar toast y reset key
+    if (!unseenCount) {
+      lastToastKey = "";
+      const t = document.getElementById("a360Toast");
+      if (t) t.remove();
+      return;
+    }
+
+    // Latest unseen (orden robusto)
+    const latestRes = await sb
+      .from("routine_comments")
+      .select("id, day_id, replied_at, created_at")
+      .eq("user_id", uid)
+      .not("admin_reply", "is", null)
+      .is("user_seen_reply_at", null)
+      .order("replied_at", { ascending: false, nullsLast: true })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latestRes.error) {
+      console.warn("[A360] latest unseen error:", latestRes.error);
+      return;
+    }
+
+    const latest = latestRes.data;
+    if (!latest?.id || !latest?.day_id) return;
+
+    // Anti-spam real
+    const toastKey = `${unseenCount}:${latest.id}`;
+    if (toastKey === lastToastKey) return;
+    lastToastKey = toastKey;
+
+    // Resolver mes/semana/día
+    const wdRes = await sb
+      .from("week_days")
+      .select("day_number, label, week_id")
+      .eq("id", latest.day_id)
+      .maybeSingle();
+
+    if (wdRes.error || !wdRes.data?.week_id) return;
+
+    const wkRes = await sb
+      .from("weeks")
+      .select("week_number, month_number")
+      .eq("id", wdRes.data.week_id)
+      .maybeSingle();
+
+    if (wkRes.error) return;
+
+    const wk = wkRes.data;
+    const wd = wdRes.data;
+
+    const ctx = {
+      month: Number(wk.month_number),
+      week: Number(wk.week_number),
+      day: Number(wd.day_number),
+      title: `Comentarios — Mes ${wk.month_number} · Semana ${wk.week_number} · ${wd.label || `Día ${wd.day_number}`}`,
+    };
+
+    // Texto SIN número (evita confusión tipo "9")
+    const msg = `📩 Tenés respuesta(s) nueva(s) de Maricel.`;
+
+    showToastAction(msg, "Ver ahora", async () => {
+      await jumpToDayAndOpenComments(ctx);
+      setTimeout(() => loadUnseenReplySummary(uid).catch(() => {}), 600);
+    });
+  }
+
+  async function jumpToDayAndOpenComments(ctx) {
+    if (!ctx) return;
+    if (!canUseComments()) return;
+
+    if (ctx.month && ctx.month !== currentMonth) {
+      await openMonth(ctx.month, { force: true });
+    }
+
+    // abrir semana/día por dataset (renderMonth los setea)
+    const wEl = monthContent?.querySelector(`details.week[data-week="${ctx.week}"]`);
+    if (wEl) wEl.open = true;
+
+    const dEl = wEl?.querySelector?.(`details.day[data-day="${ctx.day}"]`);
+    if (dEl) {
+      dEl.open = true;
+      dEl.scrollIntoView?.({ behavior: "smooth", block: "center" });
+    }
+
+    openCommentModal({ month: ctx.month, week: ctx.week, day: ctx.day, title: ctx.title });
+  }
+
+  // =====================================================
+  // Render rutina (incluye dataset week/day + botón comentarios)
   // =====================================================
   function getItemsForDay(day) {
     if (currentTrack === "gym") return (day.items_gym || []);
     if (currentTrack === "home") return (day.items_home || []);
-    // fallback
     return (day.items_gym || day.items_home || []);
   }
 
   function renderExerciseCard(item) {
     const videoBtn = item.video_url
       ? `
-        <button class="btn btn-mini" type="button"
+        <button class="btn btn-video" type="button"
           data-video-url="${esc(item.video_url)}"
           data-video-title="${esc(item.exercise)}">
           Ver video
@@ -902,7 +904,6 @@
 
   function renderMonth(json) {
     if (!monthContent) return;
-
     monthContent.innerHTML = "";
 
     if (!json?.weeks?.length) {
@@ -910,12 +911,14 @@
       return;
     }
 
-    const DAY_NAMES = { 1: "Lunes", 2: "Martes", 3: "Miércoles", 4: "Jueves", 5: "Viernes" };
+    const DAY_NAMES = { 1:"Lunes",2:"Martes",3:"Miércoles",4:"Jueves",5:"Viernes" };
+    const canComments = canUseComments();
 
     json.weeks.forEach((week) => {
       const weekDetails = document.createElement("details");
       weekDetails.className = "week";
       weekDetails.open = false;
+      weekDetails.dataset.week = String(week.week_number);
 
       weekDetails.addEventListener("toggle", () => {
         if (!weekDetails.open) return;
@@ -924,13 +927,11 @@
         });
       });
 
-      const titleIsRedundant = norm(week.title) === norm(`semana ${week.week_number}`);
-
       weekDetails.innerHTML = `
         <summary>
           <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap">
             <b>Semana ${week.week_number}</b>
-            ${(!titleIsRedundant && week.title) ? `<span class="small">${esc(week.title)}</span>` : ""}
+            ${week.title ? `<span class="small">${esc(week.title)}</span>` : ""}
           </div>
           <span class="small">Ver</span>
         </summary>
@@ -943,6 +944,7 @@
         const dayDetails = document.createElement("details");
         dayDetails.className = "day";
         dayDetails.open = false;
+        dayDetails.dataset.day = String(day.day_number);
 
         dayDetails.addEventListener("toggle", () => {
           if (!dayDetails.open) return;
@@ -954,52 +956,49 @@
         const dayName = DAY_NAMES[day.day_number] || `Día ${day.day_number}`;
         const items = getItemsForDay(day);
 
-        const focus = String(day.focus || "").trim();
-        const muscleGroupRaw = String(day.muscle_group || "").trim();
-        const muscleGroupIsAdef = muscleGroupRaw && norm(muscleGroupRaw) === "a definir";
+        // ✅ Botón comentarios: solo mid/pro
+        const commentBtn = (commentsDomReady && canComments)
+          ? `
+            <button class="btn btn-comment" type="button"
+              data-comment-open="1"
+              data-comment-month="${esc(currentMonth)}"
+              data-comment-week="${esc(week.week_number)}"
+              data-comment-day="${esc(day.day_number)}"
+              data-comment-dayname="${esc(dayName)}">
+              Comentarios/Seguimiento
+            </button>
+          `
+          : `
+            <button class="btn" type="button" data-action="upgrade-comments">
+              Comentarios/Seguimiento (Plan Intermedio)
+            </button>
+          `;
 
-        const chipsHtml = `
-          <div class="chips">
-            <div class="chip">${labelTrack(currentTrack)}</div>
-            ${(!muscleGroupIsAdef && muscleGroupRaw) ? `<div class="chip">${esc(muscleGroupRaw)}</div>` : ""}
-            ${focus ? `<div class="chip">${esc(focus)}</div>` : ""}
-          </div>
-        `;
+        const hintHtml = canComments
+          ? `<div class="comment-hint">Tip: Podés dejar comentarios de progreso, molestias o dudas para ajustar tu rutina.</div>`
+          : `<div class="comment-hint" style="opacity:.75">Tip: Comentarios/seguimiento están disponibles en Plan Intermedio y Premium.</div>`;
 
         const listHtml = items?.length
           ? `<div class="ex-list">${items.map(renderExerciseCard).join("")}</div>`
           : `<div class="notice small" style="margin-top:10px">Rutina aún no cargada para este objetivo/modalidad.</div>`;
 
-        // ✅ Acciones: comentarios
-        const commentBtn = `
-          <button class="btn btn-comment" type="button"
-            data-comment-open="1"
-            data-comment-month="${esc(currentMonth)}"
-            data-comment-week="${esc(week.week_number)}"
-            data-comment-day="${esc(day.day_number)}"
-            data-comment-dayname="${esc(dayName)}">
-            Agregar comentarios
-          </button>
-        `;
-
         dayDetails.innerHTML = `
           <summary>
             <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap">
               <b>${esc(dayName)}</b>
-              ${focus ? `<span class="small">${esc(focus)}</span>` : ""}
             </div>
             <span class="small">${items?.length ? `${items.length} ej.` : "Ver"}</span>
           </summary>
 
           <div class="day-body">
             <div class="day-toprow">
-              <div>${chipsHtml}</div>
-              <div class="day-actions">${commentBtn}</div>
+              <div class="chips">
+                <div class="chip">${labelTrack(currentTrack)}</div>
+              </div>
+              ${commentsDomReady ? `<div class="day-actions">${commentBtn}</div>` : ""}
             </div>
 
-            <div class="comment-hint">
-              Tip: Podés dejar comentarios de progreso, molestias o dudas para ajustar tu rutina.
-            </div>
+            ${commentsDomReady ? hintHtml : ""}
 
             ${listHtml}
           </div>
@@ -1012,31 +1011,8 @@
     });
   }
 
-  // =====================================================
-  // RPC Mes (con gate + fallback)
-  // =====================================================
-  async function rpcMonthContent(monthNumber, objective) {
-    const res = await sb.rpc("get_month_content_gate_secure", {
-      p_month: monthNumber,
-      p_objective: objective,
-    });
-
-    if (!res.error) return res;
-
-    const msg = String(res.error?.message || "");
-    if (msg.includes("schema cache") || msg.includes("Could not find the function")) {
-      const r3 = await sb.rpc("get_month_content_v3", { p_month: monthNumber, p_objective: objective });
-      if (!r3.error) return r3;
-
-      return await sb.rpc("get_month_content_v2", { p_month: monthNumber, p_objective: objective });
-    }
-
-    return res;
-  }
-
   async function openMonth(monthNumber, opts = {}) {
     currentMonth = monthNumber;
-
     if (monthTitle) monthTitle.textContent = monthLabel(monthNumber);
 
     const cacheKey = `${monthNumber}-${currentObjective}-${currentTrack}`;
@@ -1045,15 +1021,12 @@
       routineLocked = false;
       routineAvailableAt = null;
       clearGateTimer();
-
       if (downloadRoutineBtn) downloadRoutineBtn.disabled = false;
-
       renderMonth(monthCache.get(cacheKey));
       return;
     }
 
     const { data: json, error } = await rpcMonthContent(monthNumber, currentObjective);
-
     if (error) {
       if (monthContent) monthContent.innerHTML = `<div class="error">${esc(error.message)}</div>`;
       return;
@@ -1062,12 +1035,9 @@
     if (json?.locked) {
       routineLocked = true;
       routineAvailableAt = json.available_at || null;
-
       if (downloadRoutineBtn) downloadRoutineBtn.disabled = true;
-
       clearGateTimer();
       scheduleGateRefresh(routineAvailableAt);
-
       renderRoutineLockedNotice(routineAvailableAt);
       return;
     }
@@ -1075,7 +1045,6 @@
     routineLocked = false;
     routineAvailableAt = null;
     clearGateTimer();
-
     if (downloadRoutineBtn) downloadRoutineBtn.disabled = false;
 
     monthCache.set(cacheKey, json);
@@ -1083,7 +1052,82 @@
   }
 
   // =====================================================
-  // Clases en vivo
+  // Video modal
+  // =====================================================
+  function ytEmbedUrl(url) {
+    if (!url) return "";
+    const raw = String(url).trim();
+    if (raw.includes("/embed/")) return raw.replace("www.youtube.com","www.youtube-nocookie.com");
+
+    try {
+      const u = new URL(raw);
+      if (u.hostname.includes("youtu.be")) {
+        const id = u.pathname.split("/").filter(Boolean)[0];
+        return id ? `https://www.youtube-nocookie.com/embed/${id}` : "";
+      }
+      if (u.pathname.startsWith("/shorts/")) {
+        const id = u.pathname.split("/").filter(Boolean)[1];
+        return id ? `https://www.youtube-nocookie.com/embed/${id}` : "";
+      }
+      if (u.pathname === "/watch") {
+        const id = u.searchParams.get("v");
+        return id ? `https://www.youtube-nocookie.com/embed/${id}` : "";
+      }
+      const v = u.searchParams.get("v");
+      if (v) return `https://www.youtube-nocookie.com/embed/${v}`;
+    } catch (_) {}
+
+    const match = raw.match(/[?&]v=([a-zA-Z0-9_-]{6,})/);
+    if (match?.[1]) return `https://www.youtube-nocookie.com/embed/${match[1]}`;
+    return "";
+  }
+
+  function openVideoModal(url, title) {
+    if (!videoModal || !videoModalBackdrop || !videoModalFrame) return;
+
+    const embed = ytEmbedUrl(url);
+    if (!embed) return;
+
+    const wrap = videoModal.querySelector(".video-wrap");
+    const isShort = /\/shorts\//i.test(String(url));
+    wrap?.classList.toggle("is-vertical", isShort);
+    wrap?.classList.toggle("is-horizontal", !isShort);
+
+    if (videoModalTitle) videoModalTitle.textContent = title || "Video";
+
+    videoModal.classList.add("is-open");
+    videoModalBackdrop.classList.add("is-open");
+    videoModal.setAttribute("aria-hidden","false");
+    videoModalBackdrop.setAttribute("aria-hidden","false");
+
+    videoModalFrame.src = "about:blank";
+    requestAnimationFrame(() => {
+      videoModalFrame.src = `${embed}?autoplay=0&controls=1&rel=0&playsinline=1&modestbranding=1`;
+    });
+  }
+
+  function closeVideoModal() {
+    if (!videoModal || !videoModalBackdrop || !videoModalFrame) return;
+    videoModal.classList.remove("is-open");
+    videoModalBackdrop.classList.remove("is-open");
+    videoModal.setAttribute("aria-hidden","true");
+    videoModalBackdrop.setAttribute("aria-hidden","true");
+    videoModalFrame.src = "about:blank";
+  }
+
+  videoModalBackdrop?.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); closeVideoModal(); });
+  videoModalClose?.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); closeVideoModal(); });
+
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-video-url]");
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openVideoModal(btn.getAttribute("data-video-url"), btn.getAttribute("data-video-title") || "Video");
+  }, true);
+
+  // =====================================================
+  // Clases / grabadas
   // =====================================================
   function resolveCoverUrl(value) {
     const raw = String(value || "").trim();
@@ -1102,7 +1146,6 @@
   async function loadClasses() {
     if (!classesList || !classesMsg) return;
 
-    nextLiveClass = null;
     classesList.innerHTML = "";
     clearText(classesMsg);
 
@@ -1111,62 +1154,47 @@
       return;
     }
 
-    classesMsg.className = "small";
     classesMsg.textContent = "Cargando clases…";
 
     const nowIso = new Date().toISOString();
-
     const { data, error } = await sb
       .from("live_classes")
-      .select("id,title,topic,starts_at,zoom_join_url,zoom_passcode,status,cover_url")
+      .select("id,title,topic,starts_at,zoom_join_url,zoom_passcode,cover_url")
       .gte("starts_at", nowIso)
       .order("starts_at", { ascending: true })
       .limit(10);
 
-    if (error) {
-      setNotice(classesMsg, error.message, "error");
-      return;
-    }
+    if (error) { setNotice(classesMsg, error.message, "error"); return; }
+    if (!data?.length) { setNotice(classesMsg, "Todavía no hay clases en vivo programadas.", "notice small"); return; }
 
-    if (!data?.length) {
-      setNotice(classesMsg, "Todavía no hay clases en vivo programadas.", "notice small");
-      return;
-    }
-
-    nextLiveClass = data[0] || null;
     clearText(classesMsg);
 
-    classesList.innerHTML = data
-      .map((item) => {
-        const when = formatDateTimeEs(item.starts_at);
-        const cover = resolveCoverUrl(item.cover_url);
-        const pass = String(item.zoom_passcode || "").trim();
+    classesList.innerHTML = data.map((item) => {
+      const when = item.starts_at ? formatDateTimeShort(item.starts_at) : "";
+      const cover = resolveCoverUrl(item.cover_url);
+      const pass = String(item.zoom_passcode || "").trim();
 
-        const actionBtn = item.zoom_join_url
-          ? `<a class="btn primary" target="_blank" rel="noopener" href="${esc(item.zoom_join_url)}">Entrar</a>`
-          : `<span class="small">Sin link</span>`;
+      const actionBtn = item.zoom_join_url
+        ? `<a class="btn primary" target="_blank" rel="noopener" href="${esc(item.zoom_join_url)}">Entrar</a>`
+        : `<span class="small">Sin link</span>`;
 
-        return `
-          <div class="item" style="display:flex;gap:12px;align-items:flex-start;justify-content:space-between">
-            <div style="display:flex;gap:12px;align-items:flex-start;min-width:0">
-              ${cover ? `<img src="${esc(cover)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:12px" loading="lazy">` : ""}
-              <div style="min-width:0">
-                <div><b>${esc(item.title || "Clase")}</b></div>
-                ${when ? `<div class="small">${esc(when)} (AR)</div>` : ""}
-                ${item.topic ? `<div class="small" style="opacity:.9">${esc(item.topic)}</div>` : ""}
-                ${pass ? `<div class="small" style="opacity:.9">Código: <b>${esc(pass)}</b></div>` : ""}
-                <div style="margin-top:10px">${actionBtn}</div>
-              </div>
+      return `
+        <div class="item" style="display:flex;gap:12px;align-items:flex-start;justify-content:space-between">
+          <div style="display:flex;gap:12px;align-items:flex-start;min-width:0">
+            ${cover ? `<img src="${esc(cover)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:12px" loading="lazy">` : ""}
+            <div style="min-width:0">
+              <div><b>${esc(item.title || "Clase")}</b></div>
+              ${when ? `<div class="small">${esc(when)} (AR)</div>` : ""}
+              ${item.topic ? `<div class="small" style="opacity:.9">${esc(item.topic)}</div>` : ""}
+              ${pass ? `<div class="small" style="opacity:.9">Código: <b>${esc(pass)}</b></div>` : ""}
+              <div style="margin-top:10px">${actionBtn}</div>
             </div>
           </div>
-        `;
-      })
-      .join("");
+        </div>
+      `;
+    }).join("");
   }
 
-  // =====================================================
-  // Clases grabadas
-  // =====================================================
   function getRecordedDate(item) {
     const raw = item.class_date || item.recorded_at || item.starts_at || item.created_at || null;
     const d = raw ? new Date(raw) : new Date();
@@ -1179,8 +1207,8 @@
       const d = getRecordedDate(item);
       const year = d.getFullYear();
       const month = d.getMonth();
-      if (!grouped[year]) grouped[year] = {};
-      if (!grouped[year][month]) grouped[year][month] = [];
+      grouped[year] ||= {};
+      grouped[year][month] ||= [];
       grouped[year][month].push(item);
     }
     return grouped;
@@ -1219,7 +1247,7 @@
     if (!recordedList) return;
     recordedList.innerHTML = "";
 
-    if (!items || !items.length) {
+    if (!items?.length) {
       setNotice(recordedMsg, "Todavía no hay clases grabadas publicadas.", "notice small");
       return;
     }
@@ -1233,31 +1261,20 @@
 
     const years = Object.keys(grouped).map(Number).sort((a, b) => b - a);
 
-    recordedList.innerHTML = years
-      .map((year) => {
-        const months = Object.keys(grouped[year]).map(Number).sort((a, b) => b - a);
-        const yearIsOpen = year === currentYear ? "open" : "";
-
-        return `
-          <details class="lib-year" ${yearIsOpen}>
-            <summary>${year}</summary>
-            ${months
-              .map((monthIndex) => {
-                const monthIsOpen = (year === currentYear && monthIndex === currentMonthIndex) ? "open" : "";
-                return `
-                  <details class="lib-month" ${monthIsOpen}>
-                    <summary>${monthNameEs(monthIndex)}</summary>
-                    <div class="lib-items">
-                      ${grouped[year][monthIndex].map(buildRecordedVideoCard).join("")}
-                    </div>
-                  </details>
-                `;
-              })
-              .join("")}
-          </details>
-        `;
-      })
-      .join("");
+    recordedList.innerHTML = years.map((year) => {
+      const months = Object.keys(grouped[year]).map(Number).sort((a, b) => b - a);
+      return `
+        <details class="lib-year" ${year === currentYear ? "open" : ""}>
+          <summary>${year}</summary>
+          ${months.map((monthIndex) => `
+            <details class="lib-month" ${(year === currentYear && monthIndex === currentMonthIndex) ? "open" : ""}>
+              <summary>${monthNameEs(monthIndex)}</summary>
+              <div class="lib-items">${grouped[year][monthIndex].map(buildRecordedVideoCard).join("")}</div>
+            </details>
+          `).join("")}
+        </details>
+      `;
+    }).join("");
   }
 
   async function loadRecordedClasses() {
@@ -1271,7 +1288,6 @@
       return;
     }
 
-    recordedMsg.className = "small";
     recordedMsg.textContent = "Cargando clases grabadas…";
 
     const { data, error } = await sb
@@ -1280,16 +1296,12 @@
       .order("class_date", { ascending: false })
       .limit(120);
 
-    if (error) {
-      setNotice(recordedMsg, error.message, "error");
-      return;
-    }
-
+    if (error) { setNotice(recordedMsg, error.message, "error"); return; }
     renderRecordedLibrary(data || []);
   }
 
   // =====================================================
-  // Descargar rutina
+  // Descargar rutina (HTML)
   // =====================================================
   async function getMonthJsonForDownload(monthNumber, objective) {
     const key = `${monthNumber}-${objective}-${currentTrack}`;
@@ -1297,13 +1309,7 @@
 
     const { data, error } = await rpcMonthContent(monthNumber, objective);
     if (error) throw error;
-
-    if (data?.locked) {
-      const when = data.available_at ? formatDateTimeEs(data.available_at) : "";
-      throw new Error(when
-        ? `Tu rutina todavía está en preparación. Se habilita: ${when} (AR).`
-        : "Tu rutina todavía está en preparación.");
-    }
+    if (data?.locked) throw new Error("Tu rutina todavía está en preparación.");
 
     monthCache.set(key, data);
     return data;
@@ -1311,111 +1317,68 @@
 
   function buildRoutineHTML({ json, monthNumber, objective, track }) {
     const gen = new Date();
-    const title = `Rutina ${monthLabel(monthNumber)} — ${objectiveLabel(objective)} — ${labelTrack(track)}`;
-
-    const DAY_NAMES = { 1: "Lunes", 2: "Martes", 3: "Miércoles", 4: "Jueves", 5: "Viernes" };
+    const title = `Rutina ${monthLabel(monthNumber)} — ${objective} — ${labelTrack(track)}`;
     const weeks = Array.isArray(json?.weeks) ? json.weeks : [];
 
-    const weeksHtml = weeks.map((week) => {
-      const weekTitle = String(week.title || "").trim();
-      const weekHead = weekTitle ? `Semana ${week.week_number} — ${esc(weekTitle)}` : `Semana ${week.week_number}`;
+    const body = weeks.map((week) => {
       const days = Array.isArray(week.days) ? week.days : [];
-
-      const daysHtml = days.map((day) => {
-        const dayName = DAY_NAMES[day.day_number] || `Día ${day.day_number}`;
-        const mg = String(day.muscle_group || "").trim();
-        const focus = String(day.focus || "").trim();
-
-        const items = track === "gym" ? (day.items_gym || []) : (day.items_home || []);
-        const metaLine = [mg && `Grupo: ${esc(mg)}`, focus && `Foco: ${esc(focus)}`].filter(Boolean).join(" · ");
-
-        if (!items.length) {
-          return `
-            <section class="day">
-              <h3>${esc(dayName)}</h3>
-              ${metaLine ? `<div class="meta">${metaLine}</div>` : ""}
-              <div class="muted">Sin ejercicios cargados para este objetivo/modalidad.</div>
-            </section>
-          `;
-        }
-
-        const rows = items.map((item) => `
-          <tr>
-            <td class="col-ex">${esc(item.exercise || "")}</td>
-            <td class="col-num">${esc(item.sets || "")}</td>
-            <td class="col-num">${esc(item.reps || "")}</td>
-            <td class="col-notes">${esc(item.notes || "")}</td>
-          </tr>
-        `).join("");
-
-        return `
-          <section class="day">
-            <h3>${esc(dayName)}</h3>
-            ${metaLine ? `<div class="meta">${metaLine}</div>` : ""}
-            <table>
-              <thead>
-                <tr>
-                  <th>Ejercicio</th>
-                  <th class="col-num">Series</th>
-                  <th class="col-num">Reps</th>
-                  <th>Notas</th>
-                </tr>
-              </thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </section>
-        `;
-      }).join("");
-
       return `
         <section class="week">
-          <h2>${esc(weekHead)}</h2>
-          ${daysHtml || `<div class="muted">Semana sin días.</div>`}
+          <h2>Semana ${esc(week.week_number)}</h2>
+          ${days.map((day) => {
+            const items = track === "gym" ? (day.items_gym || []) : (day.items_home || []);
+            const rows = items.map((it) => `
+              <tr>
+                <td>${esc(it.exercise || "")}</td>
+                <td style="width:70px;text-align:center">${esc(it.sets || "")}</td>
+                <td style="width:70px;text-align:center">${esc(it.reps || "")}</td>
+                <td>${esc(it.notes || "")}</td>
+              </tr>
+            `).join("");
+
+            return `
+              <section class="day">
+                <h3>Día ${esc(day.day_number)}</h3>
+                ${items.length ? `
+                  <table>
+                    <thead><tr><th>Ejercicio</th><th>Series</th><th>Reps</th><th>Notas</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                  </table>
+                ` : `<div class="muted">Sin ejercicios cargados.</div>`}
+              </section>
+            `;
+          }).join("")}
         </section>
       `;
-    }).join("");
-
-    const body = weeksHtml || `<div class="muted">Este mes no tiene contenido cargado.</div>`;
+    }).join("") || `<div class="muted">Este mes no tiene contenido cargado.</div>`;
 
     return `<!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>${esc(title)}</title>
-  <style>
-    body{ font-family: system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; margin:0; color:#111; background:#fff; }
-    .page{ max-width: 920px; margin: 0 auto; padding: 26px; }
-    .head{ border-bottom: 1px solid #e9e9e9; padding-bottom: 14px; margin-bottom: 16px; }
-    .brand{ font-weight: 800; letter-spacing: .04em; font-size: 14px; opacity: .85; }
-    h1{ font-size: 18px; margin: 6px 0 0; line-height:1.25; }
-    .sub{ color:#555; font-size: 12px; margin: 6px 0 0; }
-    h2{ margin: 18px 0 10px; font-size: 14px; }
-    h3{ margin: 14px 0 6px; font-size: 13px; }
-    .meta{ font-size: 12px; color:#555; margin-bottom: 8px; }
-    .muted{ font-size: 12px; color:#666; }
-    .day{ padding: 10px 0 8px; border-top: 1px solid #efefef; }
-    table{ width:100%; border-collapse: collapse; margin-top: 8px; border: 1px solid #e7e7e7; border-radius: 10px; overflow: hidden; }
-    th, td{ border-bottom: 1px solid #ededed; padding: 10px 10px; font-size: 12px; vertical-align: top; }
-    th{ background:#fafafa; text-align:left; font-weight: 700; }
-    tr:last-child td{ border-bottom: none; }
-    .col-num{ width: 72px; text-align: center; white-space: nowrap; }
-    .col-ex{ width: 42%; }
-    .footnote{ margin-top: 18px; font-size: 12px; color:#666; border-top: 1px solid #e9e9e9; padding-top: 12px; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>${esc(title)}</title>
+<style>
+body{ font-family: system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; margin:0; color:#111; background:#fff; }
+.page{ max-width: 920px; margin: 0 auto; padding: 26px; }
+h1{ font-size: 18px; margin: 0 0 6px; }
+h2{ margin: 18px 0 10px; font-size: 14px; }
+h3{ margin: 14px 0 6px; font-size: 13px; }
+.muted{ font-size: 12px; color:#666; }
+.day{ padding: 10px 0 8px; border-top: 1px solid #efefef; }
+table{ width:100%; border-collapse: collapse; margin-top: 8px; border: 1px solid #e7e7e7; border-radius: 10px; overflow: hidden; }
+th, td{ border-bottom: 1px solid #ededed; padding: 10px 10px; font-size: 12px; vertical-align: top; }
+th{ background:#fafafa; text-align:left; font-weight: 700; }
+tr:last-child td{ border-bottom: none; }
+</style>
 </head>
 <body>
   <div class="page">
-    <div class="head">
-      <div class="brand">MARICEL CONSE · ACADEMIA DE MUJERES</div>
-      <h1>${esc(title)}</h1>
-      <p class="sub">Generado: ${esc(gen.toLocaleString("es-AR"))}</p>
-    </div>
-
+    <h1>${esc(title)}</h1>
+    <div class="muted">Generado: ${esc(gen.toLocaleString("es-AR"))}</div>
     ${body}
-
-    <div class="footnote">
-      Nota: Los videos y explicaciones de cada ejercicio están disponibles dentro del campus virtual.
+    <div class="muted" style="margin-top:16px;border-top:1px solid #eee;padding-top:10px">
+      Nota: Los videos y explicaciones están dentro del campus.
     </div>
   </div>
 </body>
@@ -1424,26 +1387,13 @@
 
   async function downloadRoutine() {
     try {
-      if (!currentMonth) {
-        alert("Primero cargá un mes (esperá a que aparezca la rutina).");
-        return;
-      }
+      if (!currentMonth) { alert("Primero cargá un mes."); return; }
+      if (routineLocked) { alert("Tu rutina todavía está en preparación."); return; }
 
-      if (routineLocked) {
-        const when = routineAvailableAt ? formatDateTimeEs(routineAvailableAt) : "";
-        alert(when ? `Tu rutina todavía está en preparación.\nSe habilita: ${when} (AR).` : "Tu rutina todavía está en preparación.");
-        return;
-      }
+      const json = await getMonthJsonForDownload(currentMonth, currentObjective);
+      const html = buildRoutineHTML({ json, monthNumber: currentMonth, objective: currentObjective, track: currentTrack });
 
-      const monthNumber = currentMonth;
-      const objective = currentObjective;
-      const track = currentTrack;
-
-      const json = await getMonthJsonForDownload(monthNumber, objective);
-      const html = buildRoutineHTML({ json, monthNumber, objective, track });
-
-      const fileBase = filenameSafe(`rutina_${monthLabel(monthNumber)}_${objective}_${track}`);
-
+      const fileBase = filenameSafe(`rutina_${monthLabel(currentMonth)}_${currentObjective}_${currentTrack}`);
       const blob = new Blob([html], { type: "text/html;charset=utf-8" });
       const url = URL.createObjectURL(blob);
 
@@ -1453,10 +1403,9 @@
       document.body.appendChild(a);
       a.click();
       a.remove();
-
       URL.revokeObjectURL(url);
     } catch (e) {
-      console.error("[A360] downloadRoutine error:", e);
+      console.error("[A360] downloadRoutine:", e);
       alert(e?.message || String(e));
     }
   }
@@ -1464,27 +1413,22 @@
   downloadRoutineBtn?.addEventListener("click", downloadRoutine);
 
   // =====================================================
-  // Mi perfil
+  // Perfil
   // =====================================================
   function setProfileMsg(text, kind = "small") {
     if (!profileMsg) return;
     profileMsg.className = kind;
     profileMsg.textContent = text || "";
   }
-
   function setDeleteAccountMsg(text, kind = "small") {
     if (!deleteAccountMsg) return;
     deleteAccountMsg.className = kind;
     deleteAccountMsg.textContent = text || "";
   }
-
   function openProfile(open) {
     if (!profilePanel) return;
     profilePanel.style.display = open ? "block" : "none";
-    if (!open) {
-      setProfileMsg("");
-      setDeleteAccountMsg("");
-    }
+    if (!open) { setProfileMsg(""); setDeleteAccountMsg(""); }
   }
 
   function syncProfileAccountUI() {
@@ -1498,14 +1442,11 @@
     if (profilePaidLine) profilePaidLine.textContent = `Pago hasta: ${formatPaidThrough(paid)}`;
 
     if (!profileUpgradeBox) return;
-
     const slug = norm(planSlug);
     const show = slug === "basic" || slug === "mid";
     profileUpgradeBox.style.display = show ? "block" : "none";
-
     if (profileUpgradeMidBtn) profileUpgradeMidBtn.style.display = slug === "basic" ? "inline-flex" : "none";
     if (profileUpgradeProBtn) profileUpgradeProBtn.style.display = show ? "inline-flex" : "none";
-
     if (profileUpgradeMidBtn) profileUpgradeMidBtn.textContent = "Pasar a Intermedio";
     if (profileUpgradeProBtn) profileUpgradeProBtn.textContent = "Pasar a Premium";
   }
@@ -1521,10 +1462,7 @@
       .eq("user_id", uid)
       .maybeSingle();
 
-    if (error) {
-      setProfileMsg(error.message, "error");
-      return;
-    }
+    if (error) { setProfileMsg(error.message, "error"); return; }
 
     if (pfFullName) pfFullName.value = profile?.full_name ?? "";
     if (pfPhone) pfPhone.value = profile?.phone ?? "";
@@ -1532,8 +1470,6 @@
     if (pfWeight) pfWeight.value = profile?.weight_kg == null ? "" : String(profile.weight_kg);
     if (pfHeight) pfHeight.value = profile?.height_cm == null ? "" : String(profile.height_cm);
     if (pfLevel) pfLevel.value = profile?.training_level ?? "";
-
-    if (profile?.full_name) campusFirstName = firstNameFromFullName(profile.full_name, campusEmailCache);
   }
 
   async function saveMyProfile() {
@@ -1557,12 +1493,8 @@
     };
 
     const { error } = await sb.from("profiles").upsert(payload, { onConflict: "user_id" });
-    if (error) {
-      setProfileMsg(error.message, "error");
-      return;
-    }
+    if (error) { setProfileMsg(error.message, "error"); return; }
 
-    campusFirstName = firstNameFromFullName(payload.full_name, email);
     setProfileMsg("Guardado ✅", "notice");
   }
 
@@ -1584,52 +1516,36 @@
       if (deleteAccountBtn) deleteAccountBtn.disabled = true;
       setDeleteAccountMsg("", "small");
 
-      const { data: sessRes, error: sessErr } = await sb.auth.getSession();
-      if (sessErr) throw sessErr;
-
+      const { data: sessRes } = await sb.auth.getSession();
       const session = sessRes?.session;
       const token = session?.access_token;
-      const email = session?.user?.email || campusEmailCache || "";
+      const email = session?.user?.email || "";
 
-      if (!token || !email) {
-        alert("Tu sesión expiró. Volvé a iniciar sesión e intentá de nuevo.");
-        return;
-      }
+      if (!token || !email) { alert("Tu sesión expiró. Volvé a iniciar sesión."); return; }
 
       const ok = confirm("Vas a ELIMINAR tu cuenta.\n\nEsto es irreversible.\n\n¿Querés continuar?");
       if (!ok) return;
 
       const typed = (prompt(`Para confirmar, escribí tu email:\n${email}`) || "").trim();
-      if (norm(typed) !== norm(email)) {
-        alert("El email no coincide. Operación cancelada.");
-        return;
-      }
+      if (norm(typed) !== norm(email)) { alert("El email no coincide. Operación cancelada."); return; }
 
       setDeleteAccountMsg("Eliminando…", "small");
 
       const res = await sb.functions.invoke("delete-account", {
         body: { confirm_email: typed },
-        headers: { authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      console.log("[delete-account] response:", res);
-
       const { data, error } = res;
-      if (error) {
-        setDeleteAccountMsg(error.message || "Error al eliminar la cuenta.", "error");
-        return;
-      }
-      if (!data?.ok) {
-        setDeleteAccountMsg("No se pudo completar la eliminación.", "error");
-        return;
-      }
+      if (error) { setDeleteAccountMsg(error.message || "Error al eliminar.", "error"); return; }
+      if (!data?.ok) { setDeleteAccountMsg("No se pudo completar la eliminación.", "error"); return; }
 
       setDeleteAccountMsg("Cuenta eliminada ✅", "notice");
 
       try { await sb.auth.signOut(); } catch (_) {}
       window.location.href = "./index.html";
     } catch (e) {
-      console.error("[A360] deleteMyAccount error:", e);
+      console.error("[A360] deleteMyAccount:", e);
       alert(e?.message || String(e));
       setDeleteAccountMsg("", "small");
     } finally {
@@ -1642,6 +1558,21 @@
   // =====================================================
   // Init
   // =====================================================
+  async function getPublishedMonthNumber() {
+    const nowIso = new Date().toISOString();
+    const { data, error } = await sb
+      .from("month_release")
+      .select("month_number, release_at")
+      .eq("is_published", true)
+      .lte("release_at", nowIso)
+      .order("release_at", { ascending: false })
+      .limit(1);
+
+    if (error) throw error;
+    const m = Number(data?.[0]?.month_number || 0);
+    return m || (new Date().getMonth() + 1);
+  }
+
   (async function init() {
     syncHeaderUI();
 
@@ -1649,12 +1580,8 @@
     if (!session) return;
 
     if (userEmail) userEmail.textContent = session.user.email;
-    campusEmailCache = session.user.email || "";
-
-    await loadCampusIdentity();
 
     // paralelo
-    const routineP = loadRoutineDeliveryStatus(session.user.id);
     const adminP = maybeShowAdminLink();
     const planP = loadPlanBadge();
     const prefsP = loadUserPreferences();
@@ -1685,7 +1612,12 @@
       syncHelpWhatsappUI();
 
       await quoteP;
-      await routineP;
+
+      // cortar polling/toast por las dudas
+      try { document.getElementById("a360Toast")?.remove(); } catch (_) {}
+      if (repliesPollTimer) { clearInterval(repliesPollTimer); repliesPollTimer = null; }
+      lastToastKey = "";
+
       return;
     }
 
@@ -1693,22 +1625,29 @@
     syncProfileAccountUI();
     syncHelpWhatsappUI();
 
-    // preferencias
     const prefs = await prefsP;
     currentObjective = prefs.objective;
     currentTrack = prefs.track;
-
-    try { localStorage.removeItem("A360_OBJECTIVE"); } catch (_) {}
-
     syncTrackUI();
-    lockRoutineToStudentPreferencesUI();
 
-    // contenido
     const publishedMonth = await getPublishedMonthNumber();
     await openMonth(publishedMonth, { force: true });
 
-    await Promise.all([loadClasses(), loadRecordedClasses()]);
-    await Promise.all([quoteP, routineP]);
+    await Promise.all([loadClasses(), loadRecordedClasses(), quoteP]);
+
+    // ✅ Replies/toast SOLO si puede usar comentarios (mid/pro)
+    if (canUseComments()) {
+      await loadUnseenReplySummary(session.user.id).catch(() => {});
+      if (!repliesPollTimer) {
+        repliesPollTimer = setInterval(() => {
+          loadUnseenReplySummary(session.user.id).catch(() => {});
+        }, 60_000);
+      }
+    } else {
+      try { document.getElementById("a360Toast")?.remove(); } catch (_) {}
+      if (repliesPollTimer) { clearInterval(repliesPollTimer); repliesPollTimer = null; }
+      lastToastKey = "";
+    }
 
     console.log("[A360] Ready ✅");
   })();

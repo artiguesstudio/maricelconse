@@ -19,6 +19,31 @@
   }
   const sb = window.sb;
 
+  function setAlertsDot(count) {
+  const tab = document.querySelector('[data-view-tab="view-alertas"]');
+  if (!tab) return;
+
+  let dot = tab.querySelector("#a360AlertsDot");
+  if (!dot) {
+    dot = document.createElement("span");
+    dot.id = "a360AlertsDot";
+    dot.style.cssText = `
+      display:none;
+      width:8px;height:8px;
+      border-radius:999px;
+      margin-left:8px;
+      background:#b42318;
+      box-shadow:0 0 0 3px rgba(180,35,24,.14);
+      align-self:center;
+    `;
+    tab.appendChild(dot);
+  }
+
+  const n = Number(count || 0);
+  dot.style.display = n > 0 ? "inline-block" : "none";
+  dot.title = n > 0 ? `${n} alerta(s) activa(s)` : "";
+}
+
   // =====================================================
   // Helpers
   // =====================================================
@@ -212,6 +237,67 @@
   const routineCommentsRefreshBtn = $("routineCommentsRefreshBtn");
   const routineCommentsMsg = $("routineCommentsMsg");
   const routineCommentsList = $("routineCommentsList");
+  // =====================================================
+// Comentarios alumnas: Vista (Bandeja vs Historial por alumna)
+// =====================================================
+let routineCommentsView = "inbox"; // "inbox" | "student"
+let routineCommentsStudent = { user_id: null, email: null };
+
+function setRoutineCommentsViewInbox() {
+  routineCommentsView = "inbox";
+  routineCommentsStudent = { user_id: null, email: null };
+  syncRoutineCommentsViewToggle();
+}
+
+function setRoutineCommentsViewStudent(userId, email) {
+  routineCommentsView = "student";
+  routineCommentsStudent = { user_id: userId || null, email: email || null };
+  syncRoutineCommentsViewToggle();
+}
+
+function ensureRoutineCommentsViewToggle() {
+  if (!routineCommentsRefreshBtn || routineCommentsRefreshBtn.__hasToggleBtn) return;
+  routineCommentsRefreshBtn.__hasToggleBtn = true;
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "btn";
+  btn.id = "routineCommentsToggleBtn";
+  btn.style.marginLeft = "10px";
+  btn.textContent = "Ver historial";
+
+  routineCommentsRefreshBtn.parentNode?.insertBefore(btn, routineCommentsRefreshBtn.nextSibling);
+
+  btn.addEventListener("click", async () => {
+    // Si estamos en historial → volver a bandeja
+    if (routineCommentsView === "student") {
+      setRoutineCommentsViewInbox();
+      await loadRoutineComments();
+      return;
+    }
+
+    // Si estamos en bandeja → ir a historial de la alumna abierta
+    if (!state.user_id) {
+      alert("Primero buscá una alumna para ver su historial.");
+      return;
+    }
+    setRoutineCommentsViewStudent(state.user_id, state.email);
+    await loadRoutineComments();
+  });
+
+  syncRoutineCommentsViewToggle();
+}
+
+function syncRoutineCommentsViewToggle() {
+  const btn = document.getElementById("routineCommentsToggleBtn");
+  if (!btn) return;
+
+  if (routineCommentsView === "student") {
+    btn.textContent = "Volver a bandeja";
+  } else {
+    btn.textContent = "Ver historial (alumna)";
+  }
+}
 
   // =====================================================
   // Premium
@@ -1683,33 +1769,74 @@
   // =====================================================
   // Alertas
   // =====================================================
-  async function loadAlerts() {
-    if (!alertsList) return;
+  function setAlertTabBadge(n) {
+  const tab = document.querySelector('[data-view-tab="view-alertas"]');
+  if (!tab) return;
 
-    alertsList.innerHTML = "";
-    setMsg(alertsMsg, "Cargando…", "small");
+  let b = tab.querySelector(".a360-badge");
+  if (!b) {
+    b = document.createElement("span");
+    b.className = "a360-badge";
+    b.style.cssText = `
+      display:none;
+      margin-left:8px;
+      min-width:18px;height:18px;
+      padding:0 6px;
+      border-radius:999px;
+      font-size:11px;
+      line-height:18px;
+      text-align:center;
+      background:rgba(180,35,24,.10);
+      border:1px solid rgba(180,35,24,.25);
+      color:#b42318;
+    `;
+    tab.appendChild(b);
+  }
 
-    const { data, error } = await sb
-      .from("admin_alerts")
-      .select("id, created_at, user_id, email, kind, message, resolved_at")
-      .is("resolved_at", null)
-      .order("created_at", { ascending: false });
+  const count = Number(n || 0);
+  if (count > 0) {
+    b.style.display = "inline-flex";
+    b.textContent = count > 9 ? "9+" : String(count);
+  } else {
+    b.style.display = "none";
+    b.textContent = "";
+  }
+}
+async function loadAlerts() {
+  if (!alertsList) return;
 
-    if (error) {
-      setMsg(alertsMsg, error.message, "error");
-      return;
-    }
+  alertsList.innerHTML = "";
+  setMsg(alertsMsg, "Cargando…", "small");
 
-    if (!data?.length) {
-      setMsg(alertsMsg, "Sin alertas abiertas ✅", "notice");
-      return;
-    }
+  const { data, error } = await sb
+    .from("admin_alerts")
+    .select("id, created_at, user_id, email, kind, message, resolved_at")
+    .is("resolved_at", null)
+    .order("created_at", { ascending: false });
 
-    setMsg(alertsMsg, "", "small");
+  if (error) {
+    setAlertsDot(0);
+    setAlertTabBadge(0);
+    setMsg(alertsMsg, error.message, "error");
+    return;
+  }
 
-    alertsList.innerHTML = data
-      .map(
-        (a) => `
+  const n = Array.isArray(data) ? data.length : 0;
+
+  // ✅ indicador en tab
+  setAlertsDot(n);
+  setAlertTabBadge(n);
+
+  if (!n) {
+    setMsg(alertsMsg, "Sin alertas abiertas ✅", "notice");
+    return;
+  }
+
+  setMsg(alertsMsg, "", "small");
+
+  alertsList.innerHTML = data
+    .map(
+      (a) => `
         <div class="item">
           <div><b>${esc(a.kind)}</b> · <span class="small">${new Date(a.created_at).toLocaleString()}</span></div>
           <div class="small">${esc(a.email || "sin email")}</div>
@@ -1720,106 +1847,349 @@
           </div>
         </div>
       `
-      )
-      .join("");
+    )
+    .join("");
 
-    alertsList.querySelectorAll("[data-open]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const email = btn.getAttribute("data-open");
-        if (!email) return;
-        if (studentEmail) studentEmail.value = email;
-        await findStudent(email);
-      });
+  alertsList.querySelectorAll("[data-open]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const email = btn.getAttribute("data-open");
+      if (!email) return;
+      if (studentEmail) studentEmail.value = email;
+      await findStudent(email);
     });
+  });
 
-    alertsList.querySelectorAll("[data-resolve]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const id = btn.getAttribute("data-resolve");
-        if (!id) return;
+  alertsList.querySelectorAll("[data-resolve]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.getAttribute("data-resolve");
+      if (!id) return;
 
-        const userRes = await sb.auth.getUser();
-        const myId = userRes?.data?.user?.id || null;
+      const userRes = await sb.auth.getUser();
+      const myId = userRes?.data?.user?.id || null;
 
-        const { error } = await sb.from("admin_alerts").update({ resolved_at: new Date().toISOString(), resolved_by: myId }).eq("id", id);
-        if (error) return alert(error.message);
+      const { error } = await sb
+        .from("admin_alerts")
+        .update({ resolved_at: new Date().toISOString(), resolved_by: myId })
+        .eq("id", id);
 
-        await loadAlerts();
-      });
+      if (error) return alert(error.message);
+
+      await loadAlerts();
     });
-  }
+  });
+}
+ // =====================================================
+// Comentarios alumnas (routine_comments)
+// - Bandeja (default): solo pendientes (admin_reply IS NULL)
+// - Historial: al buscar/abrir alumna, filtra por user_id
+// =====================================================
+async function loadRoutineComments() {
+  if (!routineCommentsList || !routineCommentsMsg) return;
 
-  // =====================================================
-  // Comentarios alumnas (routine_comments) — safe
-  // =====================================================
-  async function loadRoutineComments() {
-    if (!routineCommentsList || !routineCommentsMsg) return;
+  routineCommentsList.innerHTML = "";
+  setMsg(routineCommentsMsg, "Cargando…", "small");
 
-    routineCommentsList.innerHTML = "";
-    setMsg(routineCommentsMsg, "Cargando…", "small");
+  try {
+    // 1) Query base (SIN embed)
+    let q = sb
+      .from("routine_comments")
+      .select("id, created_at, user_id, day_id, message, read_at, admin_reply, replied_at, user_seen_reply_at")
+      .order("created_at", { ascending: false });
 
-    try {
-      const { data, error } = await sb
-        .from("routine_comments")
-        .select("id, created_at, user_id, day_id, message, read_at")
-        .order("created_at", { ascending: false })
-        .limit(200);
+    // ✅ Bandeja: solo los que NO tienen respuesta
+    if (routineCommentsView === "inbox") {
+      q = q.is("admin_reply", null).limit(200);
+    }
 
-      if (error) throw new Error(error.message);
-
-      if (!data?.length) {
-        setMsg(routineCommentsMsg, "Sin comentarios ✅", "notice");
+    // ✅ Historial: por alumna
+    if (routineCommentsView === "student") {
+      if (!routineCommentsStudent.user_id) {
+        setMsg(routineCommentsMsg, "Seleccioná una alumna para ver historial.", "notice");
         return;
       }
-
-      setMsg(routineCommentsMsg, `Comentarios: ${data.length}`, "small");
-
-      const userIds = [...new Set(data.map((x) => x.user_id).filter(Boolean))];
-      let profById = {};
-      if (userIds.length) {
-        const { data: profs, error: pErr } = await sb.from("profiles").select("user_id,email,full_name").in("user_id", userIds);
-        if (!pErr && profs) for (const p of profs) profById[p.user_id] = p;
-      }
-
-      routineCommentsList.innerHTML = data
-        .map((c) => {
-          const p = profById[c.user_id] || {};
-          const who = p.email || c.user_id || "—";
-          const when = c.created_at ? new Date(c.created_at).toLocaleString("es-AR") : "";
-          const read = c.read_at ? `Leído: ${new Date(c.read_at).toLocaleString("es-AR")}` : "No leído";
-
-          return `
-            <div class="item">
-              <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
-                <div>
-                  <div><b>${esc(who)}</b> <span class="small muted">${esc(p.full_name || "")}</span></div>
-                  <div class="small muted">${esc(when)} · ${esc(read)}</div>
-                </div>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                  ${p.email ? `<button class="btn primary" type="button" data-open-stu="${esc(p.email)}">Abrir alumna</button>` : ""}
-                </div>
-              </div>
-              <div class="small" style="margin-top:8px">${esc(c.message || "")}</div>
-            </div>
-          `;
-        })
-        .join("");
-
-      routineCommentsList.querySelectorAll("[data-open-stu]").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          const email = btn.getAttribute("data-open-stu");
-          if (!email) return;
-          if (studentEmail) studentEmail.value = email;
-          await findStudent(email);
-        });
-      });
-    } catch (e) {
-      console.warn("[ADMIN] loadRoutineComments:", e);
-      setMsg(routineCommentsMsg, `No pude leer comentarios: ${e?.message || String(e)} (¿existe routine_comments?)`, "error");
-      routineCommentsList.innerHTML = "";
+      q = q.eq("user_id", routineCommentsStudent.user_id).limit(500);
     }
-  }
 
-  routineCommentsRefreshBtn?.addEventListener("click", () => loadRoutineComments().catch(console.error));
+    const { data: comments, error } = await q;
+    if (error) throw new Error(error.message);
+
+    const viewTitle =
+      routineCommentsView === "student"
+        ? `Historial · ${routineCommentsStudent.email || "alumna"}`
+        : "Bandeja · Pendientes";
+
+    if (!comments?.length) {
+      setMsg(routineCommentsMsg, `${viewTitle}: sin comentarios ✅`, "notice");
+      return;
+    }
+
+    // 2) Perfiles (email/nombre)
+    const userIds = [...new Set(comments.map((c) => c.user_id).filter(Boolean))];
+    const profById = {};
+    if (userIds.length) {
+      const { data: profs, error: pfErr } = await sb
+        .from("profiles")
+        .select("user_id,email,full_name")
+        .in("user_id", userIds);
+
+      if (pfErr) throw new Error(pfErr.message);
+      (profs || []).forEach((p) => (profById[p.user_id] = p));
+    }
+
+    // 3) Days -> Weeks (Mes/Semana/Día)
+    const dayIds = [...new Set(comments.map((c) => c.day_id).filter(Boolean))];
+    const dayById = {};
+    const weekById = {};
+
+    if (dayIds.length) {
+      const { data: days, error: dErr } = await sb
+        .from("week_days")
+        .select("id, day_number, label, week_id")
+        .in("id", dayIds);
+
+      if (dErr) throw new Error(dErr.message);
+      (days || []).forEach((d) => (dayById[d.id] = d));
+
+      const weekIds = [...new Set((days || []).map((d) => d.week_id).filter(Boolean))];
+      if (weekIds.length) {
+        const { data: weeks, error: wErr } = await sb
+          .from("weeks")
+          .select("id, month_number, week_number")
+          .in("id", weekIds);
+
+        if (wErr) throw new Error(wErr.message);
+        (weeks || []).forEach((w) => (weekById[w.id] = w));
+      }
+    }
+
+    setMsg(routineCommentsMsg, `${viewTitle}: ${comments.length}`, "small");
+
+    routineCommentsList.innerHTML = comments
+      .map((c) => {
+        const p = profById[c.user_id] || {};
+        const who = p.email || c.user_id || "—";
+        const when = c.created_at ? new Date(c.created_at).toLocaleString("es-AR") : "";
+        const read = c.read_at ? `Leído: ${new Date(c.read_at).toLocaleString("es-AR")}` : "No leído";
+
+        const d = dayById[c.day_id] || null;
+        const w = d ? weekById[d.week_id] || null : null;
+
+        const dayLabel = d?.label || (d?.day_number ? `Día ${d.day_number}` : "Día —");
+        const wkLabel = w ? `Mes ${w.month_number} · Semana ${w.week_number} · ${dayLabel}` : dayLabel;
+
+        const hasReply = !!(c.admin_reply && String(c.admin_reply).trim());
+        const replyMeta = hasReply
+          ? `Respondido: ${c.replied_at ? new Date(c.replied_at).toLocaleString("es-AR") : "—"}`
+          : "Sin respuesta";
+
+        const badgePending =
+          !hasReply ? `<span class="small" style="margin-left:8px;color:#b42318">Pendiente</span>` : "";
+
+        return `
+          <div class="item">
+            <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
+              <div style="min-width:0">
+                <div><b>${esc(who)}</b> <span class="small muted">${esc(p.full_name || "")}</span>${badgePending}</div>
+                <div class="small muted">${esc(when)} · ${esc(read)}</div>
+                <div class="small muted" style="margin-top:4px">${esc(wkLabel)} · ${esc(replyMeta)}</div>
+              </div>
+
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                ${p.email ? `<button class="btn" type="button" data-open-stu="${esc(p.email)}">Abrir alumna</button>` : ""}
+                <button class="btn primary" type="button" data-reply-id="${esc(c.id)}">Responder</button>
+              </div>
+            </div>
+
+            <div class="small" style="margin-top:10px">${esc(c.message || "")}</div>
+
+            <div data-reply-box="${esc(c.id)}" style="display:none;margin-top:10px">
+              <textarea class="input" rows="3" placeholder="Escribí la respuesta..." style="width:100%"></textarea>
+              <div class="row" style="margin-top:8px;gap:10px;flex-wrap:wrap;align-items:center">
+                <button class="btn primary" type="button" data-send-reply="${esc(c.id)}">Enviar respuesta</button>
+                <button class="btn" type="button" data-cancel-reply="${esc(c.id)}">Cancelar</button>
+                <span class="small" data-reply-msg="${esc(c.id)}"></span>
+              </div>
+            </div>
+
+            ${hasReply ? `
+              <div class="small" style="margin-top:10px;opacity:.9">
+                <b>Respuesta:</b> ${esc(c.admin_reply)}
+              </div>
+            ` : ""}
+          </div>
+        `;
+      })
+      .join("");
+
+    // Handlers UI
+    routineCommentsList.querySelectorAll("[data-open-stu]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const email = btn.getAttribute("data-open-stu");
+        if (!email) return;
+        if (studentEmail) studentEmail.value = email;
+        await findStudent(email); // esto cambia a historial automáticamente (ver cambio en findStudent)
+      });
+    });
+
+    routineCommentsList.querySelectorAll("[data-reply-id]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-reply-id");
+        const box = routineCommentsList.querySelector(`[data-reply-box="${CSS.escape(id)}"]`);
+        if (!id || !box) return;
+
+        // marcar leído al abrir (resuelve alertas si tu RPC lo hace)
+        try { await sb.rpc("admin_mark_routine_comment_read", { p_comment_id: id }); } catch (_) {}
+
+        box.style.display = box.style.display === "none" ? "block" : "none";
+      });
+    });
+
+    routineCommentsList.querySelectorAll("[data-cancel-reply]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-cancel-reply");
+        const box = routineCommentsList.querySelector(`[data-reply-box="${CSS.escape(id)}"]`);
+        if (box) box.style.display = "none";
+      });
+    });
+
+    routineCommentsList.querySelectorAll("[data-send-reply]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-send-reply");
+        const box = routineCommentsList.querySelector(`[data-reply-box="${CSS.escape(id)}"]`);
+        const ta = box?.querySelector("textarea");
+        const msgEl = routineCommentsList.querySelector(`[data-reply-msg="${CSS.escape(id)}"]`);
+
+        const replyText = String(ta?.value || "").trim();
+        if (!replyText) { if (msgEl) msgEl.textContent = "Escribí una respuesta."; return; }
+
+        if (msgEl) msgEl.textContent = "Enviando…";
+
+        const { data, error: rErr } = await sb.rpc("admin_reply_routine_comment", {
+          p_comment_id: id,
+          p_reply: replyText
+        });
+
+        if (rErr) { if (msgEl) msgEl.textContent = rErr.message; return; }
+
+        // tolera boolean o json {ok:true}
+        const ok = (data === true) || (data && data.ok === true);
+        if (!ok) { if (msgEl) msgEl.textContent = "No pude enviar la respuesta."; return; }
+
+        if (msgEl) msgEl.textContent = "Enviado ✅";
+
+        // refrescar alertas + lista
+        await loadAlerts().catch(() => {});
+        await loadRoutineComments();
+      });
+    });
+  } catch (e) {
+    console.warn("[ADMIN] loadRoutineComments:", e);
+    setMsg(routineCommentsMsg, `No pude leer comentarios: ${e?.message || String(e)}`, "error");
+    routineCommentsList.innerHTML = "";
+  } finally {
+    syncRoutineCommentsViewToggle();
+  }
+}
+
+// Event delegation (una sola vez)
+if (routineCommentsList && !routineCommentsList.__boundRoutineComments) {
+  routineCommentsList.__boundRoutineComments = true;
+
+  routineCommentsList.addEventListener("click", async (ev) => {
+    const root = ev.target.closest?.('[data-rc]');
+    if (!root) return;
+
+    const commentId = root.getAttribute("data-rc");
+    if (!commentId) return;
+
+    const openBtn = ev.target.closest?.("[data-rc-open]");
+    const toggleBtn = ev.target.closest?.("[data-rc-toggle-reply]");
+    const cancelBtn = ev.target.closest?.("[data-rc-cancel-reply]");
+    const sendBtn = ev.target.closest?.("[data-rc-send-reply]");
+    const markReadBtn = ev.target.closest?.("[data-rc-mark-read]");
+
+    // Abrir alumna
+    if (openBtn) {
+      const email = openBtn.getAttribute("data-rc-open");
+      if (email && studentEmail) studentEmail.value = email;
+      if (email) await findStudent(email);
+      return;
+    }
+
+    const box = root.querySelector("[data-rc-reply-box]");
+    const msgEl = root.querySelector("[data-rc-row-msg]");
+    const ta = root.querySelector("[data-rc-reply-text]");
+
+    const setRowMsg = (t, kind = "small") => {
+      if (!msgEl) return;
+      msgEl.className = kind;
+      msgEl.textContent = t || "";
+    };
+
+    // Toggle responder
+    if (toggleBtn) {
+      if (!box) return;
+      const isOpen = box.style.display !== "none";
+      box.style.display = isOpen ? "none" : "block";
+      setRowMsg("");
+      if (!isOpen) ta?.focus?.();
+      return;
+    }
+
+    // Cancelar responder
+    if (cancelBtn) {
+      if (box) box.style.display = "none";
+      setRowMsg("");
+      return;
+    }
+
+    // Marcar leído (sin responder)
+    if (markReadBtn) {
+      if (!confirm("¿Marcar como leído?")) return;
+      try {
+        setRowMsg("Marcando…", "small");
+        const { data, error } = await sb.rpc("admin_mark_routine_comment_read", {
+          p_comment_id: commentId
+        });
+        if (error) throw new Error(error.message);
+        if (!data?.ok) throw new Error("No pude marcar como leído.");
+        await loadRoutineComments();
+      } catch (e) {
+        setRowMsg(e?.message || String(e), "error");
+      }
+      return;
+    }
+
+    // Enviar respuesta
+    if (sendBtn) {
+      const replyText = (ta?.value || "").trim();
+      if (!replyText) return setRowMsg("Escribí una respuesta.", "error");
+
+      try {
+        setRowMsg("Enviando…", "small");
+
+        const { data, error } = await sb.rpc("admin_reply_routine_comment", {
+  p_comment_id: commentId,
+  p_reply: replyText,
+});
+
+if (error) throw new Error(error.message);
+
+// acepta json {ok:true} o boolean true o null (si alguna vez devolvés void)
+const ok = (data === true) || (data === null) || (data && data.ok === true);
+if (!ok) throw new Error((data && data.error) || "No pude enviar la respuesta.");
+
+// ✅ refrescar ambos paneles
+await Promise.all([loadRoutineComments(), loadAlerts()]);
+      } catch (e) {
+        setRowMsg(e?.message || String(e), "error");
+      }
+      return;
+    }
+  });
+}
+
+routineCommentsRefreshBtn?.addEventListener("click", () => loadRoutineComments().catch(console.error));
 
   // =====================================================
   // Alumnos: buscar + resumen
@@ -1866,11 +2236,13 @@
       setMsg(studentMsg, "No encontrado.", "error");
       if (studentCard) studentCard.style.display = "none";
       exitStudentMode();
-      return;
+      return;      
     }
 
     state.user_id = row.user_id;
     state.email = row.email || e;
+
+    setRoutineCommentsViewInbox();
 
     const sum = await adminLoadUserSummary(state.user_id);
 
@@ -1901,6 +2273,9 @@
 
     // Herramientas: semanas del mes actual
     if (state.month) await fillDupWeekSelects(state.month).catch(() => {});
+    // ✅ Al buscar alumna, mostrar historial en panel de comentarios
+setRoutineCommentsViewStudent(state.user_id, state.email);
+loadRoutineComments().catch(() => {});
   }
 
   findStudentBtn?.addEventListener("click", () => {
@@ -2699,6 +3074,7 @@
       if (!ok) return;
 
       exitStudentMode();
+      ensureRoutineCommentsViewToggle();
 
       // Módulos “seguros”
       await loadKPIs().catch(console.error);
