@@ -129,7 +129,37 @@ textarea.input{ min-height:92px; resize:vertical; }
   background:rgba(255,0,0,.05);
   color:#9a1b1b;
 }
+.top-promo{
+  position:relative;
+  overflow:hidden;
+}
 
+.top-promo::after{
+  content:"";
+  position:absolute;
+  inset:-40% -60%;
+  transform: translateX(-60%) rotate(12deg);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255,255,255,.22),
+    transparent
+  );
+  animation: promo-shimmer 2.8s ease-in-out infinite;
+  pointer-events:none;
+}
+
+@keyframes promo-shimmer{
+  0%{ transform: translateX(-60%) rotate(12deg); opacity:0; }
+  15%{ opacity:1; }
+  50%{ transform: translateX(60%) rotate(12deg); opacity:1; }
+  85%{ opacity:0; }
+  100%{ transform: translateX(60%) rotate(12deg); opacity:0; }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .top-promo::after{ animation:none; }
+}
 /* =========================================================
    TOP PROMO (solo index)
    ========================================================= */

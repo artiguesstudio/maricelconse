@@ -13,7 +13,6 @@
   <title>Admin — Academia de Mujeres</title>
 
   <style>
-    /* ===== Admin: Accordion ===== */
     .admin-acc{
       border: 1px solid rgba(0,0,0,.10);
       border-radius: 16px;
@@ -46,11 +45,7 @@
 
     .admin-anchor{ scroll-margin-top: 110px; }
 
-    /* ===== Admin: Weekly Quote ===== */
-    .wq-preview{
-      display:grid;
-      gap:10px;
-    }
+    .wq-preview{ display:grid; gap:10px; }
     .wq-preview img{
       width:100%;
       max-height:220px;
@@ -60,18 +55,74 @@
       background: rgba(255,255,255,.6);
     }
 
-    /* ===== Active users list ===== */
-    .pill{
-      font-size:12px; padding:4px 8px; border-radius:999px;
-      border:1px solid rgba(0,0,0,.10);
-      opacity:.9;
-      white-space:nowrap;
+    /* Tabs */
+    .admin-tabs{
+      position: sticky;
+      top: 64px;
+      z-index: 900;
+      background: rgba(255,255,255,.70);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(0,0,0,.08);
+      border-radius: 16px;
+      padding: 8px;
+      margin-top: 14px;
+      display:flex;
+      flex-wrap:wrap;
+      gap: 8px;
+    }
+    .admin-tab{
+      border: 1px solid rgba(0,0,0,.10);
+      background: rgba(255,255,255,.55);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      user-select:none;
       display:inline-flex;
       align-items:center;
-      gap:6px;
+      gap: 8px;
+      text-decoration:none;
+      color: inherit;
     }
-    .pill.ok{ border-color: rgba(40,140,90,.25); background: rgba(40,140,90,.10); }
-    .pill.warn{ border-color: rgba(200,140,20,.25); background: rgba(200,140,20,.10); }
+    .admin-tab[aria-current="page"]{
+      background: rgba(0,0,0,.08);
+      border-color: rgba(0,0,0,.18);
+    }
+    .admin-view{ display:none; margin-top: 14px; }
+    .admin-view.is-active{ display:block; }
+
+    .admin-grid-2{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+    @media(min-width: 980px){
+      .admin-grid-2{ grid-template-columns: 1fr 1fr; }
+    }
+
+    /* Rutina: drag */
+    .drag-handle{
+      cursor: grab;
+      user-select:none;
+      font-weight:900;
+      opacity:.75;
+      padding: 4px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(0,0,0,.10);
+      background: rgba(255,255,255,.55);
+      display:inline-flex;
+      align-items:center;
+      height: 28px;
+    }
+    .routine-item.dragging{ opacity:.55; }
+    .item-order{
+      display:inline-block;
+      min-width: 28px;
+      text-align:right;
+      font-weight:800;
+      margin-right: 6px;
+    }
+    .muted{ opacity:.8; }
   </style>
 
   <!-- Supabase + config -->
@@ -80,17 +131,15 @@
   <script src="./supabaseClient.js"></script>
   <script src="./auth.js"></script>
 
-  <!-- Admin logic -->
+  <!-- Tu admin.js (el original, con los parches que te paso abajo) -->
   <script defer src="./admin.js"></script>
 </head>
 
 <body>
-  <!-- Global Loader -->
   <div id="globalLoader" class="loader" aria-hidden="true">
     <div class="loader__spinner" role="status" aria-label="Cargando"></div>
   </div>
 
-  <!-- HEADER -->
   <header class="site-header" id="siteHeader">
     <div class="container header-inner">
       <div class="brand-left">
@@ -106,7 +155,6 @@
     </div>
   </header>
 
-  <!-- BANNER -->
   <section class="hero-banner">
     <div class="banner-full">
       <div class="container banner-inner">
@@ -114,7 +162,6 @@
           <a class="banner-logo" href="./index.html" aria-label="Volver al inicio">
             <img src="./imagenes/Isotipo.png" alt="Maricel Conse" onerror="this.style.display='none'">
           </a>
-
           <div class="banner-text">
             <div class="banner-title">ADMIN</div>
             <div class="banner-subtitle">GESTIÓN</div>
@@ -124,255 +171,56 @@
     </div>
   </section>
 
-  <!-- CONTENIDO -->
   <main class="container page">
 
-    <!-- KPIs -->
-    <div class="card" style="margin-top:18px">
-      <div class="row" style="justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
-        <div>
-          <div class="small" style="opacity:.8">Resumen</div>
-          <h3 style="margin:0">KPIs</h3>
-        </div>
-        <button class="btn primary" id="kpiRefreshBtn" type="button">Refrescar</button>
-      </div>
+    <nav class="admin-tabs" aria-label="Secciones admin">
+      <a class="admin-tab" href="#view-dashboard" data-view-tab="view-dashboard">Dashboard</a>
+      <a class="admin-tab" href="#view-rutinas" data-view-tab="view-rutinas">Rutinas</a>
+      <a class="admin-tab" href="#view-ejercicios" data-view-tab="view-ejercicios">Ejercicios</a>
+      <a class="admin-tab" href="#view-contenido" data-view-tab="view-contenido">Contenido (Campus)</a>
+      <a class="admin-tab" href="#view-alertas" data-view-tab="view-alertas">Alertas</a>
+    </nav>
 
-      <div class="hr"></div>
-
-      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
-        <div class="card" style="background:rgba(255,255,255,.55)">
-          <div class="small" style="opacity:.8">Inscripciones</div>
-          <div style="font-weight:800;font-size:22px" id="kpiSignups">—</div>
-        </div>
-
-        <div class="card" style="background:rgba(255,255,255,.55)">
-          <div class="small" style="opacity:.8">Cuentas activas</div>
-          <div style="font-weight:800;font-size:22px" id="kpiActive">—</div>
-        </div>
-
-        <div class="card" style="background:rgba(255,255,255,.55)">
-          <div class="small" style="opacity:.8">MRR estimado (ARS)</div>
-          <div style="font-weight:800;font-size:22px" id="kpiMrr">—</div>
-          <div class="small" style="opacity:.7" id="kpiMrrHint"></div>
-        </div>
-
-        <div class="card" style="background:rgba(255,255,255,.55)">
-          <div class="small" style="opacity:.8">Recaudación total (ARS)</div>
-          <div style="font-weight:800;font-size:22px" id="kpiCollected">—</div>
-          <div class="small" style="opacity:.7" id="kpiCollectedHint"></div>
-        </div>
-      </div>
-
-      <div class="hr"></div>
-      <div class="small" style="opacity:.8">Activos por plan</div>
-      <div id="kpiByPlan" class="list" style="margin-top:10px"></div>
-    </div>
-
-    <!-- ✅ Se eliminó el bloque grande de “Rutinas del mes publicado / duplicar mes / semanas” -->
-
-    <div class="grid" style="margin-top:18px">
-      <!-- LEFT -->
+    <!-- DASHBOARD -->
+    <section id="view-dashboard" class="admin-view is-active" data-admin-view>
       <div class="card">
-
-        <!-- Frase de la semana -->
-        <details class="admin-acc admin-anchor" id="sec-weekly-quote">
-          <summary>Frase de la semana</summary>
-          <div class="acc-body">
-            <div class="small" style="opacity:.85">
-              Gestioná el contenido que se muestra en la card del campus (app.html).
-            </div>
-
-            <div class="form" style="margin-top:10px">
-              <label class="small" for="wqTitle">Título</label>
-              <input class="input" id="wqTitle" placeholder="Ej: “Disciplina > motivación.”" />
-
-              <label class="small" for="wqCopy">Copy</label>
-              <textarea class="input" id="wqCopy" rows="3" placeholder="Ej: Hacé lo mínimo posible, pero hacelo todos los días."></textarea>
-
-              <label class="small" for="wqPhotoFile">Foto (archivo)</label>
-              <input class="input" id="wqPhotoFile" type="file" accept="image/*" />
-
-              <label class="small" for="wqPhotoUrl">o Foto (URL)</label>
-              <input class="input" id="wqPhotoUrl" placeholder="https://..." />
-
-              <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">
-                <button class="btn primary" id="wqSaveBtn" type="button">Guardar</button>
-                <button class="btn" id="wqRefreshBtn" type="button">Cargar actual</button>
-                <span class="small" id="wqMsg"></span>
-              </div>
-
-              <div class="hr"></div>
-
-              <div class="small" style="opacity:.8">Vista previa</div>
-              <div class="card wq-preview" style="background:rgba(255,255,255,.55)">
-                <div class="small" style="opacity:.8">Frase de la semana</div>
-                <div style="font-weight:800;font-size:18px;line-height:1.2" id="wqPreviewTitle">—</div>
-                <div class="small" style="opacity:.85" id="wqPreviewCopy">—</div>
-                <img id="wqPreviewImg" alt="" loading="lazy" style="display:none" />
-              </div>
-            </div>
+        <div class="row" style="justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
+          <div>
+            <div class="small" style="opacity:.8">Resumen</div>
+            <h3 style="margin:0">KPIs</h3>
           </div>
-        </details>
+          <button class="btn primary" id="kpiRefreshBtn" type="button">Refrescar</button>
+        </div>
 
-        <!-- Contenido Premium -->
-        <details class="admin-acc admin-anchor" id="sec-premium">
-          <summary>Contenido Premium</summary>
-          <div class="acc-body">
+        <div class="hr"></div>
 
-            <h3>Clases grabadas (Premium)</h3>
-            <div class="small">Subí clases como YouTube “No listado”.</div>
-
-            <div class="form" style="margin-top:10px">
-              <label class="small">Mes</label>
-              <select class="input" id="rcMonth">
-                <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
-                <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
-                <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
-                <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
-              </select>
-
-              <label class="small">Fecha</label>
-              <input class="input" id="rcDate" type="date" required />
-
-              <label class="small">Título</label>
-              <input class="input" id="rcTitle" placeholder="Ej: Identidad — Clase 1" required />
-
-              <label class="small">Temática</label>
-              <input class="input" id="rcTopic" placeholder="Ej: autoestima / hábitos / etc." required />
-
-              <label class="small">YouTube URL (no listado)</label>
-              <input class="input" id="rcYoutube" placeholder="https://www.youtube.com/watch?v=..." required />
-
-              <label class="small">Portada (archivo)</label>
-              <input class="input" id="rcCoverFile" type="file" accept="image/*" />
-
-              <label class="small">o Portada (URL)</label>
-              <input class="input" id="rcCoverUrl" placeholder="https://..." />
-
-              <textarea class="input" id="rcNotes" placeholder="Notas (opcional)"></textarea>
-
-              <button class="btn primary" id="rcSaveBtn" type="button">Guardar clase grabada</button>
-              <div id="rcMsg" class="small"></div>
-            </div>
-
-            <div class="row" style="margin-top:10px;justify-content:space-between;gap:10px">
-              <h3 style="margin:0">Listado</h3>
-              <button class="btn primary" id="rcRefreshBtn" type="button">Refrescar</button>
-            </div>
-            <div id="rcList" class="list" style="margin-top:10px"></div>
-
-            <div class="hr"></div>
-
-            <h3>Próxima clase en vivo (Zoom) — Premium</h3>
-            <div class="small">Se mostrará en app.html solo para Plan Pro.</div>
-
-            <div class="form" style="margin-top:10px">
-              <label class="small">Fecha y hora (Argentina)</label>
-              <input class="input" id="lcStartsAt" type="datetime-local" />
-
-              <label class="small">Título</label>
-              <input class="input" id="lcTitle" placeholder="Ej: Clase en vivo — Identidad" />
-
-              <label class="small">Temática</label>
-              <input class="input" id="lcTopic" placeholder="Ej: identidad / hábitos / etc." />
-
-              <label class="small">Portada (archivo)</label>
-              <input class="input" id="lcCoverFile" type="file" accept="image/*" />
-
-              <label class="small">o Portada (URL)</label>
-              <input class="input" id="lcCoverUrl" placeholder="https://..." />
-
-              <img id="lcCoverPreview"
-                alt="Portada"
-                loading="lazy"
-                style="display:none;width:100%;max-height:220px;object-fit:cover;border-radius:14px;border:1px solid rgba(0,0,0,.10);background: rgba(255,255,255,.6);" />
-
-              <label class="small">Link Zoom</label>
-              <input class="input" id="lcZoom" placeholder="https://zoom.us/j/..." />
-
-              <label class="small">Código (opcional)</label>
-              <input class="input" id="lcPasscode" placeholder="Ej: 1234" />
-
-              <label class="small">Recordatorio (minutos antes)</label>
-              <input class="input" id="lcReminderMin" type="number" min="5" max="1440" value="60" />
-
-              <button class="btn primary" id="lcSaveBtn" type="button">Publicar / actualizar</button>
-              <div id="lcMsg" class="small"></div>
-            </div>
-
-            <div class="row" style="margin-top:10px;justify-content:space-between;gap:10px">
-              <h3 style="margin:0">Próximas</h3>
-              <button class="btn primary" id="lcRefreshBtn" type="button">Refrescar</button>
-            </div>
-            <div id="lcList" class="list" style="margin-top:10px"></div>
-
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
+          <div class="card" style="background:rgba(255,255,255,.55)">
+            <div class="small" style="opacity:.8">Inscripciones</div>
+            <div style="font-weight:800;font-size:22px" id="kpiSignups">—</div>
           </div>
-        </details>
-
-        <!-- Cargar ejercicio -->
-        <details class="admin-acc" id="sec-create-exercise">
-          <summary>Cargar ejercicio</summary>
-          <div class="acc-body">
-            <div class="form">
-              <label class="small" for="exName">Nombre</label>
-              <input class="input" id="exName" placeholder="Ej: Sentadilla goblet" />
-
-              <label class="small" for="exVideo">Video URL</label>
-              <input class="input" id="exVideo" placeholder="https://..." />
-
-              <label class="small" for="exCues">Cues / técnica</label>
-              <textarea class="input" id="exCues" placeholder="Indicaciones de ejecución"></textarea>
-
-              <label class="small" for="exObjective">Objetivo</label>
-              <select class="input" id="exObjective">
-                <option value="fat_loss">Perder grasa</option>
-                <option value="muscle_gain">Ganar masa</option>
-                <option value="both">Ambos</option>
-              </select>
-
-              <label class="small" for="exTrack">Modalidad</label>
-              <select class="input" id="exTrack">
-                <option value="gym">Gimnasio</option>
-                <option value="home">Casa</option>
-                <option value="both">Ambos</option>
-              </select>
-
-              <label class="small" for="exGroup">Grupo muscular</label>
-              <select class="input" id="exGroup">
-                <option value="lower">Tren inferior</option>
-                <option value="upper">Tren superior</option>
-                <option value="abs">Abdominales</option>
-                <option value="activation">Activación</option>
-                <option value="cardio">Cardio</option>
-              </select>
-
-              <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap">
-                <button class="btn primary" id="createExerciseBtn" type="button">Guardar ejercicio</button>
-                <span class="small" id="exMsg"></span>
-              </div>
-            </div>
+          <div class="card" style="background:rgba(255,255,255,.55)">
+            <div class="small" style="opacity:.8">Cuentas activas</div>
+            <div style="font-weight:800;font-size:22px" id="kpiActive">—</div>
           </div>
-        </details>
-
-        <!-- Biblioteca de ejercicios -->
-        <details class="admin-acc" id="sec-exercise-library">
-          <summary>Biblioteca de ejercicios</summary>
-          <div class="acc-body">
-            <div class="row" style="margin-bottom:12px; gap:10px; flex-wrap:wrap">
-              <button class="btn" id="exRefreshBtn" type="button">Actualizar</button>
-              <span class="small" style="opacity:.8">Editar, reorganizar o desactivar ejercicios.</span>
-            </div>
-
-            <div id="exList" class="list"></div>
+          <div class="card" style="background:rgba(255,255,255,.55)">
+            <div class="small" style="opacity:.8">MRR estimado (ARS)</div>
+            <div style="font-weight:800;font-size:22px" id="kpiMrr">—</div>
+            <div class="small" style="opacity:.7" id="kpiMrrHint"></div>
           </div>
-        </details>
+          <div class="card" style="background:rgba(255,255,255,.55)">
+            <div class="small" style="opacity:.8">Recaudación total (ARS)</div>
+            <div style="font-weight:800;font-size:22px" id="kpiCollected">—</div>
+            <div class="small" style="opacity:.7" id="kpiCollectedHint"></div>
+          </div>
+        </div>
 
+        <div class="hr"></div>
+        <div class="small" style="opacity:.8">Activos por plan</div>
+        <div id="kpiByPlan" class="list" style="margin-top:10px"></div>
       </div>
 
-      <!-- RIGHT -->
-      <div class="card">
-
-        <!-- ✅ Usuarios con cuentas activas -->
+      <div class="card" style="margin-top:14px">
         <details class="admin-acc admin-anchor" id="sec-active-users" open>
           <summary>Usuarios activos</summary>
           <div class="acc-body">
@@ -392,161 +240,471 @@
             <div id="activeUsersList" class="list" style="margin-top:10px"></div>
           </div>
         </details>
+      </div>
+    </section>
 
-        <!-- Editor del día (ahora orientado a Alumno) -->
-        <details class="admin-acc admin-anchor" id="sec-editor">
-          <summary>Editor del día</summary>
-          <div class="acc-body">
-
-            <div class="card" style="background:rgba(255,255,255,.55)">
-              <div class="small" style="opacity:.85">Día a editar</div>
-              <div class="small" id="editorHint" style="opacity:.8;margin-top:6px">
-                Primero buscá un alumno y elegí mes.
-              </div>
-
-              <div class="form" style="margin-top:10px">
-                <label class="small">Semana</label>
-                <select class="input" id="weekSel"></select>
-
-                <label class="small">Día</label>
-                <select class="input" id="daySel"></select>
-
-                <button class="btn primary" id="loadBtn" type="button" style="margin-top:10px">Cargar día</button>
-                <div id="selMsg" class="small" style="margin-top:8px"></div>
-              </div>
-            </div>
-
-            <div id="dayPanel" style="display:none"></div>
-
-            <div id="dayEdit" style="display:none; margin-top:12px">
-
-              <h3 id="dayTitle" style="margin:0">Día</h3>
-              <div class="small" id="dayMeta" style="opacity:.85;margin-top:6px"></div>
-
-              <div class="hr"></div>
-
-              <h3>Metadata del día</h3>
-              <div class="form">
-                <label class="small" for="mgSel">Grupo muscular</label>
-                <select class="input" id="mgSel">
-                  <option>Tren inferior</option>
-                  <option>Tren superior</option>
-                  <option>Abdominales</option>
-                  <option>Activación</option>
-                  <option>Cardio</option>
-                </select>
-
-                <label class="small" for="focusInp">Subgrupo / foco (opcional)</label>
-                <input class="input" id="focusInp" type="text" placeholder="Ej: Pecho · Hombros · Glúteos" />
-
-                <button class="btn primary" id="saveDayMetaBtn" type="button">Guardar metadata</button>
-                <div id="metaMsg" class="small"></div>
-              </div>
-
-              <div class="hr"></div>
-
-              <h3>Agregar ejercicio al día</h3>
-              <div class="form">
-                <label class="small" for="exerciseSel">Ejercicio</label>
-                <select class="input" id="exerciseSel"></select>
-
-                <label class="small" for="setsInp">Series</label>
-                <input class="input" id="setsInp" type="number" min="1" placeholder="Series" />
-
-                <label class="small" for="repsInp">Reps</label>
-                <input class="input" id="repsInp" type="text" placeholder="Reps (ej: 8-10)" />
-
-                <label class="small" for="notesInp">Notas</label>
-                <input class="input" id="notesInp" type="text" placeholder="Notas (opcional)" />
-
-                <button class="btn primary" id="addItemBtn" type="button">Agregar al día</button>
-                <div id="itemMsg" class="small"></div>
-              </div>
-
-              <div class="hr"></div>
-
-              <div class="row" style="align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-                <h3 style="margin:0">Items cargados</h3>
-                <button class="btn primary" id="refreshItemsBtn" type="button">Refrescar</button>
-              </div>
-
-              <div id="itemsList" class="list"></div>
-            </div>
-
+    <!-- RUTINAS -->
+    <section id="view-rutinas" class="admin-view" data-admin-view>
+      <div class="card">
+        <div class="row" style="justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
+          <div>
+            <div class="small muted">Alumna seleccionada</div>
+            <div style="font-weight:800" id="currentStudentEmail">—</div>
+            <div class="small muted">Mes</div>
+            <div class="small" id="currentStudentMonth">—</div>
           </div>
-        </details>
+          <a class="btn primary" href="#view-alertas">Ver alertas</a>
+          <a class="btn" href="#view-dashboard">Dashboard</a>
+        </div>
+        <div class="small muted" style="margin-top:10px">
+          Para seleccionar o cambiar alumna/mes, usá el buscador en <b>Alertas</b> (botón “Abrir”) o desde Dashboard (Usuarios activos).
+        </div>
+      </div>
 
-        <!-- Alumnos -->
-        <details class="admin-acc admin-anchor" id="sec-alumnos">
-          <summary>Alumnos</summary>
-          <div class="acc-body">
+      <div class="admin-grid-2" style="margin-top:14px">
 
-            <div class="small">Buscá por email para ver plan y abrir el caso.</div>
+        <div class="card">
+          <details class="admin-acc admin-anchor" id="sec-editor" open>
+            <summary>Editor del día</summary>
+            <div class="acc-body">
 
-            <div class="form" style="margin-top:10px">
-              <input class="input" id="studentEmail" placeholder="email@dominio.com" />
-              <button class="btn primary" id="findStudentBtn" type="button">Buscar</button>
-              <div id="studentMsg" class="small"></div>
-            </div>
-
-            <div id="studentCard" class="card" style="display:none;margin-top:10px">
-              <div><b id="studentEmailOut"></b></div>
-              <div class="small" id="studentPlanOut"></div>
-              <div class="small" id="studentStatusOut"></div>
-              <div class="small" id="studentPaidOut"></div>
-
-              <div class="hr"></div>
-
-              <div class="small" style="opacity:.85">Rutina personalizada</div>
-
-              <div class="form" style="margin-top:10px">
-                <label class="small">Mes a editar</label>
-                <select class="input" id="stuMonthSel"></select>
-
-                <div class="small" style="opacity:.8;margin-top:8px" id="stuPrefLine">Objetivo/Modalidad: —</div>
-
-                <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">
-                  <button class="btn primary" id="editStudentModeBtn" type="button">Editar rutina de este alumno</button>
-                  <button class="btn" id="exitStudentModeBtn" type="button" style="display:none">Salir de edición</button>
-
-                  <button class="btn primary" id="saveSendRoutineBtn" type="button" style="display:none">
-                    Guardar y enviar rutina
-                  </button>
+              <div class="card" style="background:rgba(255,255,255,.55)">
+                <div class="small" style="opacity:.85">Día a editar</div>
+                <div class="small" id="editorHint" style="opacity:.8;margin-top:6px">
+                  Primero buscá un alumno y elegí mes.
                 </div>
 
-                <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">
-                  <span class="small" id="studentModeMsg"></span>
-                  <span class="small" id="saveSendRoutineMsg"></span>
+                <div class="form" style="margin-top:10px">
+                  <label class="small">Semana</label>
+                  <select class="input" id="weekSel"></select>
+
+                  <label class="small">Día</label>
+                  <select class="input" id="daySel"></select>
+
+                  <button class="btn primary" id="loadBtn" type="button" style="margin-top:10px">Cargar día</button>
+                  <div id="selMsg" class="small" style="margin-top:8px"></div>
                 </div>
               </div>
 
-              <div class="hr"></div>
+              <div id="dayEdit" style="display:none; margin-top:12px">
+                <h3 id="dayTitle" style="margin:0">Día</h3>
+                <div class="small" id="dayMeta" style="opacity:.85;margin-top:6px"></div>
 
-              <button class="btn" id="openStudentCaseBtn" type="button">Abrir caso</button>
+                <div class="hr"></div>
+
+                <h3>Metadata del día</h3>
+                <div class="form">
+                  <label class="small" for="mgSel">Grupo muscular</label>
+                  <select class="input" id="mgSel">
+                    <option>Tren inferior</option>
+                    <option>Tren superior</option>
+                    <option>Abdominales</option>
+                    <option>Activación</option>
+                    <option>Cardio</option>
+                  </select>
+
+                  <label class="small" for="focusInp">Subgrupo / foco (opcional)</label>
+                  <input class="input" id="focusInp" type="text" placeholder="Ej: Pecho · Hombros · Glúteos" />
+
+                  <button class="btn primary" id="saveDayMetaBtn" type="button">Guardar metadata</button>
+                  <div id="metaMsg" class="small"></div>
+                </div>
+
+                <div class="hr"></div>
+
+                <h3>Agregar ejercicio al día</h3>
+                <div class="form">
+                  <label class="small" for="exerciseSearch">Buscar ejercicio</label>
+                  <input class="input" id="exerciseSearch" type="text" placeholder="Escribí para filtrar por nombre…" />
+
+                  <div class="row" style="gap:10px;flex-wrap:wrap;margin-top:8px">
+                    <label class="small" style="display:flex;align-items:center;gap:8px">
+                      <input type="checkbox" id="exerciseShowInactive" checked>
+                      Mostrar inactivos (deshabilitados)
+                    </label>
+                    <span class="small muted">Agrupa por Modalidad → Grupo muscular</span>
+                  </div>
+
+                  <label class="small" for="exerciseSel" style="margin-top:10px">Ejercicio</label>
+                  <select class="input" id="exerciseSel"></select>
+
+                  <label class="small" for="setsInp">Series</label>
+                  <input class="input" id="setsInp" type="number" min="1" placeholder="Series" />
+
+                  <label class="small" for="repsInp">Reps</label>
+                  <input class="input" id="repsInp" type="text" placeholder="Reps (ej: 8-10)" />
+
+                  <label class="small" for="notesInp">Notas</label>
+                  <input class="input" id="notesInp" type="text" placeholder="Notas (opcional)" />
+
+                  <button class="btn primary" id="addItemBtn" type="button">Agregar al día</button>
+                  <div id="itemMsg" class="small"></div>
+                </div>
+
+                <div class="hr"></div>
+
+                <div class="row" style="align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                  <div>
+                    <h3 style="margin:0">Items cargados</h3>
+                    <div class="small muted" style="margin-top:6px">Arrastrá <b>≡</b> para reordenar.</div>
+                    <div id="reorderMsg" class="small" style="margin-top:6px"></div>
+                  </div>
+                  <button class="btn primary" id="refreshItemsBtn" type="button">Refrescar</button>
+                </div>
+
+                <div id="itemsList" class="list" style="margin-top:10px"></div>
+              </div>
+
             </div>
+          </details>
+        </div>
 
-            <div class="hr"></div>
-
-            <h3 style="margin:0">Rutina del mes seleccionado</h3>
-            <div class="small" id="stuRoutineMeta" style="margin-top:6px;opacity:.8"></div>
-            <div id="stuRoutineMsg" class="small" style="margin-top:8px"></div>
-            <div id="stuRoutineBox" style="margin-top:10px"></div>
-
-          </div>
-        </details>
-
-        <!-- Alertas -->
-        <details class="admin-acc admin-anchor" id="sec-alertas">
-          <summary>Alertas</summary>
-          <div class="acc-body">
-            <div class="small">Casos que requieren revisión manual.</div>
-            <div id="alertsMsg" class="small" style="margin-top:8px"></div>
-            <div id="alertsList" class="list" style="margin-top:10px"></div>
-          </div>
-        </details>
+        <div class="card">
+          <h3 style="margin:0">Rutina del mes seleccionado</h3>
+          <div class="small" id="stuRoutineMeta" style="margin-top:6px;opacity:.8"></div>
+          <div id="stuRoutineMsg" class="small" style="margin-top:8px"></div>
+          <div id="stuRoutineBox" style="margin-top:10px"></div>
+        </div>
 
       </div>
-    </div>
+    </section>
+
+    <!-- EJERCICIOS -->
+    <section id="view-ejercicios" class="admin-view" data-admin-view>
+      <div class="admin-grid-2">
+
+        <div class="card">
+          <details class="admin-acc" id="sec-create-exercise" open>
+            <summary>Cargar ejercicio</summary>
+            <div class="acc-body">
+              <div class="form">
+                <label class="small" for="exName">Nombre</label>
+                <input class="input" id="exName" placeholder="Ej: Sentadilla goblet" />
+
+                <label class="small" for="exVideo">Video URL</label>
+                <input class="input" id="exVideo" placeholder="https://..." />
+
+                <label class="small" for="exCues">Cues / técnica</label>
+                <textarea class="input" id="exCues" placeholder="Indicaciones de ejecución"></textarea>
+
+                <label class="small" for="exObjective">Objetivo</label>
+                <select class="input" id="exObjective">
+                  <option value="fat_loss">Perder grasa</option>
+                  <option value="muscle_gain">Ganar masa</option>
+                  <option value="both">Ambos</option>
+                </select>
+
+                <label class="small" for="exTrack">Modalidad</label>
+                <select class="input" id="exTrack">
+                  <option value="gym">Gimnasio</option>
+                  <option value="home">Casa</option>
+                  <option value="both">Ambos</option>
+                </select>
+
+                <label class="small" for="exGroup">Grupo muscular</label>
+                <select class="input" id="exGroup">
+                  <option value="lower">Tren inferior</option>
+                  <option value="upper">Tren superior</option>
+                  <option value="abs">Abdominales</option>
+                  <option value="activation">Activación</option>
+                  <option value="cardio">Cardio</option>
+                </select>
+
+                <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap">
+                  <button class="btn primary" id="createExerciseBtn" type="button">Guardar ejercicio</button>
+                  <span class="small" id="exMsg"></span>
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="card">
+          <details class="admin-acc" id="sec-exercise-library" open>
+            <summary>Biblioteca de ejercicios</summary>
+            <div class="acc-body">
+              <div class="row" style="margin-bottom:12px; gap:10px; flex-wrap:wrap">
+                <button class="btn" id="exRefreshBtn" type="button">Actualizar</button>
+                <span class="small" style="opacity:.8">Editar, reorganizar o desactivar ejercicios.</span>
+              </div>
+              <div id="exList" class="list"></div>
+            </div>
+          </details>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- CONTENIDO (CAMPUS): Frase + Premium -->
+    <section id="view-contenido" class="admin-view" data-admin-view>
+      <div class="admin-grid-2">
+
+        <div class="card">
+          <details class="admin-acc admin-anchor" id="sec-weekly-quote" open>
+            <summary>Frase de la semana</summary>
+            <div class="acc-body">
+              <div class="small" style="opacity:.85">Gestioná el contenido que se muestra en la card del campus (app.html).</div>
+
+              <div class="form" style="margin-top:10px">
+                <label class="small" for="wqTitle">Título</label>
+                <input class="input" id="wqTitle" placeholder="Ej: “Disciplina > motivación.”" />
+
+                <label class="small" for="wqCopy">Copy</label>
+                <textarea class="input" id="wqCopy" rows="3" placeholder="Ej: Hacé lo mínimo posible, pero hacelo todos los días."></textarea>
+
+                <label class="small" for="wqPhotoFile">Foto (archivo)</label>
+                <input class="input" id="wqPhotoFile" type="file" accept="image/*" />
+
+                <label class="small" for="wqPhotoUrl">o Foto (URL)</label>
+                <input class="input" id="wqPhotoUrl" placeholder="https://..." />
+
+                <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">
+                  <button class="btn primary" id="wqSaveBtn" type="button">Guardar</button>
+                  <button class="btn" id="wqRefreshBtn" type="button">Cargar actual</button>
+                  <span class="small" id="wqMsg"></span>
+                </div>
+
+                <div class="hr"></div>
+
+                <div class="small" style="opacity:.8">Vista previa</div>
+                <div class="card wq-preview" style="background:rgba(255,255,255,.55)">
+                  <div class="small" style="opacity:.8">Frase de la semana</div>
+                  <div style="font-weight:800;font-size:18px;line-height:1.2" id="wqPreviewTitle">—</div>
+                  <div class="small" style="opacity:.85" id="wqPreviewCopy">—</div>
+                  <img id="wqPreviewImg" alt="" loading="lazy" style="display:none" />
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="card">
+          <details class="admin-acc admin-anchor" id="sec-premium" open>
+            <summary>Contenido Premium</summary>
+            <div class="acc-body">
+
+              <!-- Tu Premium original, IDs intactos -->
+              <h3>Clases grabadas (Premium)</h3>
+              <div class="small">Subí clases como YouTube “No listado”.</div>
+
+              <div class="form" style="margin-top:10px">
+                <label class="small">Mes</label>
+                <select class="input" id="rcMonth">
+                  <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+                  <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+                  <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+                  <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+                </select>
+
+                <label class="small">Fecha</label>
+                <input class="input" id="rcDate" type="date" required />
+
+                <label class="small">Título</label>
+                <input class="input" id="rcTitle" placeholder="Ej: Identidad — Clase 1" required />
+
+                <label class="small">Temática</label>
+                <input class="input" id="rcTopic" placeholder="Ej: autoestima / hábitos / etc." required />
+
+                <label class="small">YouTube URL (no listado)</label>
+                <input class="input" id="rcYoutube" placeholder="https://www.youtube.com/watch?v=..." required />
+
+                <label class="small">Portada (archivo)</label>
+                <input class="input" id="rcCoverFile" type="file" accept="image/*" />
+
+                <label class="small">o Portada (URL)</label>
+                <input class="input" id="rcCoverUrl" placeholder="https://..." />
+
+                <textarea class="input" id="rcNotes" placeholder="Notas (opcional)"></textarea>
+
+                <button class="btn primary" id="rcSaveBtn" type="button">Guardar clase grabada</button>
+                <div id="rcMsg" class="small"></div>
+              </div>
+
+              <div class="row" style="margin-top:10px;justify-content:space-between;gap:10px">
+                <h3 style="margin:0">Listado</h3>
+                <button class="btn primary" id="rcRefreshBtn" type="button">Refrescar</button>
+              </div>
+              <div id="rcList" class="list" style="margin-top:10px"></div>
+
+              <div class="hr"></div>
+
+              <h3>Próxima clase en vivo (Zoom) — Premium</h3>
+              <div class="small">Se mostrará en app.html solo para Plan Pro.</div>
+
+              <div class="form" style="margin-top:10px">
+                <label class="small">Fecha y hora (Argentina)</label>
+                <input class="input" id="lcStartsAt" type="datetime-local" />
+
+                <label class="small">Título</label>
+                <input class="input" id="lcTitle" placeholder="Ej: Clase en vivo — Identidad" />
+
+                <label class="small">Temática</label>
+                <input class="input" id="lcTopic" placeholder="Ej: identidad / hábitos / etc." />
+
+                <label class="small">Portada (archivo)</label>
+                <input class="input" id="lcCoverFile" type="file" accept="image/*" />
+
+                <label class="small">o Portada (URL)</label>
+                <input class="input" id="lcCoverUrl" placeholder="https://..." />
+
+                <img id="lcCoverPreview"
+                  alt="Portada"
+                  loading="lazy"
+                  style="display:none;width:100%;max-height:220px;object-fit:cover;border-radius:14px;border:1px solid rgba(0,0,0,.10);background: rgba(255,255,255,.6);" />
+
+                <label class="small">Link Zoom</label>
+                <input class="input" id="lcZoom" placeholder="https://zoom.us/j/..." />
+
+                <label class="small">Código (opcional)</label>
+                <input class="input" id="lcPasscode" placeholder="Ej: 1234" />
+
+                <label class="small">Recordatorio (minutos antes)</label>
+                <input class="input" id="lcReminderMin" type="number" min="5" max="1440" value="60" />
+
+                <button class="btn primary" id="lcSaveBtn" type="button">Publicar / actualizar</button>
+                <div id="lcMsg" class="small"></div>
+              </div>
+
+              <div class="row" style="margin-top:10px;justify-content:space-between;gap:10px">
+                <h3 style="margin:0">Próximas</h3>
+                <button class="btn primary" id="lcRefreshBtn" type="button">Refrescar</button>
+              </div>
+              <div id="lcList" class="list" style="margin-top:10px"></div>
+
+            </div>
+          </details>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ALERTAS + Herramientas rutina + Comentarios -->
+    <section id="view-alertas" class="admin-view" data-admin-view>
+      <div class="admin-grid-2">
+
+        <div class="card">
+          <details class="admin-acc admin-anchor" id="sec-alertas" open>
+            <summary>Alertas</summary>
+            <div class="acc-body">
+              <div class="small">Casos que requieren revisión manual.</div>
+              <div id="alertsMsg" class="small" style="margin-top:8px"></div>
+              <div id="alertsList" class="list" style="margin-top:10px"></div>
+            </div>
+          </details>
+
+          <div class="hr"></div>
+
+          <!-- Panel "Alumnas" mínimo para buscar (reusa IDs del JS original) -->
+          <details class="admin-acc admin-anchor" id="sec-alumnos" open>
+            <summary>Buscar alumna</summary>
+            <div class="acc-body">
+              <div class="small">Buscá por email para ver plan y habilitar edición.</div>
+              <div class="form" style="margin-top:10px">
+                <input class="input" id="studentEmail" placeholder="email@dominio.com" />
+                <button class="btn primary" id="findStudentBtn" type="button">Buscar</button>
+                <div id="studentMsg" class="small"></div>
+              </div>
+
+              <div id="studentCard" class="card" style="display:none;margin-top:10px">
+                <div><b id="studentEmailOut"></b></div>
+                <div class="small" id="studentPlanOut"></div>
+                <div class="small" id="studentStatusOut"></div>
+                <div class="small" id="studentPaidOut"></div>
+
+                <div class="hr"></div>
+
+                <div class="small" style="opacity:.85">Rutina personalizada</div>
+
+                <div class="form" style="margin-top:10px">
+                  <label class="small">Mes a editar</label>
+                  <select class="input" id="stuMonthSel"></select>
+
+                  <div class="small" style="opacity:.8;margin-top:8px" id="stuPrefLine">Objetivo/Modalidad: —</div>
+
+                  <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">
+                    <button class="btn primary" id="editStudentModeBtn" type="button">Editar rutina de este alumno</button>
+                    <button class="btn" id="exitStudentModeBtn" type="button" style="display:none">Salir de edición</button>
+
+                    <button class="btn primary" id="saveSendRoutineBtn" type="button" style="display:none">
+                      Guardar y enviar rutina
+                    </button>
+                  </div>
+
+                  <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">
+                    <span class="small" id="studentModeMsg"></span>
+                    <span class="small" id="saveSendRoutineMsg"></span>
+                  </div>
+                </div>
+
+                <div class="hr"></div>
+
+                <!-- NUEVO: Herramientas rutina -->
+                <div class="card" style="background:rgba(255,255,255,.55)">
+                  <h3 style="margin:0">Herramientas de rutina</h3>
+                  <div class="small muted" style="margin-top:6px">Copiar/reemplazar ejercicios para la alumna abierta.</div>
+
+                  <div class="hr"></div>
+
+                  <h3 style="margin:0">Duplicar semana (mismo mes)</h3>
+                  <div class="form" style="margin-top:10px">
+                    <label class="small">Semana origen</label>
+                    <select class="input" id="dupWeekFrom"></select>
+
+                    <label class="small">Semana destino</label>
+                    <select class="input" id="dupWeekTo"></select>
+
+                    <button class="btn primary" id="dupWeekBtn" type="button">Duplicar semana</button>
+                  </div>
+
+                  <div class="hr"></div>
+
+                  <h3 style="margin:0">Duplicar mes</h3>
+                  <div class="form" style="margin-top:10px">
+                    <label class="small">Mes origen</label>
+                    <select class="input" id="dupMonthFrom"></select>
+
+                    <label class="small">Mes destino</label>
+                    <select class="input" id="dupMonthTo"></select>
+
+                    <button class="btn primary" id="dupMonthBtn" type="button">Duplicar mes</button>
+                  </div>
+
+                  <div class="hr"></div>
+
+                  <h3 style="margin:0">Importar rutina de @…</h3>
+                  <div class="small muted" style="margin-top:6px">Email del usuario origen.</div>
+                  <div class="form" style="margin-top:10px">
+                    <input class="input" id="importFromEmail" placeholder="origen@email.com" />
+                    <button class="btn primary" id="importRoutineBtn" type="button">Importar rutina al alumno</button>
+                    <div id="routineToolsMsg" class="small" style="margin-top:8px"></div>
+                  </div>
+                </div>
+
+                <div class="hr"></div>
+
+                <button class="btn" id="openStudentCaseBtn" type="button">Abrir caso</button>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="card">
+          <h3 style="margin:0">Comentarios de alumnas</h3>
+          <div class="small muted" style="margin-top:6px">
+            Lee desde tabla <b>routine_comments</b> (si existe). Si no existe aún, no rompe el panel.
+          </div>
+
+          <div class="row" style="margin-top:10px;justify-content:space-between;gap:10px;flex-wrap:wrap">
+            <button class="btn primary" id="routineCommentsRefreshBtn" type="button">Refrescar</button>
+            <div id="routineCommentsMsg" class="small"></div>
+          </div>
+
+          <div id="routineCommentsList" class="list" style="margin-top:10px"></div>
+        </div>
+
+      </div>
+    </section>
+
   </main>
 
   <footer class="site-footer">
@@ -571,7 +729,29 @@
     window.addEventListener("scroll", onScroll, { passive: true });
   </script>
 
-  <!-- Mantengo tu UX entre “Cargar ejercicio” y “Biblioteca” -->
+  <script>
+    (function(){
+      const tabs = Array.from(document.querySelectorAll("[data-view-tab]"));
+      const views = Array.from(document.querySelectorAll("[data-admin-view]"));
+      function activate(id){
+        views.forEach(v => v.classList.toggle("is-active", v.id === id));
+        tabs.forEach(t => {
+          const is = t.getAttribute("data-view-tab") === id;
+          if (is) t.setAttribute("aria-current","page");
+          else t.removeAttribute("aria-current");
+        });
+      }
+      function getIdFromHash(){
+        const h = (location.hash || "").replace("#","");
+        const exists = views.some(v => v.id === h);
+        return exists ? h : "view-dashboard";
+      }
+      window.addEventListener("hashchange", () => activate(getIdFromHash()));
+      activate(getIdFromHash());
+    })();
+  </script>
+
+  <!-- Mantengo tu UX entre Cargar ejercicio y Biblioteca -->
   <script>
     document.querySelectorAll('#sec-create-exercise, #sec-exercise-library').forEach((acc) => {
       acc.addEventListener('toggle', () => {

@@ -1,9 +1,11 @@
-// admin.js — flujo manual por alumna (limpio)
+// admin.js — flujo manual por alumna (limpio + upgrades UX)
 // Mantiene: KPIs, Frase semanal, Premium, Ejercicios, Editor del día, Alumnos, Alertas
-// Agrega: Usuarios activos + Mes a editar + Guardar y enviar rutina (publica rutina sin retardo)
-// Mejora: Biblioteca de ejercicios NO colapsa acordeones al editar
-// FIX: loadPlansIntoActiveUsersFilter definido como function (hoisting OK)
-// FIX: Dropdown de ejercicios muestra TODOS (activos e inactivos), inactivos quedan deshabilitados
+// Agrega:
+// - Dropdown de ejercicios categorizado (Modalidad → Grupo) + búsqueda + toggle inactivos
+// - Items del día: Editar + Eliminar + Reordenar drag&drop (persistiendo sort_order)
+// - Herramientas de rutina: Duplicar semana, Duplicar mes, Importar rutina por email (otro user)
+// - Alertas: lector de comentarios (routine_comments) si existe (no rompe si no existe)
+// Nota: este archivo está diseñado para no romper Premium/Biblioteca aunque falle un módulo nuevo
 (() => {
   "use strict";
 
@@ -53,7 +55,7 @@
   }
 
   const objLabel = (v) => (v === "muscle_gain" ? "Ganar masa" : "Perder peso");
-  const trackLabel = (v) => (v === "home" ? "Casa" : "Gimnasio");
+  const trackLabel = (v) => (v === "home" ? "Casa" : v === "both" ? "Ambos" : "Gimnasio");
 
   function buildMailto(to, subject, lines) {
     const body = encodeURIComponent(lines.join("\n"));
@@ -124,7 +126,10 @@
   const saveDayMetaBtn = $("saveDayMetaBtn");
   const metaMsg = $("metaMsg");
 
+  const exerciseSearch = $("exerciseSearch");
+  const exerciseShowInactive = $("exerciseShowInactive");
   const exerciseSel = $("exerciseSel");
+
   const setsInp = $("setsInp");
   const repsInp = $("repsInp");
   const notesInp = $("notesInp");
@@ -132,6 +137,11 @@
   const itemMsg = $("itemMsg");
   const itemsList = $("itemsList");
   const refreshItemsBtn = $("refreshItemsBtn");
+  const reorderMsg = $("reorderMsg");
+
+  // Badge (opcional en el nuevo esquema)
+  const currentStudentEmail = $("currentStudentEmail");
+  const currentStudentMonth = $("currentStudentMonth");
 
   // =====================================================
   // Elements: Ejercicios
@@ -182,6 +192,28 @@
   const alertsList = $("alertsList");
 
   // =====================================================
+  // Herramientas de rutina
+  // =====================================================
+  const dupWeekFrom = $("dupWeekFrom");
+  const dupWeekTo = $("dupWeekTo");
+  const dupWeekBtn = $("dupWeekBtn");
+
+  const dupMonthFrom = $("dupMonthFrom");
+  const dupMonthTo = $("dupMonthTo");
+  const dupMonthBtn = $("dupMonthBtn");
+
+  const importFromEmail = $("importFromEmail");
+  const importRoutineBtn = $("importRoutineBtn");
+  const routineToolsMsg = $("routineToolsMsg");
+
+  // =====================================================
+  // Comentarios alumnas (Alertas)
+  // =====================================================
+  const routineCommentsRefreshBtn = $("routineCommentsRefreshBtn");
+  const routineCommentsMsg = $("routineCommentsMsg");
+  const routineCommentsList = $("routineCommentsList");
+
+  // =====================================================
   // Premium
   // =====================================================
   const rcMonth = $("rcMonth");
@@ -212,7 +244,7 @@
   const lcCoverPreview = $("lcCoverPreview");
 
   // =====================================================
-  // Weekly Quote Admin
+  // Weekly Quote Admin (igual al tuyo)
   // =====================================================
   function initWeeklyQuoteAdmin() {
     const elTitle = $("wqTitle");
@@ -379,6 +411,23 @@
     editorHint.textContent = t || "";
   }
 
+  function setRoutineToolsMsg(t, kind = "small") {
+    if (!routineToolsMsg) return;
+    routineToolsMsg.className = kind;
+    routineToolsMsg.textContent = t || "";
+  }
+
+  function setReorderMsg(t, kind = "small") {
+    if (!reorderMsg) return;
+    reorderMsg.className = kind;
+    reorderMsg.textContent = t || "";
+  }
+
+  function syncRoutineBadge() {
+    if (currentStudentEmail) currentStudentEmail.textContent = state.email || "—";
+    if (currentStudentMonth) currentStudentMonth.textContent = state.month ? `Mes ${state.month}` : "—";
+  }
+
   function enterStudentMode() {
     state.mode = "student";
     setStudentModeMsg("Modo alumno ✅ Editando rutina personalizada.", "notice");
@@ -406,7 +455,9 @@
 
     setStudentModeMsg("");
     setSaveSendMsg("");
+    setRoutineToolsMsg("");
     setEditorHint("Primero buscá un alumno y elegí mes.");
+    syncRoutineBadge();
 
     if (dayEdit) dayEdit.style.display = "none";
     if (itemsList) itemsList.innerHTML = "";
@@ -515,11 +566,7 @@
     activeUsersPlanSel.innerHTML = `<option value="">(todos)</option>`;
 
     try {
-      const { data, error } = await sb
-        .from("plans")
-        .select("slug,name")
-        .order("id", { ascending: true });
-
+      const { data, error } = await sb.from("plans").select("slug,name").order("id", { ascending: true });
       if (error) throw error;
 
       const opts = (data || [])
@@ -542,8 +589,6 @@
 
     const planFilter = (activeUsersPlanSel?.value || "").trim();
 
-    // Nota: esto lista "status=active" en user_plan (si querés "pagos aprobados" aunque status!=active,
-    // lo ideal es apuntar a una VIEW/RPC que use mp_payments / routine_delivery / mp_subscriptions).
     const { data: plansRows, error: upErr } = await sb
       .from("user_plan")
       .select("user_id, status, paid_through, plan_id, plans:plan_id (slug,name)")
@@ -565,10 +610,7 @@
       return;
     }
 
-    const { data: profRows, error: pfErr } = await sb
-      .from("profiles")
-      .select("user_id,email,full_name")
-      .in("user_id", userIds);
+    const { data: profRows, error: pfErr } = await sb.from("profiles").select("user_id,email,full_name").in("user_id", userIds);
 
     if (pfErr) {
       setMsg(activeUsersMsg, `No pude cargar profiles: ${pfErr.message}`, "error");
@@ -609,10 +651,6 @@
         if (!email) return;
         if (studentEmail) studentEmail.value = email;
         await findStudent(email);
-
-        const secAlu = document.getElementById("sec-alumnos");
-        if (secAlu?.tagName === "DETAILS") secAlu.open = true;
-        studentCard?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     });
   }
@@ -626,10 +664,7 @@
   async function loadMonthsIntoStudentSelect() {
     if (!stuMonthSel) return;
 
-    const { data, error } = await sb
-      .from("program_months")
-      .select("month_number,title")
-      .order("month_number", { ascending: true });
+    const { data, error } = await sb.from("program_months").select("month_number,title").order("month_number", { ascending: true });
 
     if (error) {
       stuMonthSel.innerHTML = `<option value="">Error</option>`;
@@ -642,16 +677,21 @@
       return;
     }
 
-    stuMonthSel.innerHTML = rows
-      .map(
-        (m) =>
-          `<option value="${esc(m.month_number)}">Mes ${esc(m.month_number)} — ${esc(m.title || "")}</option>`
-      )
+    const opts = rows
+      .map((m) => `<option value="${esc(m.month_number)}">Mes ${esc(m.month_number)} — ${esc(m.title || "")}</option>`)
       .join("");
+
+    stuMonthSel.innerHTML = opts;
 
     const nowM = new Date().getMonth() + 1;
     const hasNow = rows.some((x) => Number(x.month_number) === nowM);
     stuMonthSel.value = hasNow ? String(nowM) : String(rows[0].month_number);
+
+    // Herramientas rutina: meses
+    if (dupMonthFrom) dupMonthFrom.innerHTML = opts;
+    if (dupMonthTo) dupMonthTo.innerHTML = opts;
+    if (dupMonthFrom) dupMonthFrom.value = String(stuMonthSel.value || "");
+    if (dupMonthTo) dupMonthTo.value = String(stuMonthSel.value || "");
   }
 
   async function loadWeeksForMonth(month) {
@@ -677,10 +717,7 @@
     }
 
     weekSel.innerHTML = rows
-      .map(
-        (w) =>
-          `<option value="${esc(w.week_number)}">Semana ${esc(w.week_number)}${w.title ? ` — ${esc(w.title)}` : ""}</option>`
-      )
+      .map((w) => `<option value="${esc(w.week_number)}">Semana ${esc(w.week_number)}${w.title ? ` — ${esc(w.title)}` : ""}</option>`)
       .join("");
 
     weekSel.value = String(rows[0].week_number);
@@ -703,11 +740,7 @@
       return;
     }
 
-    const { data, error } = await sb
-      .from("week_days")
-      .select("day_number,label")
-      .eq("week_id", w.id)
-      .order("day_number", { ascending: true });
+    const { data, error } = await sb.from("week_days").select("day_number,label").eq("week_id", w.id).order("day_number", { ascending: true });
 
     if (error) {
       daySel.innerHTML = `<option value="">Error</option>`;
@@ -722,10 +755,7 @@
     }
 
     daySel.innerHTML = rows
-      .map(
-        (d) =>
-          `<option value="${esc(d.day_number)}">Día ${esc(d.day_number)}${d.label ? ` — ${esc(d.label)}` : ""}</option>`
-      )
+      .map((d) => `<option value="${esc(d.day_number)}">Día ${esc(d.day_number)}${d.label ? ` — ${esc(d.label)}` : ""}</option>`)
       .join("");
 
     daySel.value = String(rows[0].day_number);
@@ -737,7 +767,7 @@
   });
 
   // =====================================================
-  // Editor: cargar día (siempre user_day_items)
+  // Editor: cargar día (user_day_items)
   // =====================================================
   async function loadDayForStudent() {
     if (state.mode !== "student" || !state.user_id || !state.month) {
@@ -792,8 +822,17 @@
 
     if (dayEdit) dayEdit.style.display = "block";
 
-    await loadExercisesDropdown(); // <-- FIX: ahora trae TODOS (100), inactivos deshabilitados
-    await loadItems();
+    // Dropdown ejercicios (categorizado) + items
+    try {
+      await loadExercisesDropdown();
+    } catch (e) {
+      console.warn("[ADMIN] loadExercisesDropdown:", e);
+    }
+
+    await loadItems().catch((e) => {
+      console.error(e);
+      setMsg(selMsg, e?.message || String(e), "error");
+    });
 
     setMsg(selMsg, "Día cargado ✅", "notice");
     return true;
@@ -816,11 +855,7 @@
     const focus = (focusInp?.value || "").trim();
     const focusVal = focus.length ? focus : null;
 
-    const { error } = await sb
-      .from("week_days")
-      .update({ muscle_group: mg, focus: focusVal })
-      .eq("id", state.day_id);
-
+    const { error } = await sb.from("week_days").update({ muscle_group: mg, focus: focusVal }).eq("id", state.day_id);
     if (error) throw new Error(error.message);
 
     setMsg(metaMsg, "Metadata guardada ✅", "notice");
@@ -834,53 +869,123 @@
   );
 
   // =====================================================
-  // Editor: exercises dropdown (FIX: muestra TODOS; inactivos deshabilitados)
+  // Editor: exercises dropdown (categorizado + búsqueda)
   // =====================================================
-  async function loadExercisesDropdown() {
-    if (!exerciseSel) return;
+  let _exCache = [];
+  let _exCacheLoaded = false;
 
-    exerciseSel.innerHTML = `<option value="">Cargando…</option>`;
+  const TRACK_LABEL = { gym: "Gimnasio", home: "Casa", both: "Ambos", unknown: "Sin modalidad" };
+  const MG_LABEL = {
+    lower: "Tren inferior",
+    upper: "Tren superior",
+    abs: "Abdominales",
+    activation: "Activación",
+    cardio: "Cardio",
+    unknown: "Sin grupo",
+  };
 
-    // Traemos TODOS (activos e inactivos) para que coincida con Supabase (100 filas)
+  const trackOrder = ["gym", "home", "both", "unknown"];
+  const mgOrder = ["lower", "upper", "abs", "activation", "cardio", "unknown"];
+
+  const normTrack2 = (v) => (v === "gym" || v === "home" || v === "both" ? v : "unknown");
+  const normMG2 = (v) => (v === "lower" || v === "upper" || v === "abs" || v === "activation" || v === "cardio" ? v : "unknown");
+
+  async function ensureExercisesCache(force = false) {
+    if (_exCacheLoaded && !force) return;
+
     const { data, error } = await sb
       .from("exercises")
-      .select("id,name,track,objective,muscle_group,is_active")
+      .select("id,name,track,muscle_group,is_active")
       .order("name", { ascending: true })
-      .limit(2000);
+      .limit(5000);
 
-    if (error) {
-      exerciseSel.innerHTML = `<option value="">Error</option>`;
-      throw new Error(error.message);
+    if (error) throw new Error(error.message);
+
+    _exCache = Array.isArray(data) ? data : [];
+    _exCacheLoaded = true;
+  }
+
+  function buildExerciseOptgroupsHtml({ selectedId = null, search = "", showInactive = true } = {}) {
+    const q = norm(search);
+
+    const rows = (_exCache || []).filter((e) => {
+      if (!showInactive && e.is_active === false) return false;
+      if (!q) return true;
+      return norm(e.name).includes(q);
+    });
+
+    const tree = {};
+    for (const e of rows) {
+      const t = normTrack2(e.track);
+      const mg = normMG2(e.muscle_group);
+      (((tree[t] ||= {})[mg] ||= [])).push(e);
     }
 
-    const rows = Array.isArray(data) ? data : [];
-    if (!rows.length) {
-      exerciseSel.innerHTML = `<option value="">Sin ejercicios</option>`;
-      return;
-    }
-
-    // Para facilitar: mostramos primero activos, luego inactivos (deshabilitados)
-    const active = rows.filter((r) => r.is_active !== false);
-    const inactive = rows.filter((r) => r.is_active === false);
-
-    const mkOpt = (e, disabled = false) => {
-      const name = String(e.name || "").trim() || "Ejercicio";
-      const trk = trackHuman(e.track);
+    const mkOpt = (e) => {
+      const disabled = e.is_active === false;
       const suffix = disabled ? " (INACTIVO)" : "";
-      return `<option value="${esc(e.id)}" ${disabled ? "disabled" : ""}>${esc(name)} — ${esc(trk)}${esc(suffix)}</option>`;
+      const sel = String(e.id) === String(selectedId) ? "selected" : "";
+      return `<option value="${esc(e.id)}" ${disabled ? "disabled" : ""} ${sel}>${esc(e.name || "Ejercicio")}${esc(suffix)}</option>`;
     };
 
-    const activeHtml = active.map((e) => mkOpt(e, false)).join("");
-    const inactiveHtml = inactive.map((e) => mkOpt(e, true)).join("");
+    const html = trackOrder
+      .filter((t) => tree[t])
+      .map((t) =>
+        mgOrder
+          .filter((mg) => tree[t][mg]?.length)
+          .map((mg) => {
+            const label = `${TRACK_LABEL[t]} — ${MG_LABEL[mg]}`;
+            const items = tree[t][mg]
+              .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "es"))
+              .map(mkOpt)
+              .join("");
+            return `<optgroup label="${esc(label)}">${items}</optgroup>`;
+          })
+          .join("")
+      )
+      .join("");
+
+    return html || "";
+  }
+
+  function renderExercisesDropdown() {
+    if (!exerciseSel) return;
+
+    const selectedId = exerciseSel.value || null;
+    const search = exerciseSearch?.value || "";
+    const showInactive = exerciseShowInactive ? !!exerciseShowInactive.checked : true;
+
+    const html = buildExerciseOptgroupsHtml({ selectedId, search, showInactive });
 
     exerciseSel.innerHTML =
       `<option value="">Elegí un ejercicio…</option>` +
-      `<optgroup label="Activos (${active.length})">${activeHtml || `<option disabled>(sin activos)</option>`}</optgroup>` +
-      `<optgroup label="Inactivos (${inactive.length})">${inactiveHtml || `<option disabled>(sin inactivos)</option>`}</optgroup>`;
+      (html || `<option value="" disabled>(sin resultados)</option>`);
   }
 
+  async function loadExercisesDropdown() {
+    if (!exerciseSel) return;
+    exerciseSel.innerHTML = `<option value="">Cargando…</option>`;
+    await ensureExercisesCache(true);
+    renderExercisesDropdown();
+  }
+
+  exerciseSearch?.addEventListener("input", () => {
+    try {
+      renderExercisesDropdown();
+    } catch (e) {
+      console.error(e);
+    }
+  });
+  exerciseShowInactive?.addEventListener("change", () => {
+    try {
+      renderExercisesDropdown();
+    } catch (e) {
+      console.error(e);
+    }
+  });
+
   // =====================================================
-  // Items: user_day_items
+  // Items: add + edit + delete + drag reorder
   // =====================================================
   async function getNextSortOrder() {
     const { data, error } = await sb
@@ -945,7 +1050,7 @@
 
     if (error) throw new Error(error.message);
 
-    setMsg(itemMsg, `Agregado ✅ (orden ${sort_order})`, "notice");
+    setMsg(itemMsg, "Agregado ✅", "notice");
 
     if (setsInp) setsInp.value = "";
     if (repsInp) repsInp.value = "";
@@ -963,8 +1068,209 @@
     });
   });
 
+  // Delegación + drag
+  let _itemsBound = false;
+  let _dragAllowed = false;
+  let _dragEl = null;
+
+  function bindItemsOnce() {
+    if (_itemsBound || !itemsList) return;
+    _itemsBound = true;
+
+    itemsList.addEventListener(
+      "pointerdown",
+      (ev) => {
+        const handle = ev.target?.closest?.(".drag-handle");
+        _dragAllowed = !!handle;
+      },
+      { passive: true }
+    );
+
+    itemsList.addEventListener("click", async (ev) => {
+      const btn = ev.target?.closest?.("button[data-item-act]");
+      if (!btn) return;
+
+      const act = btn.getAttribute("data-item-act");
+      const id = btn.getAttribute("data-item-id");
+      if (!act || !id) return;
+
+      const editBox = itemsList.querySelector(`[data-item-edit="${CSS.escape(id)}"]`);
+      const msgEl = itemsList.querySelector(`[data-item-msg="${CSS.escape(id)}"]`);
+
+      const setRowMsg = (t, kind = "small") => {
+        if (!msgEl) return;
+        msgEl.className = kind;
+        msgEl.textContent = t || "";
+      };
+
+      if (act === "toggle-edit") {
+        if (!editBox) return;
+        editBox.style.display = editBox.style.display === "block" ? "none" : "block";
+        return;
+      }
+
+      if (act === "cancel-edit") {
+        if (editBox) editBox.style.display = "none";
+        setRowMsg("");
+        return;
+      }
+
+      if (act === "delete") {
+        if (!confirm("¿Eliminar este item?")) return;
+
+        const { error } = await sb.from("user_day_items").delete().eq("id", id);
+        if (error) return alert(error.message);
+
+        await loadItems();
+        await loadStudentMonthOverview();
+        return;
+      }
+
+      if (act === "save-edit") {
+        if (!editBox) return;
+
+        try {
+          setRowMsg("Guardando…", "small");
+
+          const exercise_id = editBox.querySelector('[data-item-field="exercise_id"]')?.value || "";
+          const sets = Number(editBox.querySelector('[data-item-field="sets"]')?.value || 0);
+          const reps = (editBox.querySelector('[data-item-field="reps"]')?.value || "").trim();
+          const notesRaw = (editBox.querySelector('[data-item-field="notes"]')?.value || "").trim();
+          const notes = notesRaw.length ? notesRaw : null;
+
+          if (!exercise_id) throw new Error("Elegí un ejercicio.");
+          if (!sets || sets < 1) throw new Error("Series inválidas.");
+          if (!reps) throw new Error("Reps es obligatorio.");
+
+          const { data: dup, error: dupErr } = await sb
+            .from("user_day_items")
+            .select("id")
+            .eq("user_id", state.user_id)
+            .eq("day_id", state.day_id)
+            .eq("objective", state.objective)
+            .eq("track", state.track)
+            .eq("exercise_id", exercise_id)
+            .neq("id", id)
+            .limit(1);
+
+          if (dupErr) throw new Error(dupErr.message);
+          if (dup?.length) throw new Error("Ese ejercicio ya existe en este día.");
+
+          const { error } = await sb.from("user_day_items").update({ exercise_id, sets, reps, notes }).eq("id", id);
+          if (error) throw new Error(error.message);
+
+          setRowMsg("Guardado ✅", "notice");
+          editBox.style.display = "none";
+
+          await loadItems();
+          await loadStudentMonthOverview();
+        } catch (e) {
+          setRowMsg(e?.message || String(e), "error");
+        }
+      }
+    });
+
+    itemsList.addEventListener("dragstart", (ev) => {
+      if (!_dragAllowed) {
+        ev.preventDefault();
+        return;
+      }
+      const item = ev.target?.closest?.(".routine-item");
+      if (!item) return;
+
+      _dragEl = item;
+      item.classList.add("dragging");
+
+      try {
+        ev.dataTransfer.effectAllowed = "move";
+        ev.dataTransfer.setData("text/plain", item.getAttribute("data-item-id") || "");
+      } catch (_) {}
+    });
+
+    itemsList.addEventListener("dragend", () => {
+      _dragAllowed = false;
+      if (_dragEl) _dragEl.classList.remove("dragging");
+      _dragEl = null;
+    });
+
+    itemsList.addEventListener("dragover", (ev) => {
+      if (!_dragEl) return;
+      ev.preventDefault();
+      const after = getDragAfterElement(itemsList, ev.clientY);
+      if (after == null) itemsList.appendChild(_dragEl);
+      else itemsList.insertBefore(_dragEl, after);
+    });
+
+    itemsList.addEventListener("drop", (ev) => {
+      if (!_dragEl) return;
+      ev.preventDefault();
+      persistReorderFromDom().catch((e) => {
+        console.error(e);
+        setReorderMsg(e?.message || String(e), "error");
+      });
+    });
+  }
+
+  function getDragAfterElement(container, y) {
+    const els = [...container.querySelectorAll(".routine-item:not(.dragging)")];
+    let closest = { offset: Number.NEGATIVE_INFINITY, element: null };
+
+    for (const child of els) {
+      const box = child.getBoundingClientRect();
+      const offset = y - (box.top + box.height / 2);
+      if (offset < 0 && offset > closest.offset) closest = { offset, element: child };
+    }
+    return closest.element;
+  }
+
+  function updateOrderNumbersFromDom() {
+    if (!itemsList) return;
+    const els = [...itemsList.querySelectorAll(".routine-item[data-item-id]")];
+    els.forEach((el, idx) => {
+      const numEl = el.querySelector(".item-order");
+      if (numEl) numEl.textContent = `${idx + 1}.`;
+    });
+  }
+
+  async function persistReorderFromDom() {
+    if (!itemsList || !state.user_id || !state.day_id) return;
+    const els = [...itemsList.querySelectorAll(".routine-item[data-item-id]")];
+    if (!els.length) return;
+
+    setReorderMsg("Guardando orden…", "small");
+
+    // Paso 1: temporales (evita colisiones si hay unique sort_order)
+    for (let i = 0; i < els.length; i++) {
+      const id = els[i].getAttribute("data-item-id");
+      if (!id) continue;
+      const tmp = -1000 - i;
+      const { error } = await sb.from("user_day_items").update({ sort_order: tmp }).eq("id", id);
+      if (error) throw new Error(error.message);
+    }
+
+    // Paso 2: orden final
+    for (let i = 0; i < els.length; i++) {
+      const id = els[i].getAttribute("data-item-id");
+      if (!id) continue;
+      const finalOrder = i + 1;
+      const { error } = await sb.from("user_day_items").update({ sort_order: finalOrder }).eq("id", id);
+      if (error) throw new Error(error.message);
+    }
+
+    updateOrderNumbersFromDom();
+    setReorderMsg("Orden guardado ✅", "notice");
+  }
+
+  function buildExerciseOptionsHtml(selectedId) {
+    const html = buildExerciseOptgroupsHtml({ selectedId, search: "", showInactive: true });
+    return `<option value="">Elegí…</option>` + (html || `<option disabled>(sin ejercicios)</option>`);
+  }
+
   async function loadItems() {
     if (!itemsList) return;
+
+    bindItemsOnce();
+    setReorderMsg("");
 
     if (!state.user_id || !state.day_id) {
       itemsList.innerHTML = `<div class="notice small">Cargá un alumno y un día para ver items.</div>`;
@@ -973,9 +1279,11 @@
 
     itemsList.innerHTML = `<div class="small">Cargando…</div>`;
 
+    await ensureExercisesCache(false);
+
     const { data, error } = await sb
       .from("user_day_items")
-      .select("id, sort_order, sets, reps, notes, exercises:exercise_id (name, video_url)")
+      .select("id, sort_order, sets, reps, notes, exercise_id, exercises:exercise_id (name, video_url, is_active)")
       .eq("user_id", state.user_id)
       .eq("day_id", state.day_id)
       .eq("objective", state.objective)
@@ -996,34 +1304,55 @@
           ? `<a class="small" target="_blank" rel="noopener" href="${esc(it.exercises.video_url)}">Video</a>`
           : `<span class="small">Sin video</span>`;
 
+        const inactiveTag = it.exercises?.is_active === false ? `<span class="small" style="margin-left:8px;opacity:.75">(INACTIVO)</span>` : "";
+
+        const editSelect = buildExerciseOptionsHtml(it.exercise_id);
+
         return `
-          <div class="item" style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
-            <div>
-              <div><b>${esc(it.sort_order)}.</b> ${esc(name)}</div>
-              <div class="small">${esc(it.sets)}×${esc(it.reps)} ${it.notes ? "· " + esc(it.notes) : ""}</div>
-              <div style="margin-top:6px">${video}</div>
+          <div class="item routine-item" data-item-id="${esc(it.id)}" draggable="true"
+               style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+            <div style="display:flex;gap:10px;align-items:flex-start">
+              <span class="drag-handle" title="Arrastrar para reordenar">≡</span>
+              <div>
+                <div><span class="item-order"></span> <b>${esc(name)}</b>${inactiveTag}</div>
+                <div class="small">${esc(it.sets)}×${esc(it.reps)} ${it.notes ? "· " + esc(it.notes) : ""}</div>
+                <div style="margin-top:6px">${video}</div>
+
+                <div data-item-edit="${esc(it.id)}" style="display:none;margin-top:10px" class="card">
+                  <div class="small muted">Editar item</div>
+                  <div class="form" style="margin-top:10px">
+                    <label class="small">Ejercicio</label>
+                    <select class="input" data-item-field="exercise_id">${editSelect}</select>
+
+                    <label class="small">Series</label>
+                    <input class="input" data-item-field="sets" type="number" min="1" value="${esc(it.sets)}" />
+
+                    <label class="small">Reps</label>
+                    <input class="input" data-item-field="reps" type="text" value="${esc(it.reps)}" />
+
+                    <label class="small">Notas</label>
+                    <input class="input" data-item-field="notes" type="text" value="${esc(it.notes || "")}" />
+
+                    <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">
+                      <button class="btn primary" type="button" data-item-act="save-edit" data-item-id="${esc(it.id)}">Guardar</button>
+                      <button class="btn" type="button" data-item-act="cancel-edit" data-item-id="${esc(it.id)}">Cancelar</button>
+                      <span class="small" data-item-msg="${esc(it.id)}"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <button class="btn" type="button" data-del="${esc(it.id)}">Eliminar</button>
+
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <button class="btn" type="button" data-item-act="toggle-edit" data-item-id="${esc(it.id)}">Editar</button>
+              <button class="btn" type="button" data-item-act="delete" data-item-id="${esc(it.id)}">Eliminar</button>
             </div>
           </div>
         `;
       })
       .join("");
 
-    itemsList.querySelectorAll("[data-del]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const id = btn.getAttribute("data-del");
-        if (!id) return;
-        if (!confirm("¿Eliminar este item?")) return;
-
-        const { error } = await sb.from("user_day_items").delete().eq("id", id);
-        if (error) return alert(error.message);
-
-        await loadItems();
-        await loadStudentMonthOverview();
-      });
-    });
+    updateOrderNumbersFromDom();
   }
 
   refreshItemsBtn?.addEventListener("click", () => loadItems().catch(console.error));
@@ -1077,7 +1406,9 @@
     if (exCues) exCues.value = "";
 
     await loadExercisesLibrary();
-    await loadExercisesDropdown();
+    try {
+      await loadExercisesDropdown();
+    } catch (_) {}
   }
 
   createExerciseBtn?.addEventListener("click", () => {
@@ -1092,7 +1423,7 @@
 
   function snapshotOpenAccordions() {
     const open = new Set();
-    exList?.querySelectorAll('details[data-ex-acc-key]').forEach((d) => {
+    exList?.querySelectorAll("details[data-ex-acc-key]").forEach((d) => {
       if (d.open) open.add(d.getAttribute("data-ex-acc-key"));
     });
     return open;
@@ -1100,7 +1431,7 @@
 
   function restoreOpenAccordions(openSet) {
     if (!openSet) return;
-    exList?.querySelectorAll('details[data-ex-acc-key]').forEach((d) => {
+    exList?.querySelectorAll("details[data-ex-acc-key]").forEach((d) => {
       const key = d.getAttribute("data-ex-acc-key");
       d.open = openSet.has(key);
     });
@@ -1116,7 +1447,6 @@
     if (!exList) return;
 
     const openSet = snapshotOpenAccordions();
-
     exList.innerHTML = `<div class="small">Cargando…</div>`;
 
     const { data, error } = await sb
@@ -1139,8 +1469,8 @@
   function renderExercisesLibrary(rows) {
     if (!exList) return;
 
-    const TRACK_LABEL = { gym: "Gimnasio", home: "Casa", both: "Ambos", unknown: "Sin modalidad" };
-    const MG_LABEL = {
+    const TRACK_LABEL2 = { gym: "Gimnasio", home: "Casa", both: "Ambos", unknown: "Sin modalidad" };
+    const MG_LABEL2 = {
       lower: "Tren inferior",
       upper: "Tren superior",
       abs: "Abdominales",
@@ -1149,24 +1479,24 @@
       unknown: "Sin grupo",
     };
 
-    const trackOrder = ["gym", "home", "both", "unknown"];
-    const mgOrder = ["lower", "upper", "abs", "activation", "cardio", "unknown"];
+    const trackOrder2 = ["gym", "home", "both", "unknown"];
+    const mgOrder2 = ["lower", "upper", "abs", "activation", "cardio", "unknown"];
 
-    const normTrack2 = (v) => (v === "gym" || v === "home" || v === "both") ? v : "unknown";
-    const normMG2 = (v) => (v === "lower" || v === "upper" || v === "abs" || v === "activation" || v === "cardio") ? v : "unknown";
+    const normTrack3 = (v) => (v === "gym" || v === "home" || v === "both" ? v : "unknown");
+    const normMG3 = (v) => (v === "lower" || v === "upper" || v === "abs" || v === "activation" || v === "cardio" ? v : "unknown");
     const sel = (v, k) => (String(v || "") === String(k) ? "selected" : "");
 
     const tree = {};
     for (const e of rows || []) {
-      const t = normTrack2(e.track);
-      const mg = normMG2(e.muscle_group);
+      const t = normTrack3(e.track);
+      const mg = normMG3(e.muscle_group);
       (((tree[t] ||= {})[mg] ||= [])).push(e);
     }
 
-    const html = trackOrder
+    const html = trackOrder2
       .filter((t) => tree[t])
       .map((t) => {
-        const mgBlocks = mgOrder
+        const mgBlocks = mgOrder2
           .filter((mg) => tree[t][mg]?.length)
           .map((mg) => {
             const items = tree[t][mg]
@@ -1176,18 +1506,19 @@
                 const name = esc(e.name);
                 const video = esc(e.video_url || "");
                 const cues = esc(e.cues || "");
-                const tVal = normTrack2(e.track);
+                const tVal = normTrack3(e.track);
                 const oVal = e.objective || "both";
-                const mgVal = normMG2(e.muscle_group);
+                const mgVal = normMG3(e.muscle_group);
 
                 return `
                   <div class="item" style="display:grid;gap:10px">
                     <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
                       <div>
                         <div><b>${name}</b></div>
-                        ${video
-                          ? `<a class="small" target="_blank" rel="noopener" href="${video}">Video</a>`
-                          : `<span class="small">Sin video</span>`
+                        ${
+                          video
+                            ? `<a class="small" target="_blank" rel="noopener" href="${video}">Video</a>`
+                            : `<span class="small">Sin video</span>`
                         }
                         ${cues ? `<div class="small" style="margin-top:6px;opacity:.9">${cues}</div>` : ""}
                       </div>
@@ -1246,7 +1577,7 @@
 
             return `
               <details class="admin-acc" data-ex-acc-key="t:${esc(t)}|mg:${esc(mg)}" style="margin-top:10px">
-                <summary>${esc(MG_LABEL[mg] || "Ejercicios")}</summary>
+                <summary>${esc(MG_LABEL2[mg] || "Ejercicios")}</summary>
                 <div class="acc-body" style="padding:12px">
                   <div style="display:grid;gap:10px">${items}</div>
                 </div>
@@ -1257,7 +1588,7 @@
 
         return `
           <details class="admin-acc" data-ex-acc-key="t:${esc(t)}" style="margin-top:10px">
-            <summary>${esc(TRACK_LABEL[t] || "Modalidad")}</summary>
+            <summary>${esc(TRACK_LABEL2[t] || "Modalidad")}</summary>
             <div class="acc-body" style="padding:12px">
               ${mgBlocks || `<div class="small" style="opacity:.8">Sin ejercicios.</div>`}
             </div>
@@ -1288,7 +1619,7 @@
 
     if (act === "toggle-edit") {
       if (!editBox) return;
-      editBox.style.display = (!editBox.style.display || editBox.style.display === "none") ? "block" : "none";
+      editBox.style.display = !editBox.style.display || editBox.style.display === "none" ? "block" : "none";
       return;
     }
 
@@ -1313,16 +1644,14 @@
       try {
         setRowMsg("Guardando…", "small");
 
-        const { error } = await sb
-          .from("exercises")
-          .update({ name, video_url, cues, objective, track, muscle_group })
-          .eq("id", id);
-
+        const { error } = await sb.from("exercises").update({ name, video_url, cues, objective, track, muscle_group }).eq("id", id);
         if (error) throw new Error(error.message);
 
         lastEditedExerciseId = id;
         await loadExercisesLibrary();
-        await loadExercisesDropdown();
+        try {
+          await loadExercisesDropdown();
+        } catch (_) {}
 
         setRowMsg("Guardado ✅", "notice");
       } catch (e) {
@@ -1340,7 +1669,9 @@
 
         setMsg(exMsg, "Ejercicio eliminado (desactivado) ✅", "notice");
         await loadExercisesLibrary();
-        await loadExercisesDropdown();
+        try {
+          await loadExercisesDropdown();
+        } catch (_) {}
       } catch (e) {
         setMsg(exMsg, e?.message || String(e), "error");
       }
@@ -1398,9 +1729,6 @@
         if (!email) return;
         if (studentEmail) studentEmail.value = email;
         await findStudent(email);
-        const sec = document.getElementById("sec-alumnos");
-        if (sec?.tagName === "DETAILS") sec.open = true;
-        studentCard?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     });
 
@@ -1412,16 +1740,86 @@
         const userRes = await sb.auth.getUser();
         const myId = userRes?.data?.user?.id || null;
 
-        const { error } = await sb
-          .from("admin_alerts")
-          .update({ resolved_at: new Date().toISOString(), resolved_by: myId })
-          .eq("id", id);
-
+        const { error } = await sb.from("admin_alerts").update({ resolved_at: new Date().toISOString(), resolved_by: myId }).eq("id", id);
         if (error) return alert(error.message);
+
         await loadAlerts();
       });
     });
   }
+
+  // =====================================================
+  // Comentarios alumnas (routine_comments) — safe
+  // =====================================================
+  async function loadRoutineComments() {
+    if (!routineCommentsList || !routineCommentsMsg) return;
+
+    routineCommentsList.innerHTML = "";
+    setMsg(routineCommentsMsg, "Cargando…", "small");
+
+    try {
+      const { data, error } = await sb
+        .from("routine_comments")
+        .select("id, created_at, user_id, day_id, message, read_at")
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      if (error) throw new Error(error.message);
+
+      if (!data?.length) {
+        setMsg(routineCommentsMsg, "Sin comentarios ✅", "notice");
+        return;
+      }
+
+      setMsg(routineCommentsMsg, `Comentarios: ${data.length}`, "small");
+
+      const userIds = [...new Set(data.map((x) => x.user_id).filter(Boolean))];
+      let profById = {};
+      if (userIds.length) {
+        const { data: profs, error: pErr } = await sb.from("profiles").select("user_id,email,full_name").in("user_id", userIds);
+        if (!pErr && profs) for (const p of profs) profById[p.user_id] = p;
+      }
+
+      routineCommentsList.innerHTML = data
+        .map((c) => {
+          const p = profById[c.user_id] || {};
+          const who = p.email || c.user_id || "—";
+          const when = c.created_at ? new Date(c.created_at).toLocaleString("es-AR") : "";
+          const read = c.read_at ? `Leído: ${new Date(c.read_at).toLocaleString("es-AR")}` : "No leído";
+
+          return `
+            <div class="item">
+              <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
+                <div>
+                  <div><b>${esc(who)}</b> <span class="small muted">${esc(p.full_name || "")}</span></div>
+                  <div class="small muted">${esc(when)} · ${esc(read)}</div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                  ${p.email ? `<button class="btn primary" type="button" data-open-stu="${esc(p.email)}">Abrir alumna</button>` : ""}
+                </div>
+              </div>
+              <div class="small" style="margin-top:8px">${esc(c.message || "")}</div>
+            </div>
+          `;
+        })
+        .join("");
+
+      routineCommentsList.querySelectorAll("[data-open-stu]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const email = btn.getAttribute("data-open-stu");
+          if (!email) return;
+          if (studentEmail) studentEmail.value = email;
+          await findStudent(email);
+        });
+      });
+    } catch (e) {
+      console.warn("[ADMIN] loadRoutineComments:", e);
+      setMsg(routineCommentsMsg, `No pude leer comentarios: ${e?.message || String(e)} (¿existe routine_comments?)`, "error");
+      routineCommentsList.innerHTML = "";
+    }
+  }
+
+  routineCommentsRefreshBtn?.addEventListener("click", () => loadRoutineComments().catch(console.error));
 
   // =====================================================
   // Alumnos: buscar + resumen
@@ -1436,18 +1834,10 @@
       .maybeSingle();
     if (planRow) out.plan = planRow;
 
-    const { data: prefRow } = await sb
-      .from("user_preferences")
-      .select("objective, track")
-      .eq("user_id", userId)
-      .maybeSingle();
+    const { data: prefRow } = await sb.from("user_preferences").select("objective, track").eq("user_id", userId).maybeSingle();
     if (prefRow) out.prefs = prefRow;
 
-    const { data: profRow } = await sb
-      .from("profiles")
-      .select("full_name, training_level, email")
-      .eq("user_id", userId)
-      .maybeSingle();
+    const { data: profRow } = await sb.from("profiles").select("full_name, training_level, email").eq("user_id", userId).maybeSingle();
     if (profRow) out.profile = profRow;
 
     return out;
@@ -1460,6 +1850,9 @@
     setMsg(studentMsg, "Buscando…", "small");
     setSaveSendMsg("");
     setStudentModeMsg("");
+    setRoutineToolsMsg("");
+    syncRoutineBadge();
+
     if (dayEdit) dayEdit.style.display = "none";
 
     const { data, error } = await sb.rpc("admin_find_user_by_email", { p_email: e });
@@ -1502,8 +1895,12 @@
 
     await loadMonthsIntoStudentSelect();
     state.month = Number(stuMonthSel?.value || 0) || null;
+    syncRoutineBadge();
 
     await loadStudentMonthOverview();
+
+    // Herramientas: semanas del mes actual
+    if (state.month) await fillDupWeekSelects(state.month).catch(() => {});
   }
 
   findStudentBtn?.addEventListener("click", () => {
@@ -1519,6 +1916,13 @@
   stuMonthSel?.addEventListener("change", () => {
     const m = Number(stuMonthSel.value || 0);
     state.month = m || null;
+    syncRoutineBadge();
+
+    // Herramientas
+    if (dupMonthFrom) dupMonthFrom.value = String(m || "");
+    if (dupMonthTo) dupMonthTo.value = String(m || "");
+    if (state.month) fillDupWeekSelects(state.month).catch(console.error);
+
     loadStudentMonthOverview().catch(console.error);
   });
 
@@ -1530,8 +1934,10 @@
 
     enterStudentMode();
     setSaveSendMsg("");
+    syncRoutineBadge();
 
     await loadWeeksForMonth(state.month);
+    if (state.month) await fillDupWeekSelects(state.month).catch(() => {});
     setMsg(selMsg, "Elegí semana y día para cargar.", "small");
   });
 
@@ -1641,6 +2047,7 @@
         if (state.mode !== "student") {
           enterStudentMode();
           await loadWeeksForMonth(state.month);
+          if (state.month) await fillDupWeekSelects(state.month).catch(() => {});
         }
 
         const w = Number(btn.getAttribute("data-edit-week") || 0);
@@ -1649,9 +2056,6 @@
         if (weekSel) weekSel.value = String(w);
         await loadDaysForMonthWeek(state.month, w);
         if (daySel) daySel.value = String(d);
-
-        const secEditor = document.getElementById("sec-editor");
-        if (secEditor?.tagName === "DETAILS") secEditor.open = true;
 
         await loadDayForStudent();
         dayTitle?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1665,21 +2069,13 @@
   // Guardar y enviar rutina (publica sin retardo) — RPC security definer
   // =====================================================
   async function countItemsForMonth() {
-    const { data: weeksRows, error: wErr } = await sb
-      .from("weeks")
-      .select("id")
-      .eq("month_number", state.month);
-
+    const { data: weeksRows, error: wErr } = await sb.from("weeks").select("id").eq("month_number", state.month);
     if (wErr) throw new Error(wErr.message);
 
     const weekIds = (weeksRows || []).map((w) => w.id);
     if (!weekIds.length) return 0;
 
-    const { data: daysRows, error: dErr } = await sb
-      .from("week_days")
-      .select("id")
-      .in("week_id", weekIds);
-
+    const { data: daysRows, error: dErr } = await sb.from("week_days").select("id").in("week_id", weekIds);
     if (dErr) throw new Error(dErr.message);
 
     const dayIds = (daysRows || []).map((d) => d.id);
@@ -1716,15 +2112,10 @@
 
       setSaveSendMsg("Publicando rutina…", "small");
 
-      // ✅ Publica y libera: disponible ahora (sin retardo). Debe existir en DB como RPC SECURITY DEFINER.
-      const { data: pub, error: pubErr } = await sb.rpc("admin_publish_routine", {
-        p_user_id: state.user_id,
-      });
-
+      const { data: pub, error: pubErr } = await sb.rpc("admin_publish_routine", { p_user_id: state.user_id });
       if (pubErr) throw new Error(pubErr.message);
       if (!pub?.ok) throw new Error("No pude publicar la rutina.");
 
-      // ✅ “Aviso” al alumno (mailto)
       const subject = "Ya está lista tu rutina ✅";
       const body = [
         "Hola!",
@@ -1748,11 +2139,252 @@
     }
   }
 
-  // Bind UNA SOLA VEZ
   saveSendRoutineBtn?.addEventListener("click", saveAndSendRoutine);
 
   // =====================================================
-  // Premium — Storage + Recorded/Live
+  // Herramientas de rutina: duplicar semana/mes + importar
+  // =====================================================
+  async function loadWeeksMetaForMonth(month) {
+    const { data, error } = await sb.from("weeks").select("week_number,title").eq("month_number", month).order("week_number", { ascending: true });
+    if (error) throw new Error(error.message);
+    return data || [];
+  }
+
+  async function fillDupWeekSelects(month) {
+    if (!dupWeekFrom || !dupWeekTo) return;
+
+    dupWeekFrom.innerHTML = `<option value="">Cargando…</option>`;
+    dupWeekTo.innerHTML = `<option value="">Cargando…</option>`;
+
+    const weeks = await loadWeeksMetaForMonth(month);
+    if (!weeks.length) {
+      dupWeekFrom.innerHTML = `<option value="">Sin semanas</option>`;
+      dupWeekTo.innerHTML = `<option value="">Sin semanas</option>`;
+      return;
+    }
+
+    const opts = weeks
+      .map((w) => `<option value="${esc(w.week_number)}">Semana ${esc(w.week_number)}${w.title ? ` — ${esc(w.title)}` : ""}</option>`)
+      .join("");
+
+    dupWeekFrom.innerHTML = opts;
+    dupWeekTo.innerHTML = opts;
+
+    dupWeekFrom.value = String(weeks[0].week_number);
+    dupWeekTo.value = String(weeks.length > 1 ? weeks[1].week_number : weeks[0].week_number);
+  }
+
+  async function getMonthMaps(month) {
+    const { data: weeks, error: wErr } = await sb
+      .from("weeks")
+      .select("id, week_number")
+      .eq("month_number", month)
+      .order("week_number", { ascending: true });
+
+    if (wErr) throw new Error(wErr.message);
+
+    const weekIds = (weeks || []).map((w) => w.id);
+    if (!weekIds.length) return { dayIdByWeekDay: {} };
+
+    const { data: days, error: dErr } = await sb.from("week_days").select("id, week_id, day_number").in("week_id", weekIds);
+    if (dErr) throw new Error(dErr.message);
+
+    const weekNumById = {};
+    for (const w of weeks || []) weekNumById[w.id] = w.week_number;
+
+    const dayIdByWeekDay = {};
+    for (const d of days || []) {
+      const wn = weekNumById[d.week_id];
+      if (!wn) continue;
+      dayIdByWeekDay[`${wn}:${d.day_number}`] = d.id;
+    }
+
+    return { dayIdByWeekDay };
+  }
+
+  async function fetchItemsForDay(userId, dayId) {
+    const { data, error } = await sb
+      .from("user_day_items")
+      .select("exercise_id, sets, reps, notes, sort_order")
+      .eq("user_id", userId)
+      .eq("day_id", dayId)
+      .eq("objective", state.objective)
+      .eq("track", state.track)
+      .order("sort_order", { ascending: true });
+
+    if (error) throw new Error(error.message);
+    return data || [];
+  }
+
+  async function deleteItemsForDay(dayId) {
+    const { error } = await sb
+      .from("user_day_items")
+      .delete()
+      .eq("user_id", state.user_id)
+      .eq("day_id", dayId)
+      .eq("objective", state.objective)
+      .eq("track", state.track);
+
+    if (error) throw new Error(error.message);
+  }
+
+  async function insertItemsForDay(dayId, items) {
+    if (!items?.length) return;
+
+    const payload = items.map((it, idx) => ({
+      user_id: state.user_id,
+      day_id: dayId,
+      objective: state.objective,
+      track: state.track,
+      exercise_id: it.exercise_id,
+      sets: it.sets,
+      reps: it.reps,
+      notes: it.notes || null,
+      sort_order: idx + 1,
+    }));
+
+    const { error } = await sb.from("user_day_items").insert(payload);
+    if (error) throw new Error(error.message);
+  }
+
+  async function duplicateWeekInMonth(fromWeek, toWeek) {
+    if (!state.user_id || !state.month) throw new Error("Primero abrí una alumna y elegí mes.");
+    if (!fromWeek || !toWeek) throw new Error("Elegí semana origen y destino.");
+    if (Number(fromWeek) === Number(toWeek)) throw new Error("Origen y destino no pueden ser iguales.");
+
+    const ok = confirm(`Esto REEMPLAZA los ejercicios en Semana ${toWeek} (Mes ${state.month}).\n\n¿Continuar?`);
+    if (!ok) return;
+
+    setRoutineToolsMsg("Duplicando semana…", "small");
+
+    const maps = await getMonthMaps(state.month);
+    const dayNumbers = [1, 2, 3, 4, 5];
+
+    for (const dn of dayNumbers) {
+      const srcDayId = maps.dayIdByWeekDay[`${fromWeek}:${dn}`];
+      const dstDayId = maps.dayIdByWeekDay[`${toWeek}:${dn}`];
+      if (!srcDayId || !dstDayId) continue;
+
+      const srcItems = await fetchItemsForDay(state.user_id, srcDayId);
+      await deleteItemsForDay(dstDayId);
+      await insertItemsForDay(dstDayId, srcItems);
+    }
+
+    setRoutineToolsMsg("Semana duplicada ✅", "notice");
+    await loadStudentMonthOverview().catch(() => {});
+    if (state.day_id) await loadItems().catch(() => {});
+  }
+
+  async function duplicateMonth(fromMonth, toMonth) {
+    if (!state.user_id) throw new Error("Primero abrí una alumna.");
+    if (!fromMonth || !toMonth) throw new Error("Elegí mes origen y destino.");
+    if (Number(fromMonth) === Number(toMonth)) throw new Error("Origen y destino no pueden ser iguales.");
+
+    const ok = confirm(`Esto REEMPLAZA el Mes ${toMonth} copiando desde Mes ${fromMonth}.\n\n¿Continuar?`);
+    if (!ok) return;
+
+    setRoutineToolsMsg("Duplicando mes…", "small");
+
+    const fromMaps = await getMonthMaps(Number(fromMonth));
+    const toMaps = await getMonthMaps(Number(toMonth));
+
+    const destDayIds = Object.values(toMaps.dayIdByWeekDay);
+    if (destDayIds.length) {
+      const { error: delErr } = await sb
+        .from("user_day_items")
+        .delete()
+        .eq("user_id", state.user_id)
+        .eq("objective", state.objective)
+        .eq("track", state.track)
+        .in("day_id", destDayIds);
+
+      if (delErr) throw new Error(delErr.message);
+    }
+
+    for (const key of Object.keys(fromMaps.dayIdByWeekDay)) {
+      const srcDayId = fromMaps.dayIdByWeekDay[key];
+      const dstDayId = toMaps.dayIdByWeekDay[key];
+      if (!srcDayId || !dstDayId) continue;
+
+      const srcItems = await fetchItemsForDay(state.user_id, srcDayId);
+      await insertItemsForDay(dstDayId, srcItems);
+    }
+
+    setRoutineToolsMsg("Mes duplicado ✅", "notice");
+    if (state.month === Number(toMonth)) await loadStudentMonthOverview().catch(() => {});
+  }
+
+  async function importRoutineFromEmail(email) {
+    const srcEmail = (email || "").trim();
+    if (!srcEmail) throw new Error("Ingresá el email del usuario origen.");
+    if (!state.user_id || !state.month) throw new Error("Primero abrí una alumna y elegí mes.");
+
+    const ok = confirm(`Esto REEMPLAZA la rutina del Mes ${state.month} del alumno actual copiando desde:\n${srcEmail}\n\n¿Continuar?`);
+    if (!ok) return;
+
+    setRoutineToolsMsg("Importando rutina…", "small");
+
+    const { data, error } = await sb.rpc("admin_find_user_by_email", { p_email: srcEmail });
+    if (error) throw new Error(error.message);
+    const row = Array.isArray(data) ? data[0] : data;
+    const srcUserId = row?.user_id;
+    if (!srcUserId) throw new Error("No encontré el usuario origen.");
+
+    const maps = await getMonthMaps(state.month);
+    const dayIds = Object.values(maps.dayIdByWeekDay);
+    if (!dayIds.length) throw new Error("No pude resolver días del mes.");
+
+    const { data: srcItems, error: sErr } = await sb
+      .from("user_day_items")
+      .select("day_id, exercise_id, sets, reps, notes, sort_order")
+      .eq("user_id", srcUserId)
+      .eq("objective", state.objective)
+      .eq("track", state.track)
+      .in("day_id", dayIds);
+
+    if (sErr) throw new Error(sErr.message);
+    if (!srcItems?.length) throw new Error("El usuario origen no tiene items en este mes (para objetivo/modalidad).");
+
+    const { error: delErr } = await sb
+      .from("user_day_items")
+      .delete()
+      .eq("user_id", state.user_id)
+      .eq("objective", state.objective)
+      .eq("track", state.track)
+      .in("day_id", dayIds);
+
+    if (delErr) throw new Error(delErr.message);
+
+    const byDay = {};
+    for (const it of srcItems || []) (byDay[it.day_id] ||= []).push(it);
+
+    for (const dayIdStr of Object.keys(byDay)) {
+      const items = byDay[dayIdStr].sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+      await insertItemsForDay(dayIdStr, items);
+    }
+
+    setRoutineToolsMsg("Rutina importada ✅", "notice");
+    await loadStudentMonthOverview().catch(() => {});
+    if (state.day_id) await loadItems().catch(() => {});
+  }
+
+  dupWeekBtn?.addEventListener("click", () => {
+    setRoutineToolsMsg("");
+    duplicateWeekInMonth(Number(dupWeekFrom?.value || 0), Number(dupWeekTo?.value || 0)).catch((e) => setRoutineToolsMsg(e?.message || String(e), "error"));
+  });
+
+  dupMonthBtn?.addEventListener("click", () => {
+    setRoutineToolsMsg("");
+    duplicateMonth(Number(dupMonthFrom?.value || 0), Number(dupMonthTo?.value || 0)).catch((e) => setRoutineToolsMsg(e?.message || String(e), "error"));
+  });
+
+  importRoutineBtn?.addEventListener("click", () => {
+    setRoutineToolsMsg("");
+    importRoutineFromEmail(importFromEmail?.value || "").catch((e) => setRoutineToolsMsg(e?.message || String(e), "error"));
+  });
+
+  // =====================================================
+  // Premium — Storage + Recorded/Live (tu implementación original)
   // =====================================================
   async function uploadCoverIfAny() {
     const file = rcCoverFile?.files?.[0];
@@ -2068,21 +2700,23 @@
 
       exitStudentMode();
 
-      await loadKPIs();
+      // Módulos “seguros”
+      await loadKPIs().catch(console.error);
+      await loadPlansIntoActiveUsersFilter().catch(console.error);
+      await loadActiveUsers().catch(console.error);
 
-      await loadPlansIntoActiveUsersFilter(); // <-- FIX: existe y está hoisteada
-      await loadActiveUsers();
+      await loadExercisesLibrary().catch(console.error);
 
-      // Dropdown: ya está listo aunque no haya alumno seleccionado
-      await loadExercisesDropdown();
-      await loadExercisesLibrary();
+      await loadAlerts().catch(console.error);
+      await loadRoutineComments().catch(() => {});
 
-      await loadAlerts();
-
-      await loadRecordedClasses();
-      await loadLiveClassesAdmin();
+      await loadRecordedClasses().catch(console.error);
+      await loadLiveClassesAdmin().catch(console.error);
 
       initWeeklyQuoteAdmin();
+
+      // Dropdown ejercicios: listo aunque no haya alumna (cache)
+      await loadExercisesDropdown().catch(() => {});
 
       console.log("[ADMIN] Ready ✅");
     } catch (e) {

@@ -1,5 +1,5 @@
-// app.js — limpio (corregido)
-// Rutinas + clases en vivo + biblioteca grabadas (Año > Mes) + descarga + perfil + campus dinámico
+// app.js — limpio (con comentarios por día + UX mejorada)
+// Rutinas + gate + clases en vivo + biblioteca grabadas + descarga + perfil + comentarios a coach
 (() => {
   "use strict";
 
@@ -30,9 +30,13 @@
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
   ];
 
-  function norm(v) {
-    return String(v ?? "").trim().toLowerCase();
-  }
+  const MP_FALLBACK_URL = {
+    basic: "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=a744205529154c91bdfe7811443a9e41",
+    mid:   "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=b003ccd51f3d49c59d3daf76315bb9d6",
+    pro:   "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=4e5b56a866274858ad36638487349115",
+  };
+
+  function norm(v) { return String(v ?? "").trim().toLowerCase(); }
 
   function esc(value) {
     return String(value ?? "").replace(/[&<>"']/g, (m) => ({
@@ -44,21 +48,11 @@
     }[m]));
   }
 
-  function monthLabel(n) {
-    return MONTHS_ES[n - 1] || "Mes";
-  }
+  function monthLabel(n) { return MONTHS_ES[n - 1] || "Mes"; }
+  function monthNameEs(monthIndex) { return MONTHS_ES[monthIndex] || "Mes"; }
 
-  function monthNameEs(monthIndex) {
-    return MONTHS_ES[monthIndex] || "Mes";
-  }
-
-  function labelTrack(track) {
-    return track === "gym" ? "Gimnasio" : "Casa";
-  }
-
-  function objectiveLabel(objective) {
-    return objective === "muscle_gain" ? "Ganar masa muscular" : "Perder peso";
-  }
+  function labelTrack(track) { return track === "gym" ? "Gimnasio" : track === "both" ? "Ambos" : "Casa"; }
+  function objectiveLabel(objective) { return objective === "muscle_gain" ? "Ganar masa muscular" : "Perder peso"; }
 
   function setNotice(el, text, kind = "notice") {
     if (!el) return;
@@ -77,10 +71,7 @@
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return "";
     return new Intl.DateTimeFormat("es-AR", {
-      timeZone: AR_TZ,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
+      timeZone: AR_TZ, year: "numeric", month: "2-digit", day: "2-digit",
     }).format(d);
   }
 
@@ -90,18 +81,11 @@
     if (Number.isNaN(d.getTime())) return "";
 
     const date = new Intl.DateTimeFormat("es-AR", {
-      timeZone: AR_TZ,
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
+      timeZone: AR_TZ, day: "2-digit", month: "2-digit", year: "numeric",
     }).format(d);
 
     const time = new Intl.DateTimeFormat("es-AR", {
-      timeZone: AR_TZ,
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-      hourCycle: "h23",
+      timeZone: AR_TZ, hour: "2-digit", minute: "2-digit", hour12: false, hourCycle: "h23",
     }).format(d);
 
     return `${date}, ${time}hs`;
@@ -112,32 +96,15 @@
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return "";
 
-    const date = new Intl.DateTimeFormat("es-AR", {
-      timeZone: AR_TZ,
-      day: "2-digit",
-      month: "2-digit",
-    }).format(d);
-
-    const time = new Intl.DateTimeFormat("es-AR", {
-      timeZone: AR_TZ,
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-      hourCycle: "h23",
-    }).format(d);
-
+    const date = new Intl.DateTimeFormat("es-AR", { timeZone: AR_TZ, day: "2-digit", month: "2-digit" }).format(d);
+    const time = new Intl.DateTimeFormat("es-AR", { timeZone: AR_TZ, hour: "2-digit", minute: "2-digit", hour12: false, hourCycle: "h23" }).format(d);
     return `${date} ${time}hs`;
   }
 
   function formatPaidThrough(value) {
     if (!value) return "—";
     try {
-      return new Intl.DateTimeFormat("es-AR", {
-        timeZone: AR_TZ,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }).format(new Date(value));
+      return new Intl.DateTimeFormat("es-AR", { timeZone: AR_TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value));
     } catch (_) {
       return String(value);
     }
@@ -166,6 +133,14 @@
     return first.charAt(0).toUpperCase() + first.slice(1);
   }
 
+  function normalizeTrack(v) {
+    const raw = norm(v);
+    if (raw === "gym" || raw === "gimnasio") return "gym";
+    if (raw === "home" || raw === "casa") return "home";
+    if (raw === "both" || raw === "ambos") return "both";
+    return null;
+  }
+
   // =====================================================
   // DOM
   // =====================================================
@@ -177,13 +152,11 @@
   const userEmail = document.getElementById("userEmail");
   const planBadge = document.getElementById("planBadge");
   const adminLink = document.getElementById("adminLink");
-
-  // Modalidad (sin botones)
   const trackHint = document.getElementById("trackHint");
 
   const downloadRoutineBtn = document.getElementById("downloadRoutineBtn");
 
-  // Objetivo
+  // Objetivo (queda oculto/lockeado)
   const editObjectiveBtn = document.getElementById("editObjectiveBtn");
   const objectivePanel = document.getElementById("objectivePanel");
   const objectiveSel = document.getElementById("objectiveSel");
@@ -197,7 +170,6 @@
   const recordedMsg = document.getElementById("recordedMsg");
   const recordedList = document.getElementById("recordedList");
 
-  // WhatsApp help (opcional: poné id="helpWhatsappBox" al bloque)
   const helpWhatsappBox = document.getElementById("helpWhatsappBox");
 
   // Upgrade panel principal
@@ -211,6 +183,15 @@
   const videoModalClose = document.getElementById("videoModalClose");
   const videoModalFrame = document.getElementById("videoModalFrame");
   const videoModalTitle = document.getElementById("videoModalTitle");
+
+  // Comment modal
+  const commentModal = document.getElementById("commentModal");
+  const commentModalBackdrop = document.getElementById("commentModalBackdrop");
+  const commentModalClose = document.getElementById("commentModalClose");
+  const commentModalSend = document.getElementById("commentModalSend");
+  const commentModalText = document.getElementById("commentModalText");
+  const commentModalTitle = document.getElementById("commentModalTitle");
+  const commentModalMsg = document.getElementById("commentModalMsg");
 
   // Mi perfil
   const profileBtn = document.getElementById("profileBtn");
@@ -237,7 +218,7 @@
   const deleteAccountBtn = document.getElementById("deleteAccountBtn");
   const deleteAccountMsg = document.getElementById("deleteAccountMsg");
 
-  // Weekly quote (IDs reales en tu app.html)
+  // Weekly quote
   const weeklyQuoteTitleEl = document.getElementById("weeklyQuoteTitle");
   const weeklyQuotePhraseEl = document.getElementById("weeklyQuotePhrase");
   const weeklyQuoteImgEl = document.getElementById("weeklyQuoteImg");
@@ -245,11 +226,12 @@
   // =====================================================
   // State
   // =====================================================
-  let currentObjective = "fat_loss"; // siempre lo fija el perfil del alumno
-  let currentTrack = "gym"; // se pisa por user_preferences / user_metadata
+  let currentObjective = "fat_loss";
+  let currentTrack = "gym";
 
-  let planSlug = null; // normalizado (lower)
-  let planInfo = null; // fila de user_plan
+  let planSlug = null;
+  let planInfo = null;
+
   let currentMonth = null;
   let nextLiveClass = null;
 
@@ -258,13 +240,20 @@
 
   const monthCache = new Map();
 
-  // Gate de entrega de rutinas
+  // Gate rutina
   let routineLocked = false;
   let routineAvailableAt = null;
   let gateRefreshTimer = null;
-    // Rutina lista (avisos)
+
+  // Routine delivery info
   let routineReadyAt = null;
   let routineNotifiedAt = null;
+
+  // Comentarios modal context
+  let commentCtx = null;
+
+  // Cache resolver day_id
+  const dayIdCache = new Map(); // key = `${month}:${week}:${day}` => uuid
 
   // =====================================================
   // Gate helpers (rutina en preparación)
@@ -283,10 +272,7 @@
     const d = new Date(availableAt);
     if (Number.isNaN(d.getTime())) return;
 
-    // refresco con un pequeño buffer
     const ms = d.getTime() - Date.now() + 15_000;
-
-    // Evita timers absurdos (negativos o demasiado largos)
     if (ms <= 0 || ms > 1000 * 60 * 60 * 50) return;
 
     gateRefreshTimer = setTimeout(() => {
@@ -295,23 +281,21 @@
   }
 
   function renderRoutineLockedNotice(availableAt) {
-  const when = availableAt ? formatDateTimeEs(availableAt) : "";
-  const msg = `
-    <div class="notice">
-      <b>Acceso activado ✅</b><br>
-      Tu rutina 100% personalizada se arma y llega dentro de <b>48 hs</b>.
-      <br><br>
-      <a class="btn primary" href="./onboarding.html">Completar ficha (2 min)</a>
-      <br><br>
-      ${when
-        ? `<b>Se habilita:</b> ${esc(when)} (AR)`
-        : `Te avisamos apenas esté lista.`}
-    </div>
-  `;
-  if (monthContent) monthContent.innerHTML = msg;
-}
+    const when = availableAt ? formatDateTimeEs(availableAt) : "";
+    const msg = `
+      <div class="notice">
+        <b>Acceso activado ✅</b><br>
+        Tu rutina 100% personalizada se arma y llega dentro de <b>48 hs</b>.
+        <br><br>
+        <a class="btn primary" href="./onboarding.html">Completar ficha (2 min)</a>
+        <br><br>
+        ${when ? `<b>Se habilita:</b> ${esc(when)} (AR)` : `Te avisamos apenas esté lista.`}
+      </div>
+    `;
+    if (monthContent) monthContent.innerHTML = msg;
+  }
 
-    function showToast(message) {
+  function showToast(message) {
     const existing = document.getElementById("a360Toast");
     if (existing) existing.remove();
 
@@ -338,14 +322,12 @@
     wrap.appendChild(btn);
     document.body.appendChild(wrap);
 
-    // autocierre suave
     setTimeout(() => { try { wrap.remove(); } catch (_) {} }, 12000);
   }
 
   async function loadRoutineDeliveryStatus(userId) {
     routineReadyAt = null;
     routineNotifiedAt = null;
-
     if (!userId) return;
 
     const { data, error } = await sb
@@ -359,11 +341,9 @@
     routineReadyAt = data.ready_at || null;
     routineNotifiedAt = data.notified_at || null;
 
-    // Aviso “Rutina lista” (una sola vez por notified_at)
     if (routineNotifiedAt) {
       const key = `A360_ROUTINE_READY_SEEN_${routineNotifiedAt}`;
       const seen = localStorage.getItem(key);
-
       if (!seen) {
         showToast("✅ Ya está lista tu rutina 100% personalizada. Entrá en “Rutina” para verla.");
         localStorage.setItem(key, "1");
@@ -372,19 +352,15 @@
   }
 
   // =====================================================
-  // Accesos por plan (blindado)
+  // Accesos por plan
   // =====================================================
-  function isPlanActive() {
-    return norm(planInfo?.status) === "active";
-  }
+  function isPlanActive() { return norm(planInfo?.status) === "active"; }
 
   function canSeePremiumContent() {
-    // Premium/Pro => solo pro (y por compat, "premium")
     return isPlanActive() && ["pro", "premium"].includes(norm(planSlug));
   }
 
   function canSeeWhatsappHelp() {
-    // WhatsApp visible solo en mid + pro (si plan activo)
     return isPlanActive() && ["mid", "pro"].includes(norm(planSlug));
   }
 
@@ -410,9 +386,7 @@
   }
 
   async function doLogout() {
-    try {
-      await sb.auth.signOut();
-    } catch (_) {}
+    try { await sb.auth.signOut(); } catch (_) {}
     window.location.href = "./index.html";
   }
 
@@ -424,7 +398,6 @@
       const { data: userRes } = await sb.auth.getUser();
       const uid = userRes?.user?.id;
       const email = userRes?.user?.email || campusEmailCache || "";
-
       campusEmailCache = email;
 
       if (!uid) {
@@ -432,12 +405,7 @@
         return;
       }
 
-      const { data, error } = await sb
-        .from("profiles")
-        .select("full_name")
-        .eq("user_id", uid)
-        .maybeSingle();
-
+      const { data, error } = await sb.from("profiles").select("full_name").eq("user_id", uid).maybeSingle();
       if (error) {
         campusFirstName = firstNameFromEmail(email);
         return;
@@ -450,120 +418,16 @@
   }
 
   function syncTrackUI() {
-    // No hay switch; solo mostramos la modalidad elegida
     if (trackHint) trackHint.textContent = labelTrack(currentTrack);
   }
+
   function lockRoutineToStudentPreferencesUI() {
-  // Oculta “Modificar objetivos” y todo el panel de objetivo
-  if (editObjectiveBtn) editObjectiveBtn.style.display = "none";
-  if (objectivePanel) objectivePanel.style.display = "none";
-
-  // Por si existieran inputs/selects, los deja inactivos
-  if (objectiveSel) objectiveSel.disabled = true;
-  if (saveObjectiveBtn) saveObjectiveBtn.disabled = true;
-  if (cancelObjectiveBtn) cancelObjectiveBtn.disabled = true;
-
-  // Si tenés algún texto explicativo, podés setearlo acá
-  if (objectiveMsg) {
-    objectiveMsg.className = "small";
-    objectiveMsg.textContent = "";
-  }
-}
-
-  // =====================================================
-  // UX campus (si existen esos nodos en el HTML)
-  // =====================================================
-  const campusWelcomeEyebrow = document.getElementById("campusWelcomeEyebrow");
-  const campusWelcomeTitle = document.getElementById("campusWelcomeTitle");
-  const campusWelcomeMeta = document.getElementById("campusWelcomeMeta");
-  const campusWelcomePrimaryBtn = document.getElementById("campusWelcomePrimaryBtn");
-  const campusWelcomeSecondaryBtn = document.getElementById("campusWelcomeSecondaryBtn");
-
-  const campusProgressEyebrow = document.getElementById("campusProgressEyebrow");
-  const campusProgressTitle = document.getElementById("campusProgressTitle");
-  const campusProgressCopy = document.getElementById("campusProgressCopy");
-  const campusProgressList = document.getElementById("campusProgressList");
-  const campusProgressPrimaryBtn = document.getElementById("campusProgressPrimaryBtn");
-  const campusProgressSecondaryBtn = document.getElementById("campusProgressSecondaryBtn");
-
-  function syncCampusExperience() {
-    const safeName = campusFirstName || firstNameFromEmail(campusEmailCache);
-    const monthName = currentMonth ? monthLabel(currentMonth) : "este mes";
-    const planName = planInfo?.plans?.name || "Tu plan";
-    const planStatusNorm = norm(planInfo?.status || "");
-    const nextClassLabel = nextLiveClass?.starts_at ? formatDateTimeShort(nextLiveClass.starts_at) : "";
-    const premiumEnabled = canSeePremiumContent();
-
-    if (campusWelcomeEyebrow) {
-      campusWelcomeEyebrow.textContent = premiumEnabled ? "Tu membresía premium" : "Tu espacio de entrenamiento";
-    }
-    if (campusWelcomeTitle) {
-      campusWelcomeTitle.textContent = `Hola, ${safeName}`;
-    }
-
-    if (campusWelcomeMeta) {
-      if (planStatusNorm && planStatusNorm !== "active") {
-        campusWelcomeMeta.textContent =
-          `${planName} · Estado: ${planInfo?.status}. Activá tu cuenta para acceder al contenido completo.`;
-      } else if (routineLocked) {
-        const when = routineAvailableAt ? formatDateTimeShort(routineAvailableAt) : "";
-        campusWelcomeMeta.textContent =
-          `Pago recibido · Rutina de ${monthName} en preparación${when ? ` · Se habilita: ${when} (AR)` : ""}`;
-            } else if (routineReadyAt) {
-        campusWelcomeMeta.textContent = `Rutina lista ✅ · Entrá en “Rutina” para verla.`;
-        } else if (nextClassLabel) {
-        campusWelcomeMeta.textContent = `${planName} activo · Rutina de ${monthName} · Próxima clase: ${nextClassLabel}`;
-      } else {
-        campusWelcomeMeta.textContent = `${planName} activo · Rutina de ${monthName} lista para continuar.`;
-      }
-    }
-
-    if (campusWelcomePrimaryBtn) {
-      campusWelcomePrimaryBtn.textContent = "Continuar rutina";
-      campusWelcomePrimaryBtn.setAttribute("href", "#monthContent");
-    }
-
-    if (campusWelcomeSecondaryBtn) {
-      if (premiumEnabled && nextClassLabel) {
-        campusWelcomeSecondaryBtn.textContent = "Ver próxima clase";
-        campusWelcomeSecondaryBtn.setAttribute("href", "#classesList");
-      } else {
-        campusWelcomeSecondaryBtn.textContent = "Ver contenidos";
-        campusWelcomeSecondaryBtn.setAttribute("href", "#recordedList");
-      }
-    }
-
-    if (campusProgressEyebrow) campusProgressEyebrow.textContent = "Tu progreso";
-    if (campusProgressTitle) campusProgressTitle.textContent = "Seguimiento";
-
-    if (campusProgressCopy) {
-      campusProgressCopy.textContent =
-        `Objetivo actual: ${objectiveLabel(currentObjective)}. Modalidad: ${labelTrack(currentTrack)}. Estás trabajando sobre ${monthName}.`;
-    }
-
-    if (campusProgressList) {
-      const lines = [
-        `Plan activo: ${planName}`,
-        `Objetivo: ${objectiveLabel(currentObjective)}`,
-        `Modalidad: ${labelTrack(currentTrack)}`,
-        routineLocked
-          ? (routineAvailableAt ? `Rutina en preparación: ${formatDateTimeShort(routineAvailableAt)} (AR)` : "Rutina en preparación")
-          : (premiumEnabled
-            ? (nextClassLabel ? `Próxima clase: ${nextClassLabel}` : "Acceso premium habilitado")
-            : "Clases premium disponibles con upgrade"),
-      ];
-      campusProgressList.innerHTML = lines.map((line) => `<div>• ${esc(line)}</div>`).join("");
-    }
-
-    if (campusProgressPrimaryBtn) {
-      campusProgressPrimaryBtn.textContent = "Seguir entrenando";
-      campusProgressPrimaryBtn.setAttribute("href", "#monthContent");
-    }
-
-    if (campusProgressSecondaryBtn) {
-      campusProgressSecondaryBtn.textContent = premiumEnabled ? "Ver clases" : "Ver contenidos";
-      campusProgressSecondaryBtn.setAttribute("href", premiumEnabled ? "#classesList" : "#recordedList");
-    }
+    if (editObjectiveBtn) editObjectiveBtn.style.display = "none";
+    if (objectivePanel) objectivePanel.style.display = "none";
+    if (objectiveSel) objectiveSel.disabled = true;
+    if (saveObjectiveBtn) saveObjectiveBtn.disabled = true;
+    if (cancelObjectiveBtn) cancelObjectiveBtn.disabled = true;
+    if (objectiveMsg) { objectiveMsg.className = "small"; objectiveMsg.textContent = ""; }
   }
 
   // =====================================================
@@ -578,9 +442,7 @@
 
     e.preventDefault();
 
-    if (action === "logout") {
-      await doLogout();
-    }
+    if (action === "logout") await doLogout();
   });
 
   // =====================================================
@@ -595,7 +457,7 @@
   }
 
   // =====================================================
-  // Weekly quote (única)
+  // Weekly quote
   // =====================================================
   async function loadWeeklyQuoteIntoApp() {
     if (!weeklyQuoteTitleEl || !weeklyQuotePhraseEl || !weeklyQuoteImgEl) return;
@@ -610,8 +472,8 @@
       if (error) throw error;
       if (!data) return;
 
-      if (data.title) weeklyQuoteTitleEl.textContent = data.title;
-      if (data.phrase) weeklyQuotePhraseEl.textContent = data.phrase;
+      weeklyQuoteTitleEl.textContent = data.title || "";
+      weeklyQuotePhraseEl.textContent = data.phrase || "";
 
       const url = String(data.image_url || "").trim();
       if (url) {
@@ -628,13 +490,6 @@
   // =====================================================
   // Preferencias usuario (objective/track)
   // =====================================================
-  function normalizeTrack(v) {
-    const raw = norm(v);
-    if (raw === "gym" || raw === "gimnasio") return "gym";
-    if (raw === "home" || raw === "casa") return "home";
-    return null;
-  }
-
   async function loadUserPreferences() {
     const { data: u } = await sb.auth.getUser();
     const uid = u?.user?.id;
@@ -682,7 +537,7 @@
   }
 
   // =====================================================
-  // Plan badge (FIX: normaliza status+slug y pide plan_id)
+  // Plan badge
   // =====================================================
   async function loadPlanBadge() {
     const { data: userRes } = await sb.auth.getUser();
@@ -705,7 +560,6 @@
     if (!row) {
       planInfo = null;
       planSlug = null;
-
       if (planBadge) {
         planBadge.style.display = "inline-flex";
         planBadge.textContent = "Plan · pendiente de pago";
@@ -713,13 +567,9 @@
       return null;
     }
 
-    // Fallback si el embed "plans" viniera null por algún motivo
+    // Fallback si embed plans viene null
     if (!row.plans?.slug && row.plan_id) {
-      const { data: pRow } = await sb
-        .from("plans")
-        .select("slug,name")
-        .eq("id", row.plan_id)
-        .maybeSingle();
+      const { data: pRow } = await sb.from("plans").select("slug,name").eq("id", row.plan_id).maybeSingle();
       row.plans = pRow || row.plans;
     }
 
@@ -728,11 +578,7 @@
     const statusNorm = norm(row.status);
     const slugNorm = norm(row.plans?.slug);
 
-    if (statusNorm !== "active") {
-      planSlug = null;
-    } else {
-      planSlug = slugNorm || null;
-    }
+    planSlug = statusNorm === "active" ? (slugNorm || null) : null;
 
     if (planBadge) {
       planBadge.style.display = "inline-flex";
@@ -743,7 +589,7 @@
   }
 
   // =====================================================
-  // Upgrade UI
+  // Upgrade UI + checkout
   // =====================================================
   function syncUpgradeUI(currentSlug) {
     if (!upgradeBox) return;
@@ -757,37 +603,39 @@
   }
 
   async function startCheckout(targetSlug) {
-  try {
-    // ✅ FORZAR refresh de sesión (evita "Invalid JWT")
-    const { data: refreshRes, error: refreshErr } = await sb.auth.refreshSession();
-    const session = refreshRes?.session;
+    try {
+      // refresco para evitar JWT inválido
+      const { data: refreshRes } = await sb.auth.refreshSession();
+      const session = refreshRes?.session;
 
-    if (refreshErr) console.warn("[APP] refreshSession error:", refreshErr);
+      if (!session?.access_token) {
+        window.location.href = "./login.html";
+        return;
+      }
 
-    if (!session?.access_token) {
-      window.location.href = "./login.html";
-      return;
+      const { data, error } = await sb.functions.invoke("mp-checkout", {
+        body: { plan_slug: targetSlug },
+        headers: { authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (!error && data?.url) {
+        window.location.href = data.url;
+        return;
+      }
+
+      const fallback = MP_FALLBACK_URL[targetSlug];
+      if (fallback) window.location.href = fallback;
+      else alert(error?.message || "No pude iniciar el checkout.");
+    } catch (e) {
+      const fallback = MP_FALLBACK_URL[targetSlug];
+      if (fallback) window.location.href = fallback;
+      else alert(e?.message || String(e));
     }
-
-    const { data, error } = await sb.functions.invoke("mp-checkout", {
-      body: { plan_slug: targetSlug },
-      headers: { authorization: `Bearer ${session.access_token}` },
-    });
-
-    if (error) {
-      alert(error.message || "No pude iniciar el checkout.");
-      return;
-    }
-    if (!data?.url) {
-      alert("No llegó URL de checkout.");
-      return;
-    }
-
-    window.location.href = data.url;
-  } catch (e) {
-    alert(e?.message || String(e));
   }
-}
+
+  upgradeMidBtn?.addEventListener("click", () => startCheckout("mid"));
+  upgradeProBtn?.addEventListener("click", () => startCheckout("pro"));
+
   // =====================================================
   // Video modal
   // =====================================================
@@ -864,40 +712,167 @@
     videoModalFrame.src = "about:blank";
   }
 
-  videoModalBackdrop?.addEventListener("click", (e) => {
+  videoModalBackdrop?.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); closeVideoModal(); });
+  videoModalClose?.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); closeVideoModal(); });
+
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-video-url]");
+    if (!btn) return;
     e.preventDefault();
     e.stopPropagation();
-    closeVideoModal();
+
+    openVideoModal(btn.getAttribute("data-video-url"), btn.getAttribute("data-video-title") || "Video");
+  }, true);
+
+  // =====================================================
+  // Comentarios modal (rutina)
+  // =====================================================
+  function setCommentMsg(text, kind = "small") {
+    if (!commentModalMsg) return;
+    commentModalMsg.className = kind;
+    commentModalMsg.textContent = text || "";
+  }
+
+  function openCommentModal(ctx) {
+    if (!commentModal || !commentModalBackdrop) return;
+    commentCtx = ctx || null;
+
+    if (commentModalTitle) {
+      const title = ctx?.title || "Agregar comentario";
+      commentModalTitle.textContent = title;
+    }
+
+    if (commentModalText) commentModalText.value = "";
+    setCommentMsg("");
+
+    commentModal.classList.add("is-open");
+    commentModalBackdrop.classList.add("is-open");
+    commentModal.setAttribute("aria-hidden", "false");
+    commentModalBackdrop.setAttribute("aria-hidden", "false");
+
+    setTimeout(() => commentModalText?.focus?.(), 20);
+  }
+
+  function closeCommentModal() {
+    if (!commentModal || !commentModalBackdrop) return;
+    commentModal.classList.remove("is-open");
+    commentModalBackdrop.classList.remove("is-open");
+    commentModal.setAttribute("aria-hidden", "true");
+    commentModalBackdrop.setAttribute("aria-hidden", "true");
+    commentCtx = null;
+    setCommentMsg("");
+  }
+
+  commentModalBackdrop?.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); closeCommentModal(); });
+  commentModalClose?.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); closeCommentModal(); });
+
+  async function resolveDayId(monthNumber, weekNumber, dayNumber) {
+    const key = `${monthNumber}:${weekNumber}:${dayNumber}`;
+    if (dayIdCache.has(key)) return dayIdCache.get(key);
+
+    // 1) weeks -> week_id
+    const { data: w, error: wErr } = await sb
+      .from("weeks")
+      .select("id")
+      .eq("month_number", monthNumber)
+      .eq("week_number", weekNumber)
+      .maybeSingle();
+
+    if (wErr || !w?.id) throw new Error("No pude resolver la semana para guardar el comentario.");
+
+    // 2) week_days -> day_id
+    const { data: d, error: dErr } = await sb
+      .from("week_days")
+      .select("id")
+      .eq("week_id", w.id)
+      .eq("day_number", dayNumber)
+      .maybeSingle();
+
+    if (dErr || !d?.id) throw new Error("No pude resolver el día para guardar el comentario.");
+
+    dayIdCache.set(key, d.id);
+    return d.id;
+  }
+
+  async function submitRoutineComment(ctx, message) {
+    const { data: u } = await sb.auth.getUser();
+    const uid = u?.user?.id;
+    if (!uid) throw new Error("Sesión inválida. Volvé a iniciar sesión.");
+
+    const monthNumber = Number(ctx?.month || 0);
+    const weekNumber = Number(ctx?.week || 0);
+    const dayNumber = Number(ctx?.day || 0);
+
+    if (!monthNumber || !weekNumber || !dayNumber) throw new Error("Contexto inválido para comentario.");
+
+    const day_id = await resolveDayId(monthNumber, weekNumber, dayNumber);
+
+    const { error } = await sb.from("routine_comments").insert({
+      user_id: uid,
+      day_id,
+      message: String(message || "").trim(),
+      read_at: null,
+    });
+
+    if (error) {
+      const msg = String(error.message || "");
+      if (msg.includes('relation "routine_comments" does not exist')) {
+        throw new Error("La función de comentarios todavía no está habilitada. En el próximo paso la activamos en SQL.");
+      }
+      throw new Error(error.message || "No pude enviar el comentario.");
+    }
+  }
+
+  commentModalSend?.addEventListener("click", async () => {
+    try {
+      const txt = String(commentModalText?.value || "").trim();
+      if (txt.length < 3) {
+        setCommentMsg("Escribí un comentario un poquito más largo 🙂", "error");
+        return;
+      }
+      if (!commentCtx) {
+        setCommentMsg("No pude determinar a qué día corresponde el comentario.", "error");
+        return;
+      }
+
+      commentModalSend.disabled = true;
+      setCommentMsg("Enviando…", "small");
+
+      await submitRoutineComment(commentCtx, txt);
+
+      setCommentMsg("Enviado ✅", "notice");
+      setTimeout(() => closeCommentModal(), 600);
+    } catch (e) {
+      console.error("[A360] comment error:", e);
+      setCommentMsg(e?.message || String(e), "error");
+    } finally {
+      if (commentModalSend) commentModalSend.disabled = false;
+    }
   });
 
-  videoModalClose?.addEventListener("click", (e) => {
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-comment-open]");
+    if (!btn) return;
+
     e.preventDefault();
-    e.stopPropagation();
-    closeVideoModal();
+
+    const month = Number(btn.getAttribute("data-comment-month") || 0);
+    const week = Number(btn.getAttribute("data-comment-week") || 0);
+    const day = Number(btn.getAttribute("data-comment-day") || 0);
+    const dayName = btn.getAttribute("data-comment-dayname") || `Día ${day}`;
+
+    const title = `Comentario — Mes ${month} · Semana ${week} · ${dayName}`;
+    openCommentModal({ month, week, day, title });
   });
-
-  document.addEventListener(
-    "click",
-    (e) => {
-      const btn = e.target.closest("[data-video-url]");
-      if (!btn) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      openVideoModal(
-        btn.getAttribute("data-video-url"),
-        btn.getAttribute("data-video-title") || "Video"
-      );
-    },
-    true
-  );
 
   // =====================================================
   // Render rutinas
   // =====================================================
   function getItemsForDay(day) {
-    return currentTrack === "gym" ? (day.items_gym || []) : (day.items_home || []);
+    if (currentTrack === "gym") return (day.items_gym || []);
+    if (currentTrack === "home") return (day.items_home || []);
+    // fallback
+    return (day.items_gym || day.items_home || []);
   }
 
   function renderExerciseCard(item) {
@@ -913,7 +888,7 @@
 
     return `
       <div class="ex-card">
-        <div>
+        <div style="min-width:0">
           <div class="ex-name">${esc(item.exercise)}</div>
           <div class="ex-meta">
             ${esc(item.sets)}×${esc(item.reps)}
@@ -935,13 +910,7 @@
       return;
     }
 
-    const DAY_NAMES = {
-      1: "Lunes",
-      2: "Martes",
-      3: "Miércoles",
-      4: "Jueves",
-      5: "Viernes",
-    };
+    const DAY_NAMES = { 1: "Lunes", 2: "Martes", 3: "Miércoles", 4: "Jueves", 5: "Viernes" };
 
     json.weeks.forEach((week) => {
       const weekDetails = document.createElement("details");
@@ -989,17 +958,29 @@
         const muscleGroupRaw = String(day.muscle_group || "").trim();
         const muscleGroupIsAdef = muscleGroupRaw && norm(muscleGroupRaw) === "a definir";
 
-        const chips = `
-          <div class="chips" style="margin-top:10px">
+        const chipsHtml = `
+          <div class="chips">
             <div class="chip">${labelTrack(currentTrack)}</div>
             ${(!muscleGroupIsAdef && muscleGroupRaw) ? `<div class="chip">${esc(muscleGroupRaw)}</div>` : ""}
             ${focus ? `<div class="chip">${esc(focus)}</div>` : ""}
           </div>
         `;
 
-        const list = items?.length
+        const listHtml = items?.length
           ? `<div class="ex-list">${items.map(renderExerciseCard).join("")}</div>`
           : `<div class="notice small" style="margin-top:10px">Rutina aún no cargada para este objetivo/modalidad.</div>`;
+
+        // ✅ Acciones: comentarios
+        const commentBtn = `
+          <button class="btn campus-ghost" type="button"
+            data-comment-open="1"
+            data-comment-month="${esc(currentMonth)}"
+            data-comment-week="${esc(week.week_number)}"
+            data-comment-day="${esc(day.day_number)}"
+            data-comment-dayname="${esc(dayName)}">
+            Agregar comentarios
+          </button>
+        `;
 
         dayDetails.innerHTML = `
           <summary>
@@ -1007,11 +988,20 @@
               <b>${esc(dayName)}</b>
               ${focus ? `<span class="small">${esc(focus)}</span>` : ""}
             </div>
-            <span class="small">Ver</span>
+            <span class="small">${items?.length ? `${items.length} ej.` : "Ver"}</span>
           </summary>
+
           <div class="day-body">
-            ${chips}
-            ${list}
+            <div class="day-toprow">
+              <div>${chipsHtml}</div>
+              <div class="day-actions">${commentBtn}</div>
+            </div>
+
+            <div class="comment-hint">
+              Tip: Podés dejar comentarios de progreso, molestias o dudas para ajustar tu rutina.
+            </div>
+
+            ${listHtml}
           </div>
         `;
 
@@ -1022,28 +1012,23 @@
     });
   }
 
+  // =====================================================
+  // RPC Mes (con gate + fallback)
+  // =====================================================
   async function rpcMonthContent(monthNumber, objective) {
-    // 1) Gate (nuevo)
     const res = await sb.rpc("get_month_content_gate_secure", {
-  p_month: monthNumber,
-  p_objective: objective,
-});
+      p_month: monthNumber,
+      p_objective: objective,
+    });
 
     if (!res.error) return res;
 
-    // 2) Fallback legacy
     const msg = String(res.error?.message || "");
     if (msg.includes("schema cache") || msg.includes("Could not find the function")) {
-      const r3 = await sb.rpc("get_month_content_v3", {
-        p_month: monthNumber,
-        p_objective: objective,
-      });
+      const r3 = await sb.rpc("get_month_content_v3", { p_month: monthNumber, p_objective: objective });
       if (!r3.error) return r3;
 
-      return await sb.rpc("get_month_content_v2", {
-        p_month: monthNumber,
-        p_objective: objective,
-      });
+      return await sb.rpc("get_month_content_v2", { p_month: monthNumber, p_objective: objective });
     }
 
     return res;
@@ -1056,7 +1041,6 @@
 
     const cacheKey = `${monthNumber}-${currentObjective}-${currentTrack}`;
 
-    // Cache: solo si NO está force
     if (!opts.force && monthCache.has(cacheKey)) {
       routineLocked = false;
       routineAvailableAt = null;
@@ -1065,7 +1049,6 @@
       if (downloadRoutineBtn) downloadRoutineBtn.disabled = false;
 
       renderMonth(monthCache.get(cacheKey));
-      syncCampusExperience();
       return;
     }
 
@@ -1073,11 +1056,9 @@
 
     if (error) {
       if (monthContent) monthContent.innerHTML = `<div class="error">${esc(error.message)}</div>`;
-      syncCampusExperience();
       return;
     }
 
-    // 👇 Gate: rutina en preparación
     if (json?.locked) {
       routineLocked = true;
       routineAvailableAt = json.available_at || null;
@@ -1087,13 +1068,10 @@
       clearGateTimer();
       scheduleGateRefresh(routineAvailableAt);
 
-      // No cachear locked
       renderRoutineLockedNotice(routineAvailableAt);
-      syncCampusExperience();
       return;
     }
 
-    // Rutina habilitada
     routineLocked = false;
     routineAvailableAt = null;
     clearGateTimer();
@@ -1102,7 +1080,6 @@
 
     monthCache.set(cacheKey, json);
     renderMonth(json);
-    syncCampusExperience();
   }
 
   // =====================================================
@@ -1131,7 +1108,6 @@
 
     if (!canSeePremiumContent()) {
       setNotice(classesMsg, "Las clases están disponibles solo para el Plan Premium/Pro.", "notice small");
-      syncCampusExperience();
       return;
     }
 
@@ -1149,13 +1125,11 @@
 
     if (error) {
       setNotice(classesMsg, error.message, "error");
-      syncCampusExperience();
       return;
     }
 
     if (!data?.length) {
       setNotice(classesMsg, "Todavía no hay clases en vivo programadas.", "notice small");
-      syncCampusExperience();
       return;
     }
 
@@ -1188,8 +1162,6 @@
         `;
       })
       .join("");
-
-    syncCampusExperience();
   }
 
   // =====================================================
@@ -1222,24 +1194,14 @@
     const meta = [item.topic ? item.topic : "", when].filter(Boolean).join(" · ");
 
     const action = item.youtube_url
-      ? `
-        <button class="btn primary" type="button"
-          data-video-url="${esc(item.youtube_url)}"
-          data-video-title="${esc(title)}">
-          Ver clase
-        </button>
-      `
+      ? `<button class="btn primary" type="button" data-video-url="${esc(item.youtube_url)}" data-video-title="${esc(title)}">Ver clase</button>`
       : `<span class="small">Sin video</span>`;
 
     return `
       <div class="lib-video">
         <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:12px;min-width:0;flex:1 1 260px;">
-            <img class="lib-video-thumb"
-              src="${esc(thumb)}"
-              alt="${esc(title)}"
-              loading="lazy"
-              onerror="this.src='./imagenes/Isotipo.png'">
+            <img class="lib-video-thumb" src="${esc(thumb)}" alt="${esc(title)}" loading="lazy" onerror="this.src='./imagenes/Isotipo.png'">
             <div style="min-width:0;">
               <div class="lib-video-title">${esc(title)}</div>
               ${meta ? `<div class="lib-video-meta">${esc(meta)}</div>` : ""}
@@ -1281,9 +1243,7 @@
             <summary>${year}</summary>
             ${months
               .map((monthIndex) => {
-                const monthIsOpen =
-                  year === currentYear && monthIndex === currentMonthIndex ? "open" : "";
-
+                const monthIsOpen = (year === currentYear && monthIndex === currentMonthIndex) ? "open" : "";
                 return `
                   <details class="lib-month" ${monthIsOpen}>
                     <summary>${monthNameEs(monthIndex)}</summary>
@@ -1329,7 +1289,7 @@
   }
 
   // =====================================================
-  // Descargar rutina (prolija + SIN links de video)
+  // Descargar rutina
   // =====================================================
   async function getMonthJsonForDownload(monthNumber, objective) {
     const key = `${monthNumber}-${objective}-${currentTrack}`;
@@ -1338,13 +1298,11 @@
     const { data, error } = await rpcMonthContent(monthNumber, objective);
     if (error) throw error;
 
-    // Evitar descarga si viene gateado
     if (data?.locked) {
       const when = data.available_at ? formatDateTimeEs(data.available_at) : "";
-      const msg = when
+      throw new Error(when
         ? `Tu rutina todavía está en preparación. Se habilita: ${when} (AR).`
-        : "Tu rutina todavía está en preparación. Se habilita mañana entre 08:00 y 14:00 (AR).";
-      throw new Error(msg);
+        : "Tu rutina todavía está en preparación.");
     }
 
     monthCache.set(key, data);
@@ -1355,87 +1313,67 @@
     const gen = new Date();
     const title = `Rutina ${monthLabel(monthNumber)} — ${objectiveLabel(objective)} — ${labelTrack(track)}`;
 
-    const DAY_NAMES = {
-      1: "Lunes",
-      2: "Martes",
-      3: "Miércoles",
-      4: "Jueves",
-      5: "Viernes",
-    };
-
+    const DAY_NAMES = { 1: "Lunes", 2: "Martes", 3: "Miércoles", 4: "Jueves", 5: "Viernes" };
     const weeks = Array.isArray(json?.weeks) ? json.weeks : [];
 
-    const weeksHtml = weeks
-      .map((week) => {
-        const weekTitle = String(week.title || "").trim();
-        const weekHead = weekTitle
-          ? `Semana ${week.week_number} — ${esc(weekTitle)}`
-          : `Semana ${week.week_number}`;
+    const weeksHtml = weeks.map((week) => {
+      const weekTitle = String(week.title || "").trim();
+      const weekHead = weekTitle ? `Semana ${week.week_number} — ${esc(weekTitle)}` : `Semana ${week.week_number}`;
+      const days = Array.isArray(week.days) ? week.days : [];
 
-        const days = Array.isArray(week.days) ? week.days : [];
+      const daysHtml = days.map((day) => {
+        const dayName = DAY_NAMES[day.day_number] || `Día ${day.day_number}`;
+        const mg = String(day.muscle_group || "").trim();
+        const focus = String(day.focus || "").trim();
 
-        const daysHtml = days
-          .map((day) => {
-            const dayName = DAY_NAMES[day.day_number] || `Día ${day.day_number}`;
-            const mg = String(day.muscle_group || "").trim();
-            const focus = String(day.focus || "").trim();
+        const items = track === "gym" ? (day.items_gym || []) : (day.items_home || []);
+        const metaLine = [mg && `Grupo: ${esc(mg)}`, focus && `Foco: ${esc(focus)}`].filter(Boolean).join(" · ");
 
-            const items = track === "gym" ? (day.items_gym || []) : (day.items_home || []);
+        if (!items.length) {
+          return `
+            <section class="day">
+              <h3>${esc(dayName)}</h3>
+              ${metaLine ? `<div class="meta">${metaLine}</div>` : ""}
+              <div class="muted">Sin ejercicios cargados para este objetivo/modalidad.</div>
+            </section>
+          `;
+        }
 
-            const metaLine = [
-              mg && `Grupo: ${esc(mg)}`,
-              focus && `Foco: ${esc(focus)}`,
-            ].filter(Boolean).join(" · ");
-
-            if (!items.length) {
-              return `
-                <section class="day">
-                  <h3>${esc(dayName)}</h3>
-                  ${metaLine ? `<div class="meta">${metaLine}</div>` : ""}
-                  <div class="muted">Sin ejercicios cargados para este objetivo/modalidad.</div>
-                </section>
-              `;
-            }
-
-            const rows = items
-              .map((item) => `
-                <tr>
-                  <td class="col-ex">${esc(item.exercise || "")}</td>
-                  <td class="col-num">${esc(item.sets || "")}</td>
-                  <td class="col-num">${esc(item.reps || "")}</td>
-                  <td class="col-notes">${esc(item.notes || "")}</td>
-                </tr>
-              `)
-              .join("");
-
-            return `
-              <section class="day">
-                <h3>${esc(dayName)}</h3>
-                ${metaLine ? `<div class="meta">${metaLine}</div>` : ""}
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Ejercicio</th>
-                      <th class="col-num">Series</th>
-                      <th class="col-num">Reps</th>
-                      <th>Notas</th>
-                    </tr>
-                  </thead>
-                  <tbody>${rows}</tbody>
-                </table>
-              </section>
-            `;
-          })
-          .join("");
+        const rows = items.map((item) => `
+          <tr>
+            <td class="col-ex">${esc(item.exercise || "")}</td>
+            <td class="col-num">${esc(item.sets || "")}</td>
+            <td class="col-num">${esc(item.reps || "")}</td>
+            <td class="col-notes">${esc(item.notes || "")}</td>
+          </tr>
+        `).join("");
 
         return `
-          <section class="week">
-            <h2>${esc(weekHead)}</h2>
-            ${daysHtml || `<div class="muted">Semana sin días.</div>`}
+          <section class="day">
+            <h3>${esc(dayName)}</h3>
+            ${metaLine ? `<div class="meta">${metaLine}</div>` : ""}
+            <table>
+              <thead>
+                <tr>
+                  <th>Ejercicio</th>
+                  <th class="col-num">Series</th>
+                  <th class="col-num">Reps</th>
+                  <th>Notas</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
           </section>
         `;
-      })
-      .join("");
+      }).join("");
+
+      return `
+        <section class="week">
+          <h2>${esc(weekHead)}</h2>
+          ${daysHtml || `<div class="muted">Semana sin días.</div>`}
+        </section>
+      `;
+    }).join("");
 
     const body = weeksHtml || `<div class="muted">Este mes no tiene contenido cargado.</div>`;
 
@@ -1446,10 +1384,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>${esc(title)}</title>
   <style>
-    :root{ color-scheme: light; }
     body{ font-family: system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; margin:0; color:#111; background:#fff; }
     .page{ max-width: 920px; margin: 0 auto; padding: 26px; }
-    .head{ display:flex; justify-content:space-between; gap:14px; align-items:flex-start; border-bottom: 1px solid #e9e9e9; padding-bottom: 14px; margin-bottom: 16px; }
+    .head{ border-bottom: 1px solid #e9e9e9; padding-bottom: 14px; margin-bottom: 16px; }
     .brand{ font-weight: 800; letter-spacing: .04em; font-size: 14px; opacity: .85; }
     h1{ font-size: 18px; margin: 6px 0 0; line-height:1.25; }
     .sub{ color:#555; font-size: 12px; margin: 6px 0 0; }
@@ -1457,7 +1394,6 @@
     h3{ margin: 14px 0 6px; font-size: 13px; }
     .meta{ font-size: 12px; color:#555; margin-bottom: 8px; }
     .muted{ font-size: 12px; color:#666; }
-    .week{ page-break-inside: avoid; }
     .day{ padding: 10px 0 8px; border-top: 1px solid #efefef; }
     table{ width:100%; border-collapse: collapse; margin-top: 8px; border: 1px solid #e7e7e7; border-radius: 10px; overflow: hidden; }
     th, td{ border-bottom: 1px solid #ededed; padding: 10px 10px; font-size: 12px; vertical-align: top; }
@@ -1466,21 +1402,14 @@
     .col-num{ width: 72px; text-align: center; white-space: nowrap; }
     .col-ex{ width: 42%; }
     .footnote{ margin-top: 18px; font-size: 12px; color:#666; border-top: 1px solid #e9e9e9; padding-top: 12px; }
-    @media print{
-      .page{ padding: 0; }
-      body{ margin: 10mm; }
-      table{ break-inside: avoid; }
-    }
   </style>
 </head>
 <body>
   <div class="page">
     <div class="head">
-      <div>
-        <div class="brand">MARICEL CONSE · ACADEMIA DE MUJERES</div>
-        <h1>${esc(title)}</h1>
-        <p class="sub">Generado: ${esc(gen.toLocaleString("es-AR"))}</p>
-      </div>
+      <div class="brand">MARICEL CONSE · ACADEMIA DE MUJERES</div>
+      <h1>${esc(title)}</h1>
+      <p class="sub">Generado: ${esc(gen.toLocaleString("es-AR"))}</p>
     </div>
 
     ${body}
@@ -1502,11 +1431,7 @@
 
       if (routineLocked) {
         const when = routineAvailableAt ? formatDateTimeEs(routineAvailableAt) : "";
-        alert(
-          when
-            ? `Tu rutina todavía está en preparación.\nSe habilita: ${when} (AR).`
-            : "Tu rutina todavía está en preparación.\nSe habilita mañana entre 08:00 y 14:00 (AR)."
-        );
+        alert(when ? `Tu rutina todavía está en preparación.\nSe habilita: ${when} (AR).` : "Tu rutina todavía está en preparación.");
         return;
       }
 
@@ -1525,7 +1450,6 @@
       const a = document.createElement("a");
       a.href = url;
       a.download = `${fileBase}.html`;
-
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -1548,10 +1472,10 @@
     profileMsg.textContent = text || "";
   }
 
-  function openProfile(open) {
-    if (!profilePanel) return;
-    profilePanel.style.display = open ? "block" : "none";
-    if (!open) setProfileMsg("");
+  function setDeleteAccountMsg(text, kind = "small") {
+    if (!deleteAccountMsg) return;
+    deleteAccountMsg.className = kind;
+    deleteAccountMsg.textContent = text || "";
   }
 
   function openProfile(open) {
@@ -1581,12 +1505,10 @@
 
     if (profileUpgradeMidBtn) profileUpgradeMidBtn.style.display = slug === "basic" ? "inline-flex" : "none";
     if (profileUpgradeProBtn) profileUpgradeProBtn.style.display = show ? "inline-flex" : "none";
-    if (upgradeMidBtn) upgradeMidBtn.textContent = "Pasar a Intermedio";
-    if (upgradeProBtn) upgradeProBtn.textContent = "Pasar a Premium";
 
     if (profileUpgradeMidBtn) profileUpgradeMidBtn.textContent = "Pasar a Intermedio";
     if (profileUpgradeProBtn) profileUpgradeProBtn.textContent = "Pasar a Premium";
-   }
+  }
 
   async function loadMyProfile() {
     const { data: userRes } = await sb.auth.getUser();
@@ -1611,10 +1533,7 @@
     if (pfHeight) pfHeight.value = profile?.height_cm == null ? "" : String(profile.height_cm);
     if (pfLevel) pfLevel.value = profile?.training_level ?? "";
 
-    if (profile?.full_name) {
-      campusFirstName = firstNameFromFullName(profile.full_name, campusEmailCache);
-      syncCampusExperience();
-    }
+    if (profile?.full_name) campusFirstName = firstNameFromFullName(profile.full_name, campusEmailCache);
   }
 
   async function saveMyProfile() {
@@ -1638,18 +1557,17 @@
     };
 
     const { error } = await sb.from("profiles").upsert(payload, { onConflict: "user_id" });
-
     if (error) {
       setProfileMsg(error.message, "error");
       return;
     }
 
     campusFirstName = firstNameFromFullName(payload.full_name, email);
-    syncCampusExperience();
     setProfileMsg("Guardado ✅", "notice");
   }
 
-  profileBtn?.addEventListener("click", async () => {
+  profileBtn?.addEventListener("click", async (e) => {
+    e.preventDefault();
     openProfile(true);
     syncProfileAccountUI();
     await loadMyProfile();
@@ -1661,18 +1579,8 @@
   profileUpgradeMidBtn?.addEventListener("click", () => startCheckout("mid"));
   profileUpgradeProBtn?.addEventListener("click", () => startCheckout("pro"));
 
-      // =====================================================
-  // Eliminar cuenta
-  // =====================================================
-  function setDeleteAccountMsg(text, kind = "small") {
-    if (!deleteAccountMsg) return;
-    deleteAccountMsg.className = kind;
-    deleteAccountMsg.textContent = text || "";
-  }
-
   async function deleteMyAccount() {
     try {
-      // Evita doble click
       if (deleteAccountBtn) deleteAccountBtn.disabled = true;
       setDeleteAccountMsg("", "small");
 
@@ -1688,9 +1596,7 @@
         return;
       }
 
-      const ok = confirm(
-        "Vas a ELIMINAR tu cuenta.\n\nEsto es irreversible.\n\n¿Querés continuar?"
-      );
+      const ok = confirm("Vas a ELIMINAR tu cuenta.\n\nEsto es irreversible.\n\n¿Querés continuar?");
       if (!ok) return;
 
       const typed = (prompt(`Para confirmar, escribí tu email:\n${email}`) || "").trim();
@@ -1703,19 +1609,16 @@
 
       const res = await sb.functions.invoke("delete-account", {
         body: { confirm_email: typed },
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { authorization: `Bearer ${token}` },
       });
 
-      // Debug útil: te deja ver el JSON real que vuelve de la function
       console.log("[delete-account] response:", res);
 
       const { data, error } = res;
-
       if (error) {
         setDeleteAccountMsg(error.message || "Error al eliminar la cuenta.", "error");
         return;
       }
-
       if (!data?.ok) {
         setDeleteAccountMsg("No se pudo completar la eliminación.", "error");
         return;
@@ -1734,121 +1637,79 @@
     }
   }
 
-  // ⬅️ ESTE listener va 1 sola vez, fuera de setDeleteAccountMsg
   deleteAccountBtn?.addEventListener("click", deleteMyAccount);
 
   // =====================================================
-// Init (optimizado: paralelo + no bloquea quote)
-// =====================================================
-(async function init() {
-  syncHeaderUI();
+  // Init
+  // =====================================================
+  (async function init() {
+    syncHeaderUI();
 
-  const session = await requireAuth();
-  if (!session) return;
+    const session = await requireAuth();
+    if (!session) return;
 
-  if (userEmail) userEmail.textContent = session.user.email;
+    if (userEmail) userEmail.textContent = session.user.email;
+    campusEmailCache = session.user.email || "";
 
-  campusEmailCache = session.user.email || "";
-  await loadCampusIdentity();
-  const routineP = loadRoutineDeliveryStatus(session.user.id); // no bloquea
+    await loadCampusIdentity();
 
-  // ⚡ Disparar tareas en paralelo lo antes posible
-  const adminP = maybeShowAdminLink();
-  const planP = loadPlanBadge();
-  const prefsP = loadUserPreferences();
+    // paralelo
+    const routineP = loadRoutineDeliveryStatus(session.user.id);
+    const adminP = maybeShowAdminLink();
+    const planP = loadPlanBadge();
+    const prefsP = loadUserPreferences();
+    const quoteP = loadWeeklyQuoteIntoApp();
 
-  // ⚡ Quote no bloquea el resto
-  const quoteP = loadWeeklyQuoteIntoApp();
+    await Promise.all([adminP, planP]);
 
-  // Necesitamos plan/admin antes de sincronizar UI de plan
-  await Promise.all([adminP, planP]);
-  // ✅ GATE: sin plan activo NO se ve contenido, NO hay onboarding
-if (!planInfo || norm(planInfo.status) !== "active") {
-  // UI mínima: mostrar paywall y cortar init
-  if (monthTitle) monthTitle.textContent = "Acceso pendiente";
-  if (monthContent) {
-    monthContent.innerHTML = `
-      <div class="notice">
-        <b>Tu cuenta todavía no tiene una suscripción activa.</b><br><br>
-        Para ver tu rutina y contenidos, completá el pago.
-        <br><br>
-        <a class="btn primary" href="./index.html#planes">Ver planes</a>
-      </div>
-    `;
-  }
+    // Gate por plan activo
+    if (!planInfo || norm(planInfo.status) !== "active") {
+      if (monthTitle) monthTitle.textContent = "Acceso pendiente";
+      if (monthContent) {
+        monthContent.innerHTML = `
+          <div class="notice">
+            <b>Tu cuenta todavía no tiene una suscripción activa.</b><br><br>
+            Para ver tu rutina y contenidos, completá el pago.
+            <br><br>
+            <a class="btn primary" href="./index.html#planes">Ver planes</a>
+          </div>
+        `;
+      }
+      if (classesList) classesList.innerHTML = "";
+      if (recordedList) recordedList.innerHTML = "";
+      if (classesMsg) setNotice(classesMsg, "Disponible con suscripción activa.", "notice small");
+      if (recordedMsg) setNotice(recordedMsg, "Disponible con suscripción activa.", "notice small");
 
-  // Ocultar secciones premium si existen
-  if (classesList) classesList.innerHTML = "";
-  if (recordedList) recordedList.innerHTML = "";
-  if (classesMsg) setNotice(classesMsg, "Disponible con suscripción activa.", "notice small");
-  if (recordedMsg) setNotice(recordedMsg, "Disponible con suscripción activa.", "notice small");
+      syncUpgradeUI(planSlug);
+      syncProfileAccountUI();
+      syncHelpWhatsappUI();
 
-  // Si tenés upgradeBox, lo podés mostrar como CTA (opcional)
-  if (upgradeBox) {
-    upgradeBox.style.display = "block";
-    // Dejá solo Pro/Premium como CTA si querés:
-    if (upgradeMidBtn) upgradeMidBtn.style.display = "none";
-    if (upgradeProBtn) {
-      upgradeProBtn.style.display = "inline-flex";
-      upgradeProBtn.textContent = "Activar Premium";
+      await quoteP;
+      await routineP;
+      return;
     }
-  }
 
-  syncCampusExperience();
-  return; // ⛔ corta init
-}
-  async function needsOnboarding(uid) {
-  const { data: p } = await sb.from("profiles")
-    .select("age, training_level")
-    .eq("user_id", uid)
-    .maybeSingle();
+    syncUpgradeUI(planSlug);
+    syncProfileAccountUI();
+    syncHelpWhatsappUI();
 
-  const { data: pref } = await sb.from("user_preferences")
-    .select("objective, track")
-    .eq("user_id", uid)
-    .maybeSingle();
+    // preferencias
+    const prefs = await prefsP;
+    currentObjective = prefs.objective;
+    currentTrack = prefs.track;
 
-  const missingAge = p?.age == null;
-  const missingLevel = !p?.training_level;
-  const missingObj = !pref?.objective;
-  const missingTrack = !pref?.track;
+    try { localStorage.removeItem("A360_OBJECTIVE"); } catch (_) {}
 
-  return missingAge || missingLevel || missingObj || missingTrack;
-}
+    syncTrackUI();
+    lockRoutineToStudentPreferencesUI();
 
-// ... dentro de init(), luego de planP:
-if (isPlanActive()) {
-  const must = await needsOnboarding(session.user.id);
-  if (must) {
-    window.location.replace("./onboarding.html");
-    return;
-  }
-}
+    // contenido
+    const publishedMonth = await getPublishedMonthNumber();
+    await openMonth(publishedMonth, { force: true });
 
-  syncUpgradeUI(planSlug);
-  syncProfileAccountUI();
-  syncHelpWhatsappUI();
+    await Promise.all([loadClasses(), loadRecordedClasses()]);
+    await Promise.all([quoteP, routineP]);
 
-  // Preferencias (objective/track)
-  const prefs = await prefsP;
-  currentObjective = prefs.objective;
-currentTrack = prefs.track;
-
-// Evita desincronización histórica del alumno
-try { localStorage.removeItem("A360_OBJECTIVE"); } catch (_) {}
-
-syncTrackUI();
-lockRoutineToStudentPreferencesUI();
-
-  // Contenido pesado
-  const publishedMonth = await getPublishedMonthNumber();
-  await openMonth(publishedMonth, { force: true });
-
-  await Promise.all([loadClasses(), loadRecordedClasses()]);
-
-  // No es necesario esperar quote, pero si querés asegurar que termine:
-  await quoteP;
-  await routineP;
-  syncCampusExperience();
-})();
+    console.log("[A360] Ready ✅");
+  })();
 })();
