@@ -203,6 +203,8 @@
 
   const saveSendRoutineBtn = $("saveSendRoutineBtn");
   const saveSendRoutineMsg = $("saveSendRoutineMsg");
+  const saveSendRoutineBtnTop = $("saveSendRoutineBtnTop");
+  const saveSendRoutineMsgTop = $("saveSendRoutineMsgTop");
 
   const openStudentCaseBtn = $("openStudentCaseBtn");
 
@@ -478,6 +480,8 @@ function syncRoutineCommentsViewToggle() {
     day_id: null,
     week_number: null,
     day_number: null,
+    profile: null,
+    prefs: null,    
   };
 
   function setStudentModeMsg(t, kind = "small") {
@@ -486,11 +490,16 @@ function syncRoutineCommentsViewToggle() {
     studentModeMsg.textContent = t || "";
   }
 
-  function setSaveSendMsg(t, kind = "small") {
-    if (!saveSendRoutineMsg) return;
+function setSaveSendMsg(t, kind = "small") {
+  if (saveSendRoutineMsg) {
     saveSendRoutineMsg.className = kind;
     saveSendRoutineMsg.textContent = t || "";
   }
+  if (saveSendRoutineMsgTop) {
+    saveSendRoutineMsgTop.className = kind;
+    saveSendRoutineMsgTop.textContent = t || "";
+  }
+}
 
   function setEditorHint(t) {
     if (!editorHint) return;
@@ -521,7 +530,7 @@ function syncRoutineCommentsViewToggle() {
     if (exitStudentModeBtn) exitStudentModeBtn.style.display = "inline-flex";
     if (editStudentModeBtn) editStudentModeBtn.style.display = "none";
     if (saveSendRoutineBtn) saveSendRoutineBtn.style.display = "inline-flex";
-
+    if (saveSendRoutineBtnTop) saveSendRoutineBtnTop.style.display = "inline-flex";
     setEditorHint("Elegí semana/día y cargá ejercicios para este mes.");
   }
 
@@ -538,6 +547,8 @@ function syncRoutineCommentsViewToggle() {
     if (exitStudentModeBtn) exitStudentModeBtn.style.display = "none";
     if (editStudentModeBtn) editStudentModeBtn.style.display = "inline-flex";
     if (saveSendRoutineBtn) saveSendRoutineBtn.style.display = "none";
+    if (saveSendRoutineBtnTop) saveSendRoutineBtnTop.style.display = "none";
+    if (saveSendRoutineMsgTop) saveSendRoutineMsgTop.textContent = "";
 
     setStudentModeMsg("");
     setSaveSendMsg("");
@@ -732,13 +743,28 @@ function syncRoutineCommentsViewToggle() {
       .join("");
 
     activeUsersList.querySelectorAll("[data-open-student]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const email = btn.getAttribute("data-open-student");
-        if (!email) return;
-        if (studentEmail) studentEmail.value = email;
-        await findStudent(email);
-      });
-    });
+  btn.addEventListener("click", async () => {
+    const email = btn.getAttribute("data-open-student");
+    if (!email) return;
+
+    // 1) setear email en buscador (por si después querés usarlo)
+    if (studentEmail) studentEmail.value = email;
+
+    // 2) abrir alumna (esto carga state + overview)
+    await findStudent(email);
+
+    // 3) saltar a Rutinas
+    window.location.hash = "#view-rutinas";
+
+    // 4) scrollear al editor / rutina
+    setTimeout(() => {
+      const anchor =
+        document.getElementById("sec-editor") ||
+        document.getElementById("view-rutinas");
+      anchor?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    }, 50);
+  });
+});
   }
 
   activeUsersRefreshBtn?.addEventListener("click", () => loadActiveUsers().catch(console.error));
@@ -2207,11 +2233,60 @@ routineCommentsRefreshBtn?.addEventListener("click", () => loadRoutineComments()
     const { data: prefRow } = await sb.from("user_preferences").select("objective, track").eq("user_id", userId).maybeSingle();
     if (prefRow) out.prefs = prefRow;
 
-    const { data: profRow } = await sb.from("profiles").select("full_name, training_level, email").eq("user_id", userId).maybeSingle();
-    if (profRow) out.profile = profRow;
+   const { data: profRow } = await sb
+  .from("profiles")
+  .select("full_name, email, phone, age, weight_kg, height_cm, training_level")
+  .eq("user_id", userId)
+  .maybeSingle();
+
+if (profRow) out.profile = profRow;
 
     return out;
   }
+
+  async function openStudentAndGoToRoutineEditor(email, opts = {}) {
+  const { autoEnterEdit = true, autoLoadFirstDay = true } = opts;
+
+  // 1) buscar alumna (esto setea state, carga months, overview, etc.)
+  await openStudentAndGoToRoutineEditor(email, { autoEnterEdit: true, autoLoadFirstDay: true });
+
+  // 2) ir a Rutinas
+  window.location.hash = "#view-rutinas";
+
+  // 3) entrar en modo edición + preparar selects
+  if (autoEnterEdit) {
+    const m = Number(stuMonthSel?.value || 0);
+    if (m) state.month = m;
+
+    enterStudentMode();
+    syncRoutineBadge();
+
+    // carga semanas/días
+    await loadWeeksForMonth(state.month);
+
+    // 4) cargar automáticamente Semana 1 / Día 1 (o el primero que exista)
+    if (autoLoadFirstDay) {
+      // Semana
+      const firstWeek = Number(weekSel?.value || 0) || 1;
+      if (weekSel) weekSel.value = String(firstWeek);
+
+      await loadDaysForMonthWeek(state.month, firstWeek);
+
+      // Día (primero disponible en el select)
+      const firstDay = Number(daySel?.value || 0) || 1;
+      if (daySel) daySel.value = String(firstDay);
+
+      await loadDayForStudent();
+
+      // scroll al editor
+      setTimeout(() => {
+        const anchor = document.getElementById("sec-editor") || document.getElementById("view-rutinas");
+        anchor?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      }, 50);
+    }
+  }
+}
+
 
   async function findStudent(email) {
     const e = (email || "").trim();
@@ -2245,6 +2320,9 @@ routineCommentsRefreshBtn?.addEventListener("click", () => loadRoutineComments()
     setRoutineCommentsViewInbox();
 
     const sum = await adminLoadUserSummary(state.user_id);
+
+    state.profile = sum.profile || null;
+    state.prefs = sum.prefs || null;
 
     state.objective = sum.prefs?.objective === "muscle_gain" ? "muscle_gain" : "fat_loss";
     state.track = normalizeTrack(sum.prefs?.track) || "gym";
@@ -2333,8 +2411,25 @@ loadRoutineComments().catch(() => {});
     }
 
     setMsg(stuRoutineMsg, "Cargando mes…", "small");
-    stuRoutineMeta.textContent = `Mes: ${state.month} · ${objLabel(state.objective)} · ${trackLabel(state.track)}`;
+const p = state.profile || {};
+const prefs = state.prefs || {};
 
+const fullName = p.full_name ? esc(p.full_name) : "—";
+const phone = p.phone ? esc(p.phone) : "—";
+const age = (p.age ?? "") !== "" && p.age != null ? esc(p.age) : "—";
+const weight = (p.weight_kg ?? "") !== "" && p.weight_kg != null ? esc(p.weight_kg) : "—";
+const height = (p.height_cm ?? "") !== "" && p.height_cm != null ? esc(p.height_cm) : "—";
+const level = p.training_level ? esc(p.training_level) : "—";
+
+const obj = objLabel(state.objective);
+const trk = trackLabel(state.track);
+
+stuRoutineMeta.innerHTML = `
+  <div><b>Mes:</b> ${esc(state.month)} · <b>Objetivo:</b> ${esc(obj)} · <b>Modalidad:</b> ${esc(trk)}</div>
+  <div style="margin-top:6px">
+    <b>Ficha:</b> ${fullName} · Tel: ${phone} · Edad: ${age} · Peso: ${weight}kg · Altura: ${height}cm · Nivel: ${level}
+  </div>
+`;
     const { data: weeksRows, error: wErr } = await sb
       .from("weeks")
       .select("id,week_number,title")
@@ -2515,6 +2610,7 @@ loadRoutineComments().catch(() => {});
   }
 
   saveSendRoutineBtn?.addEventListener("click", saveAndSendRoutine);
+  saveSendRoutineBtnTop?.addEventListener("click", saveAndSendRoutine);
 
   // =====================================================
   // Herramientas de rutina: duplicar semana/mes + importar

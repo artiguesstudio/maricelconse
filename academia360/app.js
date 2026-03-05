@@ -1572,6 +1572,56 @@ tr:last-child td{ border-bottom: none; }
     const m = Number(data?.[0]?.month_number || 0);
     return m || (new Date().getMonth() + 1);
   }
+    // =====================================================
+  // Post-MercadoPago: wait for webhook to activate plan
+  // =====================================================
+  function getUrlParam(name) {
+    try { return new URLSearchParams(window.location.search).get(name); }
+    catch (_) { return null; }
+  }
+
+  async function waitForActivePlan({ timeoutMs = 30000, intervalMs = 1500 } = {}) {
+    const t0 = Date.now();
+    while (Date.now() - t0 < timeoutMs) {
+      await loadPlanBadge(); // refresca planInfo/planSlug
+      if (planInfo && norm(planInfo.status) === "active") return true;
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+    return false;
+  }
+
+  function renderConfirmingPaymentUI() {
+    if (monthTitle) monthTitle.textContent = "Confirmando tu pago…";
+    if (!monthContent) return;
+
+    monthContent.innerHTML = `
+      <div class="notice">
+        <b>Estamos confirmando tu pago ✅</b><br><br>
+        Esto puede demorar unos segundos. No cierres esta pantalla.
+        <br><br>
+        <div class="small" style="opacity:.8">Si en 30 segundos no se activa, tocá “Reintentar”.</div>
+        <br><br>
+        <button class="btn primary" id="mpRetryBtn" type="button">Reintentar</button>
+        <button class="btn" id="mpBackBtn" type="button" style="margin-left:8px">Volver a planes</button>
+      </div>
+    `;
+
+    const retry = document.getElementById("mpRetryBtn");
+    retry?.addEventListener("click", async () => {
+      retry.disabled = true;
+      const ok = await waitForActivePlan({ timeoutMs: 30000, intervalMs: 1500 });
+      if (ok) window.location.replace("./app.html"); // limpia el querystring
+      else {
+        retry.disabled = false;
+        alert("Todavía no se confirmó el pago. Reintentá en unos segundos.");
+      }
+    });
+
+    const back = document.getElementById("mpBackBtn");
+    back?.addEventListener("click", () => {
+      window.location.href = "./index.html#planes";
+    });
+  }
 
   (async function init() {
     syncHeaderUI();
@@ -1588,6 +1638,21 @@ tr:last-child td{ border-bottom: none; }
     const quoteP = loadWeeklyQuoteIntoApp();
 
     await Promise.all([adminP, planP]);
+
+        // ✅ Si vuelve de MercadoPago, esperá a que el webhook impacte en user_plan
+    const fromMp = norm(getUrlParam("from")) === "mp";
+    if (fromMp && (!planInfo || norm(planInfo.status) !== "active")) {
+      renderConfirmingPaymentUI();
+
+      const ok = await waitForActivePlan({ timeoutMs: 30000, intervalMs: 1500 });
+      if (ok) {
+        // ✅ limpia ?from=mp y re-carga flujo normal ya con plan activo
+        window.location.replace("./app.html");
+        return;
+      }
+      // Si no se activó, continúa y caerá en el gate normal ("Acceso pendiente")
+    }
+
 
     // Gate por plan activo
     if (!planInfo || norm(planInfo.status) !== "active") {
