@@ -2598,7 +2598,7 @@ stuRoutineMeta.innerHTML = `
       ];
       safeOpenMailto(buildMailto(state.email, subject, body));
 
-      setSaveSendMsg("Guardado y enviado ✅ (ya debería verse en el campus)", "notice");
+      setSaveSendMsg("Guardado y enviado ✅", "notice");
 
       await loadAlerts().catch(() => {});
       await loadStudentMonthOverview().catch(() => {});
