@@ -1,4 +1,4 @@
-// reset.js — pedir link + setear nueva contraseña (recovery) [robusto]
+// reset.js — flujo OTP (código) para recovery
 (() => {
   "use strict";
 
@@ -6,6 +6,7 @@
     alert("Supabase no está cargado. Revisá supabaseClient.js / orden de scripts.");
     return;
   }
+
   const sb = window.sb;
   const $ = (id) => document.getElementById(id);
 
@@ -15,7 +16,8 @@
   const reqEmail = $("reqEmail");
   const reqBtn = $("reqBtn");
 
-  const newPassForm = $("newPassForm");
+  const verifyForm = $("verifyForm");
+  const otpCode = $("otpCode");
   const newPass = $("newPass");
   const newPass2 = $("newPass2");
   const saveBtn = $("saveBtn");
@@ -30,92 +32,51 @@
     return window.location.pathname.includes("/academia360/") ? "/academia360" : "";
   }
 
-  // ✅ IMPORTANTÍSIMO: usar origen canónico para evitar redirects que pierdan el hash.
+  // ✅ Canonical origin (evita redirects raros; igual acá ya no dependemos del hash)
   function siteOrigin() {
     const cfg = window.A360 || {};
     const o = String(cfg.SITE_ORIGIN || window.location.origin || "").replace(/\/+$/, "");
     return o || window.location.origin;
   }
 
-  function recoveryRedirectUrl() {
+  function redirectToReset() {
     return `${siteOrigin()}${basePath()}/reset.html`;
   }
 
-  function hashParams() {
-    const h = String(window.location.hash || "");
-    const raw = h.startsWith("#") ? h.slice(1) : h;
-    return new URLSearchParams(raw);
+  function normalizeEmail(v) {
+    return String(v || "").trim().toLowerCase();
   }
 
-  function queryParams() {
-    return new URLSearchParams(window.location.search || "");
+  function normalizeOtp(v) {
+    // se permite pegar con espacios/guiones
+    return String(v || "").replace(/\D/g, "").trim();
   }
 
-  function isRecoveryHintPresent() {
-    const h = hashParams();
-    const q = queryParams();
-    return h.get("type") === "recovery" || q.get("type") === "recovery";
-  }
-
-  function showRecoveryUI() {
-    if (requestForm) requestForm.style.display = "none";
-    if (newPassForm) newPassForm.style.display = "block";
-  }
-
-  function showRequestUI() {
-    if (requestForm) requestForm.style.display = "block";
-    if (newPassForm) newPassForm.style.display = "none";
-  }
-
-  function cleanUrl() {
-    // Borra hash/query sensibles del address bar
-    const clean = `${window.location.origin}${window.location.pathname}`;
-    window.history.replaceState({}, document.title, clean);
-  }
-
-  async function establishRecoverySessionIfAny() {
-    const h = hashParams();
-    const q = queryParams();
-
-    // 1) Formato clásico: #access_token=...&refresh_token=...&type=recovery
-    const access_token = h.get("access_token");
-    const refresh_token = h.get("refresh_token");
-
-    if (access_token && refresh_token) {
-      const { error } = await sb.auth.setSession({ access_token, refresh_token });
-      if (error) throw new Error(`No pude establecer sesión de recovery: ${error.message}`);
-      cleanUrl();
-      return;
+  // Si venís con error en hash (ej: otp_expired), lo mostramos pero no entramos en loop
+  (function showHashErrorIfAny() {
+    const raw = String(window.location.hash || "");
+    const params = new URLSearchParams(raw.startsWith("#") ? raw.slice(1) : raw);
+    const err = params.get("error_code") || params.get("error");
+    const desc = params.get("error_description");
+    if (err) {
+      setMsg(
+        `No pude validar el link/código anterior (${err}). ${desc ? decodeURIComponent(desc.replace(/\+/g, " ")) : ""} Pedí un nuevo código.`,
+        "error"
+      );
+      // limpiamos hash para que no quede “pegado”
+      const clean = `${window.location.origin}${window.location.pathname}`;
+      window.history.replaceState({}, document.title, clean);
     }
-
-    // 2) Formato PKCE: ?code=...
-    const code = q.get("code");
-    if (code) {
-      const { error } = await sb.auth.exchangeCodeForSession(window.location.href);
-      if (error) throw new Error(`No pude intercambiar code por sesión: ${error.message}`);
-      cleanUrl();
-      return;
-    }
-
-    // 3) Formato token_hash: ?token_hash=...&type=recovery
-    const token_hash = q.get("token_hash");
-    const type = q.get("type");
-    if (token_hash && type) {
-      const { error } = await sb.auth.verifyOtp({ token_hash, type });
-      if (error) throw new Error(`No pude verificar OTP: ${error.message}`);
-      cleanUrl();
-      return;
-    }
-  }
+  })();
 
   // -----------------------------------------------------
-  // MODO A: pedir email
+  // Paso 1: pedir código
   // -----------------------------------------------------
   requestForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
     setMsg("");
 
-    const emailVal = String(reqEmail?.value || "").trim().toLowerCase();
+    const emailVal = normalizeEmail(reqEmail?.value);
     if (!emailVal) return setMsg("Ingresá un email válido.", "error");
     if (reqEmail && typeof reqEmail.checkValidity === "function" && !reqEmail.checkValidity()) {
       return setMsg("Ingresá un email válido.", "error");
@@ -127,29 +88,38 @@
     }
 
     try {
+      // Esto envía el email de recovery. El template ahora muestra {{ .Token }}.
       const { error } = await sb.auth.resetPasswordForEmail(emailVal, {
-        redirectTo: recoveryRedirectUrl(), // ✅ canónica
+        redirectTo: redirectToReset(),
       });
+
       if (error) throw new Error(error.message);
 
-      setMsg("Listo ✅ Revisá tu email (y spam) para continuar.", "notice");
+      setMsg("Listo ✅ Te envié un código por email. Pegalo abajo para crear tu nueva contraseña.", "notice");
+      otpCode?.focus?.();
     } catch (err) {
-      console.error("[RESET] request error:", err);
+      console.error("[RESET-OTP] request error:", err);
       setMsg(err?.message || String(err), "error");
     } finally {
       if (reqBtn) {
         reqBtn.disabled = false;
-        reqBtn.textContent = "Enviar link de recuperación";
+        reqBtn.textContent = "Enviar código";
       }
     }
   });
 
   // -----------------------------------------------------
-  // MODO B: setear nueva password
+  // Paso 2: verificar OTP + setear password
   // -----------------------------------------------------
-  newPassForm?.addEventListener("submit", async (e) => {
+  verifyForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
     setMsg("");
+
+    const emailVal = normalizeEmail(reqEmail?.value);
+    if (!emailVal) return setMsg("Ingresá tu email arriba (el mismo al que te llegó el código).", "error");
+
+    const token = normalizeOtp(otpCode?.value);
+    if (!token) return setMsg("Pegá el código que te llegó por email.", "error");
 
     const p1 = String(newPass?.value || "");
     const p2 = String(newPass2?.value || "");
@@ -163,27 +133,34 @@
     }
 
     try {
-      // ✅ Confirmar que hay sesión de recovery
-      const { data: s0, error: sErr } = await sb.auth.getSession();
-      if (sErr) console.warn("[RESET] getSession:", sErr.message);
-      if (!s0?.session) {
-        throw new Error(
-          "No hay sesión válida de recuperación. Es probable que el link haya perdido el token por un redirect. Pedí un nuevo link."
-        );
+      // 1) Verificar OTP de recovery (crea sesión)
+      const { data, error } = await sb.auth.verifyOtp({
+        email: emailVal,
+        token,
+        type: "recovery",
+      });
+
+      if (error) throw new Error(error.message);
+      if (!data?.session) {
+        throw new Error("No pude establecer sesión de recuperación. Pedí un nuevo código.");
       }
 
-      const { error } = await sb.auth.updateUser({ password: p1 });
-      if (error) throw new Error(error.message);
+      // 2) Setear nueva contraseña
+      const { error: upErr } = await sb.auth.updateUser({ password: p1 });
+      if (upErr) throw new Error(upErr.message);
 
       setMsg("Contraseña actualizada ✅ Redirigiendo al login…", "notice");
-
       await sb.auth.signOut().catch(() => {});
       setTimeout(() => {
         window.location.href = `${basePath()}/login.html`;
       }, 800);
     } catch (err) {
-      console.error("[RESET] update password error:", err);
-      setMsg(err?.message || String(err), "error");
+      console.error("[RESET-OTP] verify/update error:", err);
+      setMsg(
+        err?.message ||
+          "No pude validar el código. Si expiró, pedí uno nuevo.",
+        "error"
+      );
     } finally {
       if (saveBtn) {
         saveBtn.disabled = false;
@@ -192,33 +169,6 @@
     }
   });
 
-  // -----------------------------------------------------
   // Init
-  // -----------------------------------------------------
-  (async function init() {
-    try {
-      // Si el link trae tokens/codes, los convertimos explícitamente en sesión
-      await establishRecoverySessionIfAny();
-
-      const { data } = await sb.auth.getSession();
-      const hasSession = !!data?.session;
-
-      // Si hay pista de recovery (type=recovery) o hay sesión, mostramos el form de nueva pass
-      if (isRecoveryHintPresent() || hasSession) {
-        showRecoveryUI();
-        setMsg("Ingresá tu nueva contraseña para completar la recuperación.", "notice");
-      } else {
-        showRequestUI();
-      }
-    } catch (e) {
-      console.error("[RESET] init error:", e);
-      // Si algo falla en recovery, volvemos al modo request con un mensaje claro
-      showRequestUI();
-      setMsg(
-        e?.message ||
-          "No pude iniciar la recuperación. Es probable que el link haya expirado o se haya perdido el token. Pedí uno nuevo.",
-        "error"
-      );
-    }
-  })();
+  setMsg("Paso 1: pedí el código. Paso 2: pegalo abajo y definí tu nueva contraseña.", "small");
 })();

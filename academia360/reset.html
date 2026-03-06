@@ -4,14 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Recuperar contraseña — Academia de Mujeres</title>
-
   <link rel="stylesheet" href="./styles.css" />
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
   <script src="./supabaseClient.js"></script>
-
-  <script defer src="./reset.js?v=20260305-1"></script>
+  <script defer src="./reset.js?v=20260305-otp1"></script>
 </head>
 
 <body class="reset-page">
@@ -31,21 +29,26 @@
     <div class="card">
       <h2 style="margin:0 0 6px">Recuperar contraseña</h2>
       <div class="small" style="opacity:.8;margin-bottom:14px">
-        Te vamos a enviar un email con un link para crear una nueva contraseña.
+        Te enviaremos un <b>código</b> por email. Luego pegalo acá para crear tu nueva contraseña.
       </div>
 
       <div id="msg" class="small"></div>
       <div class="hr"></div>
 
-      <!-- MODO A: pedir email -->
+      <!-- Paso 1: pedir código -->
       <form id="requestForm" class="form" autocomplete="on">
         <label class="small">Email</label>
         <input class="input" id="reqEmail" type="email" placeholder="tu@email.com" required />
-        <button class="btn primary" id="reqBtn" type="submit">Enviar link de recuperación</button>
+        <button class="btn primary" id="reqBtn" type="submit">Enviar código</button>
       </form>
 
-      <!-- MODO B: setear nueva password -->
-      <form id="newPassForm" class="form" style="display:none" autocomplete="off">
+      <div class="hr"></div>
+
+      <!-- Paso 2: verificar código + setear password -->
+      <form id="verifyForm" class="form" autocomplete="off">
+        <label class="small">Código (6 dígitos)</label>
+        <input class="input" id="otpCode" inputmode="numeric" placeholder="Ej: 123456" required />
+
         <label class="small">Nueva contraseña</label>
         <input class="input" id="newPass" type="password" minlength="6" placeholder="Mínimo 6 caracteres" required />
 
@@ -53,24 +56,8 @@
         <input class="input" id="newPass2" type="password" minlength="6" placeholder="Repetí la contraseña" required />
 
         <button class="btn primary" id="saveBtn" type="submit">Guardar nueva contraseña</button>
-
-        <div class="small" style="opacity:.75;margin-top:10px">
-          Si el link expiró, volvé atrás y pedí uno nuevo.
-        </div>
       </form>
     </div>
   </main>
-
-  <script>
-    // Header transparente -> sólido al scrollear (igual que tus otras páginas)
-    const header = document.getElementById("siteHeader");
-    const onScroll = () => {
-      if (!header) return;
-      if (window.scrollY > 16) header.classList.add("is-scrolled");
-      else header.classList.remove("is-scrolled");
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-  </script>
 </body>
 </html>
