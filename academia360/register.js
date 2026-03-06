@@ -247,31 +247,20 @@
   }
 
   // =====================================================
-  // Checkout
-  // =====================================================
-  async function startCheckout(slug) {
-    if (!slug) {
-      throw new Error("No hay un plan válido para iniciar el checkout.");
-    }
+// Checkout
+// =====================================================
+async function startCheckout(slug) {
+  const MP_DIRECT_URL = {
+    basic: "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=a744205529154c91bdfe7811443a9e41",
+    mid:   "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=b003ccd51f3d49c59d3daf76315bb9d6",
+    pro:   "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=4e5b56a866274858ad36638487349115",
+  };
 
-    setMsg("");
-    setButtonState(payBtn, true, "Abriendo pago…");
+  const url = MP_DIRECT_URL[slug];
+  if (!url) throw new Error("No hay URL de pago para este plan.");
 
-    const { data, error } = await sb.functions.invoke("mp-checkout", {
-      body: { plan_slug: slug },
-    });
-
-    if (error) {
-      throw new Error(`No pude iniciar el checkout: ${error.message || "Error desconocido."}`);
-    }
-
-    if (!data?.url || typeof data.url !== "string") {
-      throw new Error("mp-checkout no devolvió una URL válida.");
-    }
-
-    window.location.href = data.url;
-  }
-
+  window.location.href = url;
+}
   // =====================================================
   // Events
   // =====================================================
