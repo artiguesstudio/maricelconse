@@ -141,7 +141,7 @@ src="https://www.facebook.com/tr?id=2598904363783263&ev=PageView&noscript=1"
       </div>
 
       <div class="small">
-        Elegí el nivel de acompañamiento que necesitás.<br>
+        Elegí el nivel de acompañamiento que necesitas.<br>
         Rutinas adaptadas para entrenar en tu casa o gimnasio.
       </div>
 
@@ -281,7 +281,7 @@ src="https://www.facebook.com/tr?id=2598904363783263&ev=PageView&noscript=1"
             1. ¿Hay requisitos para inscribirme?
           </button>
           <div class="small faq-a" id="faq-a-1" role="region" aria-labelledby="faq-q-1" hidden>
-            No necesitás experiencia previa ni un nivel físico específico. Solo compromiso con vos misma.
+            No necesitas experiencia previa ni un nivel físico específico. Solo compromiso con vos misma.
             En caso de tener alguna lesión o condición médica, se recomienda contar con autorización profesional antes de comenzar e indicarlo en la planilla de inscripción.
           </div>
         </div>
@@ -490,11 +490,26 @@ src="https://www.facebook.com/tr?id=2598904363783263&ev=PageView&noscript=1"
 }
 
   async function startCheckout(planSlug) {
+    const slug = String(planSlug || "").trim().toLowerCase();
+    if (!slug) throw new Error("Plan inválido.");
+
+    const { data: refreshRes, error: refreshErr } = await sb.auth.refreshSession();
+    if (refreshErr) throw new Error(refreshErr.message || "No pude refrescar tu sesión.");
+
+    const session = refreshRes?.session;
+    if (!session?.access_token) {
+      window.location.href = "./login.html";
+      return;
+    }
+
     const { data, error } = await sb.functions.invoke("mp-checkout", {
-      body: { plan_slug: planSlug },
+      body: { plan_slug: slug },
+      headers: { Authorization: `Bearer ${session.access_token}` },
     });
-    if (error) throw error;
-    if (!data?.url) throw new Error("No llegó URL de checkout.");
+
+    if (error) throw new Error(error.message || "No pude iniciar el checkout.");
+    if (!data?.url) throw new Error(data?.error || "No llegó URL de checkout.");
+
     window.location.href = data.url;
   }
 

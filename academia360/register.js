@@ -247,20 +247,28 @@
   }
 
   // =====================================================
-// Checkout
-// =====================================================
-async function startCheckout(slug) {
-  const MP_DIRECT_URL = {
-    basic: "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=a744205529154c91bdfe7811443a9e41",
-    mid:   "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=b003ccd51f3d49c59d3daf76315bb9d6",
-    pro:   "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=4e5b56a866274858ad36638487349115",
-  };
+  // Checkout
+  // =====================================================
+  async function startCheckout(slug) {
+    const planSlug = normalizePlanSlug(slug);
+    if (!planSlug) throw new Error("Plan inválido.");
 
-  const url = MP_DIRECT_URL[slug];
-  if (!url) throw new Error("No hay URL de pago para este plan.");
+    const { data: refreshRes, error: refreshErr } = await sb.auth.refreshSession();
+    if (refreshErr) throw new Error(refreshErr.message || "No pude refrescar tu sesión.");
 
-  window.location.href = url;
-}
+    const session = refreshRes?.session;
+    if (!session?.access_token) throw new Error("Tu sesión expiró. Volvé a iniciar sesión.");
+
+    const { data, error } = await sb.functions.invoke("mp-checkout", {
+      body: { plan_slug: planSlug },
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+
+    if (error) throw new Error(error.message || "No pude iniciar el checkout.");
+    if (!data?.url) throw new Error(data?.error || "Mercado Pago no devolvió una URL válida.");
+
+    window.location.href = data.url;
+  }
   // =====================================================
   // Events
   // =====================================================

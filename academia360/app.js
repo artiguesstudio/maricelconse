@@ -26,11 +26,6 @@
   const AR_TZ = "America/Argentina/Buenos_Aires";
   const MONTHS_ES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
-  const MP_FALLBACK_URL = {
-    basic: "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=a744205529154c91bdfe7811443a9e41",
-    mid:   "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=b003ccd51f3d49c59d3daf76315bb9d6",
-    pro:   "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=4e5b56a866274858ad36638487349115",
-  };
 
   const $id = (id) => document.getElementById(id);
 
@@ -327,7 +322,7 @@
 
     const { data: row, error } = await sb
       .from("user_plan")
-      .select("status, paid_through, plan_id, plans:plan_id (slug,name)")
+      .select("status, paid_through, plan_id, current_plan_slug, pending_plan_slug, mp_status, plans:plan_id (slug,name)")
       .eq("user_id", uid)
       .maybeSingle();
 
@@ -337,13 +332,22 @@
       return null;
     }
 
-    if (!row.plans?.slug && row.plan_id) {
+    let resolvedPlan = row.plans || null;
+    const currentSlug = norm(row.current_plan_slug);
+    if ((!resolvedPlan?.slug || norm(resolvedPlan?.slug) !== currentSlug) && currentSlug) {
+      const { data: pRow } = await sb.from("plans").select("slug,name").eq("slug", currentSlug).maybeSingle();
+      if (pRow) resolvedPlan = pRow;
+    }
+    if (!resolvedPlan?.slug && row.plan_id) {
       const { data: pRow } = await sb.from("plans").select("slug,name").eq("id", row.plan_id).maybeSingle();
-      row.plans = pRow || row.plans;
+      if (pRow) resolvedPlan = pRow;
     }
 
+    row.plans = resolvedPlan || row.plans;
     planInfo = row;
-    planSlug = norm(row.status) === "active" ? (norm(row.plans?.slug) || null) : null;
+    planSlug = norm(row.status) === "active"
+      ? (currentSlug || norm(row.plans?.slug) || null)
+      : null;
     return row;
   }
 
@@ -358,31 +362,29 @@
 
   async function startCheckout(targetSlug) {
     try {
-      const { data: refreshRes } = await sb.auth.refreshSession();
-      const session = refreshRes?.session;
+      const slug = norm(targetSlug);
+      if (!slug) throw new Error("Plan inválido.");
 
+      const { data: refreshRes, error: refreshErr } = await sb.auth.refreshSession();
+      if (refreshErr) throw new Error(refreshErr.message || "No pude refrescar tu sesión.");
+
+      const session = refreshRes?.session;
       if (!session?.access_token) {
         window.location.href = "./login.html";
         return;
       }
 
       const { data, error } = await sb.functions.invoke("mp-checkout", {
-        body: { plan_slug: targetSlug },
+        body: { plan_slug: slug },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
 
-      if (!error && data?.url) {
-        window.location.href = data.url;
-        return;
-      }
+      if (error) throw new Error(error.message || "No pude iniciar el checkout.");
+      if (!data?.url) throw new Error(data?.error || "Mercado Pago no devolvió una URL válida.");
 
-      const fallback = MP_FALLBACK_URL[targetSlug];
-      if (fallback) window.location.href = fallback;
-      else alert(error?.message || "No pude iniciar el checkout.");
+      window.location.href = data.url;
     } catch (e) {
-      const fallback = MP_FALLBACK_URL[targetSlug];
-      if (fallback) window.location.href = fallback;
-      else alert(e?.message || String(e));
+      alert(e?.message || String(e));
     }
   }
 

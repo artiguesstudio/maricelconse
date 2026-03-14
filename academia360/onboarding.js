@@ -22,11 +22,6 @@
   const payBox = $("obPayBox");
   const payBtn = $("obPayBtn");
 
-  const MP_FALLBACK_URL = {
-    basic: "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=a744205529154c91bdfe7811443a9e41",
-    mid:   "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=b003ccd51f3d49c59d3daf76315bb9d6",
-    pro:   "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=4e5b56a866274858ad36638487349115",
-  };
 
   function setMsg(text, kind = "small") {
     if (!msg) return;
@@ -62,21 +57,24 @@
   }
 
   async function startCheckout(planSlug) {
-    // Edge function
-    try {
-      const { data, error } = await sb.functions.invoke("mp-checkout", {
-        body: { plan_slug: planSlug },
-      });
-      if (!error && data?.url) {
-        window.location.href = data.url;
-        return;
-      }
-    } catch (_) {}
+    const slug = norm(planSlug);
+    if (!slug) throw new Error("No hay un plan válido para continuar.");
 
-    // Fallback
-    const url = MP_FALLBACK_URL[planSlug];
-    if (!url) throw new Error("No hay URL de pago para este plan.");
-    window.location.href = url;
+    const { data: refreshRes, error: refreshErr } = await sb.auth.refreshSession();
+    if (refreshErr) throw new Error(refreshErr.message || "No pude refrescar tu sesión.");
+
+    const session = refreshRes?.session;
+    if (!session?.access_token) throw new Error("Tu sesión expiró. Volvé a iniciar sesión.");
+
+    const { data, error } = await sb.functions.invoke("mp-checkout", {
+      body: { plan_slug: slug },
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+
+    if (error) throw new Error(error.message || "No pude iniciar el checkout.");
+    if (!data?.url) throw new Error(data?.error || "Mercado Pago no devolvió una URL válida.");
+
+    window.location.href = data.url;
   }
 
   async function prefill(uid) {
