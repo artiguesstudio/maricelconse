@@ -81,6 +81,41 @@
       .replace(/_+/g, "_").replace(/^_+|_+$/g, "");
   }
 
+  function normalizeExternalUrl(value) {
+    let raw = String(value || "").trim();
+    if (!raw) return "";
+
+    raw = raw.replace(/\s+/g, "");
+
+    if (/^\/?(www\.)?(youtube\.com|m\.youtube\.com|music\.youtube\.com|youtu\.be)\//i.test(raw)) {
+      raw = raw.replace(/^\/+/, "");
+      if (!/^https?:\/\//i.test(raw)) raw = `https://${raw}`;
+    } else if (/^\/\//.test(raw)) {
+      raw = `https:${raw}`;
+    } else if (/^www\./i.test(raw)) {
+      raw = `https://${raw}`;
+    } else if (/^(youtube\.com|m\.youtube\.com|music\.youtube\.com|youtu\.be)\//i.test(raw)) {
+      raw = `https://${raw}`;
+    }
+
+    try {
+      const url = new URL(raw);
+      if (!/^https?:$/i.test(url.protocol)) return "";
+
+      const host = (url.hostname || "").toLowerCase().replace(/^www\./, "");
+      const embedded = `${url.pathname || ""}${url.search || ""}${url.hash || ""}`
+        .replace(/^\/+/, "");
+
+      if ((host === "maricelconse.com.ar" || host.endsWith(".maricelconse.com.ar")) && /^(www\.)?(youtube\.com|m\.youtube\.com|music\.youtube\.com|youtu\.be)\//i.test(embedded)) {
+        return normalizeExternalUrl(`https://${embedded}`);
+      }
+
+      return url.toString();
+    } catch (_) {
+      return "";
+    }
+  }
+
   function normalizeTrack(v) {
     const raw = norm(v);
     if (raw === "gym" || raw === "gimnasio") return "gym";
@@ -883,7 +918,7 @@
     const videoBtn = item.video_url
       ? `
         <button class="btn btn-video" type="button"
-          data-video-url="${esc(item.video_url)}"
+          data-video-url="${esc(normalizeExternalUrl(item.video_url))}"
           data-video-title="${esc(item.exercise)}">
           Ver video
         </button>
@@ -1058,7 +1093,7 @@
   // =====================================================
   function ytEmbedUrl(url) {
     if (!url) return "";
-    const raw = String(url).trim();
+    const raw = normalizeExternalUrl(url);
     if (raw.includes("/embed/")) return raw.replace("www.youtube.com","www.youtube-nocookie.com");
 
     try {
@@ -1091,7 +1126,8 @@
     if (!embed) return;
 
     const wrap = videoModal.querySelector(".video-wrap");
-    const isShort = /\/shorts\//i.test(String(url));
+    const normalizedUrl = normalizeExternalUrl(url);
+    const isShort = /\/shorts\//i.test(normalizedUrl || String(url));
     wrap?.classList.toggle("is-vertical", isShort);
     wrap?.classList.toggle("is-horizontal", !isShort);
 
@@ -1224,7 +1260,7 @@
     const meta = [item.topic ? item.topic : "", when].filter(Boolean).join(" · ");
 
     const action = item.youtube_url
-      ? `<button class="btn primary" type="button" data-video-url="${esc(item.youtube_url)}" data-video-title="${esc(title)}">Ver clase</button>`
+      ? `<button class="btn primary" type="button" data-video-url="${esc(normalizeExternalUrl(item.youtube_url))}" data-video-title="${esc(title)}">Ver clase</button>`
       : `<span class="small">Sin video</span>`;
 
     return `

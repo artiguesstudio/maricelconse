@@ -92,6 +92,41 @@
     if (!opened) window.location.href = mailto;
   }
 
+  function normalizeExternalUrl(value) {
+    let raw = String(value || "").trim();
+    if (!raw) return "";
+
+    raw = raw.replace(/\s+/g, "");
+
+    if (/^\/?(www\.)?(youtube\.com|m\.youtube\.com|music\.youtube\.com|youtu\.be)\//i.test(raw)) {
+      raw = raw.replace(/^\/+/, "");
+      if (!/^https?:\/\//i.test(raw)) raw = `https://${raw}`;
+    } else if (/^\/\//.test(raw)) {
+      raw = `https:${raw}`;
+    } else if (/^www\./i.test(raw)) {
+      raw = `https://${raw}`;
+    } else if (/^(youtube\.com|m\.youtube\.com|music\.youtube\.com|youtu\.be)\//i.test(raw)) {
+      raw = `https://${raw}`;
+    }
+
+    try {
+      const url = new URL(raw);
+      if (!/^https?:$/i.test(url.protocol)) return "";
+
+      const host = (url.hostname || "").toLowerCase().replace(/^www\./, "");
+      const embedded = `${url.pathname || ""}${url.search || ""}${url.hash || ""}`
+        .replace(/^\/+/, "");
+
+      if ((host === "maricelconse.com.ar" || host.endsWith(".maricelconse.com.ar")) && /^(www\.)?(youtube\.com|m\.youtube\.com|music\.youtube\.com|youtu\.be)\//i.test(embedded)) {
+        return normalizeExternalUrl(`https://${embedded}`);
+      }
+
+      return url.toString();
+    } catch (_) {
+      return "";
+    }
+  }
+
   function normalizeTrack(v) {
     const raw = norm(v);
     if (raw === "gym" || raw === "gimnasio") return "gym";
@@ -1413,7 +1448,7 @@ function setSaveSendMsg(t, kind = "small") {
       .map((it) => {
         const name = it.exercises?.name || "Ejercicio";
         const video = it.exercises?.video_url
-          ? `<a class="small" target="_blank" rel="noopener" href="${esc(it.exercises.video_url)}">Video</a>`
+          ? `<a class="small" target="_blank" rel="noopener" href="${esc(normalizeExternalUrl(it.exercises.video_url))}">Video</a>`
           : `<span class="small">Sin video</span>`;
 
         const inactiveTag = it.exercises?.is_active === false ? `<span class="small" style="margin-left:8px;opacity:.75">(INACTIVO)</span>` : "";
@@ -1474,7 +1509,7 @@ function setSaveSendMsg(t, kind = "small") {
   // =====================================================
   async function createExercise() {
     const name = (exName?.value || "").trim();
-    const video_url = (exVideo?.value || "").trim() || null;
+    const video_url = normalizeExternalUrl(exVideo?.value) || null;
     const cues = (exCues?.value || "").trim() || null;
 
     const objective = (exObjective?.value || "both").trim();
@@ -1616,7 +1651,7 @@ function setSaveSendMsg(t, kind = "small") {
               .map((e) => {
                 const id = esc(e.id);
                 const name = esc(e.name);
-                const video = esc(e.video_url || "");
+                const video = esc(normalizeExternalUrl(e.video_url) || "");
                 const cues = esc(e.cues || "");
                 const tVal = normTrack3(e.track);
                 const oVal = e.objective || "both";
@@ -1745,7 +1780,7 @@ function setSaveSendMsg(t, kind = "small") {
       if (!editBox) return;
 
       const name = (editBox.querySelector('[data-ex-field="name"]')?.value || "").trim();
-      const video_url = (editBox.querySelector('[data-ex-field="video_url"]')?.value || "").trim() || null;
+      const video_url = normalizeExternalUrl(editBox.querySelector('[data-ex-field="video_url"]')?.value) || null;
       const cues = (editBox.querySelector('[data-ex-field="cues"]')?.value || "").trim() || null;
       const objective = (editBox.querySelector('[data-ex-field="objective"]')?.value || "both").trim();
       const track = (editBox.querySelector('[data-ex-field="track"]')?.value || "both").trim();
@@ -2888,7 +2923,7 @@ stuRoutineMeta.innerHTML = `
     const date = rcDate?.value || null;
     const title = (rcTitle?.value || "").trim();
     const topic = (rcTopic?.value || "").trim();
-    const youtube_url = (rcYoutube?.value || "").trim();
+    const youtube_url = normalizeExternalUrl(rcYoutube?.value);
     const notes = (rcNotes?.value || "").trim() || null;
 
     if (!month) throw new Error("Falta mes.");
@@ -2956,7 +2991,7 @@ stuRoutineMeta.innerHTML = `
             </div>
           </div>
           <div style="display:flex;gap:8px;align-items:center">
-            <a class="btn" target="_blank" rel="noopener" href="${esc(c.youtube_url)}">Abrir</a>
+            <a class="btn" target="_blank" rel="noopener" href="${esc(normalizeExternalUrl(c.youtube_url))}">Abrir</a>
             <button class="btn" type="button" data-rc-del="${esc(c.id)}">Eliminar</button>
           </div>
         </div>
