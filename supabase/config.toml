@@ -1,0 +1,21 @@
+project_id = "maricelconse"
+
+[auth]
+site_url = "https://www.maricelconse.com.ar"
+additional_redirect_urls = [
+  "http://localhost:3000/auth/callback",
+  "https://www.maricelconse.com.ar/auth/callback",
+  "https://maricelconse.com.ar/auth/callback"
+]
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true
+max_frequency = "1m"
+otp_length = 8
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
