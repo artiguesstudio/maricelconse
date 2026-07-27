@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, Mulish } from "next/font/google";
+import { Archivo, Caveat, Fraunces, Jost, Montserrat, Mulish } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
 
@@ -11,6 +11,30 @@ const mulish = Mulish({
 const fraunces = Fraunces({
   variable: "--font-display",
   subsets: ["latin"],
+});
+
+const archivo = Archivo({
+  variable: "--font-archivo",
+  subsets: ["latin"],
+  weight: ["500", "600", "700", "800", "900"],
+});
+
+const jost = Jost({
+  variable: "--font-jost",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
+});
+
+const montserrat = Montserrat({
+  variable: "--font-montserrat",
+  subsets: ["latin"],
+  weight: ["600", "700", "800", "900"],
+});
+
+const caveat = Caveat({
+  variable: "--font-caveat",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
 });
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -58,7 +82,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className={`${mulish.variable} ${fraunces.variable}`}>
+      <body className={`${mulish.variable} ${fraunces.variable} ${archivo.variable} ${jost.variable} ${montserrat.variable} ${caveat.variable}`}>
         {children}
       </body>
     </html>

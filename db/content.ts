@@ -1,16 +1,16 @@
 import { createClient } from "../lib/supabase/server";
 
 export const DEFAULT_SETTINGS = {
-  hero_eyebrow: "Coaching ontológico para mujeres",
+  hero_eyebrow: "Se acabó esperar el “momento perfecto”",
   hero_title: "Salí a comerte el mundo",
   hero_subtitle:
-    "No sos lo que te pasó. Sos lo que vas a hacer con todo eso. Te acompaño a dejar de postergarte y volver a elegirte.",
+    "No sos lo que te pasó. Sos lo que vas a hacer con todo eso.",
   story_title: "Toqué fondo y elegí levantarme.",
   story_body:
-    "Hubo una etapa en la que me sentí perdida, apagada, sin saber para dónde ir. Desde ese lugar tomé la decisión más difícil: dejar de esperar que alguien me rescatara y empezar a moverme yo. Hoy acompaño a otras mujeres a hacer exactamente eso.",
+    "Hubo una etapa en la que me sentí perdida, apagada, sin saber para dónde ir. Y desde ese lugar tuve que tomar la decisión más difícil: dejar de esperar que alguien me rescatara y empezar a moverme yo.\n\nMe reconstruí y descubrí algo: la vida que quería no estaba esperándome, había que ir a buscarla. Hoy hago exactamente eso con otras mujeres, las empujo a dejar de postergarse y a animarse a la vida que sí quieren.",
   membership_title: "Bienvenidas a bordo",
   membership_body:
-    "Un espacio mensual para sentirte más segura, confiar en tus decisiones y aprender a elegirte sin dar explicaciones.",
+    "Un espacio para mujeres que quieren sentirse más seguras, confiar en sus decisiones y aprender a elegirse sin dar explicaciones.",
   membership_price_regular: "$70.000",
   membership_price_sale: "$51.999",
   membership_purchase_url: "",

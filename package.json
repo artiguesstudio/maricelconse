@@ -11,6 +11,7 @@
     "start": "vinext start",
     "preview": "vite preview",
     "deploy": "vinext deploy --name maricelconse",
+    "legacy:import": "node scripts/import-legacy.mjs",
     "test": "npm run typecheck && npm run build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
