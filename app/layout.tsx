@@ -24,10 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL(origin),
     title: { default: title, template: "%s · Maricel Conse" },
     description,
-    icons: {
-      icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
-      shortcut: [{ url: "/favicon.svg", type: "image/svg+xml" }],
-    },
+    icons: { icon: "/favicon.png", shortcut: "/favicon.png" },
     openGraph: {
       type: "website",
       locale: "es_AR",
