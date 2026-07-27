@@ -24,16 +24,33 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL(origin),
     title: { default: title, template: "%s · Maricel Conse" },
     description,
-    icons: { icon: "/favicon.png", shortcut: "/favicon.png" },
+    icons: {
+      icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+      shortcut: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    },
     openGraph: {
       type: "website",
       locale: "es_AR",
+      url: `${origin}/`,
       siteName: "Maricel Conse",
       title,
       description,
-      images: [{ url: `${origin}/og.png`, width: 1728, height: 909, alt: "Maricel Conse · Volvé a elegirte" }],
+      images: [
+        {
+          url: `${origin}/images/maricel-pasaporte.jpg`,
+          width: 720,
+          height: 1280,
+          type: "image/jpeg",
+          alt: "Maricel Conse sonriendo con su pasaporte en la mano",
+        },
+      ],
     },
-    twitter: { card: "summary_large_image", title, description, images: [`${origin}/og.png`] },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [`${origin}/images/maricel-pasaporte.jpg`],
+    },
   };
 }
 
