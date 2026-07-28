@@ -459,6 +459,20 @@ h3 { font-size: clamp(1.5rem, 2.2vw, 2rem); }
   .admin-item-card__top { align-items: start; flex-direction: column; }
 }
 
+/* Compatibilidad móvil de los HTML originales. */
+.legacy-page .faq { display: block !important; }
+.legacy-page .faq > .wrap,
+.legacy-page .faq-carousel { width: 100%; min-width: 0; }
+
+@media (max-width: 840px) {
+  .legacy-page .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+  .legacy-page--home .hero .welcome {
+    white-space: nowrap;
+    font-size: clamp(.68rem, 2.75vw, .9rem) !important;
+    letter-spacing: .08em !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }

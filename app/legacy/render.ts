@@ -17,6 +17,8 @@ function withContactLinks(body: string, settings: SiteSettings) {
 
 export function renderHome(source: LegacySource, settings: SiteSettings) {
   let body = withContactLinks(source.body, settings);
+  body = body.replace(/\s*<a href="#empezar" class="nav-cta">Empeza hoy<\/a>/i, "");
+  body = body.replaceAll('loading="lazy"', 'loading="eager"');
   body = body.replace(/<div class="welcome">[\s\S]*?<\/div>/, () => `<div class="welcome">${escapeHtml(settings.hero_eyebrow)}</div>`);
   if (settings.hero_title.trim().toLowerCase() !== "salí a comerte el mundo") {
     body = body.replace(/<h1>[\s\S]*?<\/h1>/, () => `<h1>${escapeHtml(settings.hero_title)}</h1>`);
