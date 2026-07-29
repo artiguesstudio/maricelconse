@@ -3,6 +3,21 @@
 import { FormEvent, useState } from "react";
 import { createClient } from "../../lib/supabase/client";
 
+function authErrorMessage(error: unknown) {
+  const technicalMessage = error instanceof Error ? error.message : "";
+  const normalizedMessage = technicalMessage.toLowerCase();
+
+  if (normalizedMessage.includes("rate limit")) {
+    return "Se alcanzó el límite temporal de correos. Esperá hasta una hora antes de pedir otro enlace y usá siempre el más reciente.";
+  }
+
+  if (normalizedMessage.includes("not authorized")) {
+    return "Este correo todavía no está autorizado para recibir el enlace de acceso.";
+  }
+
+  return "No pudimos enviar el enlace. Esperá unos minutos y volvé a intentar.";
+}
+
 export function LoginForm({ nextPath }: { nextPath: string }) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent">("idle");
@@ -25,7 +40,7 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
       setMessage("Te enviamos un enlace. Revisá tu correo y abrilo desde este dispositivo.");
     } catch (error) {
       setStatus("idle");
-      setMessage(error instanceof Error ? error.message : "No pudimos enviar el enlace.");
+      setMessage(authErrorMessage(error));
     }
   }
 
