@@ -17,7 +17,8 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "supabase:login": "supabase login",
     "supabase:link": "supabase link --project-ref wdbnyzzvlgfubtrtalhh",
-    "supabase:push": "supabase db push"
+    "supabase:push": "supabase db push",
+    "mercadopago:create-plan": "node scripts/mercadopago-create-plan.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "../lib/supabase/server";
 
 export type AccessSession = {
+  id: string;
   displayName: string;
   email: string;
   fullName: string | null;
@@ -25,6 +26,7 @@ async function getAccessSession() {
 
   return {
     user: {
+      id: user.id,
       displayName,
       email: user.email,
       fullName: fullName || null,
@@ -47,11 +49,25 @@ export async function authorizeAdminRequest() {
   return session?.role === "admin" ? session.user : null;
 }
 
+export async function getSignedInSession(returnTo = "/mi-espacio"): Promise<AccessSession> {
+  const session = await getAccessSession();
+  if (!session) redirect(`/login?next=${encodeURIComponent(returnTo)}`);
+  return session.user;
+}
+
+export async function authorizeUserRequest() {
+  const session = await getAccessSession();
+  return session?.user || null;
+}
+
 export async function getMemberSession(returnTo = "/mi-espacio") {
   const session = await getAccessSession();
   if (!session) redirect(`/login?next=${encodeURIComponent(returnTo)}`);
+  const supabase = await createClient();
+  const { data: entitlement, error } = await supabase.rpc("has_active_membership");
+  if (error) throw error;
   return {
     user: session.user,
-    active: session.role === "admin" || session.membershipStatus === "active",
+    active: session.role === "admin" || entitlement === true,
   };
 }

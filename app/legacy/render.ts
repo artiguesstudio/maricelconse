@@ -39,12 +39,18 @@ export function renderHome(source: LegacySource, settings: SiteSettings) {
 }
 
 export function renderMembership(source: LegacySource, settings: SiteSettings) {
-  const checkout = settings.membership_purchase_url || `${settings.whatsapp_url}?text=${encodeURIComponent("Hola Maricel, quiero sumarme a Bienvenidas a bordo")}`;
-  return applyReplacements(withContactLinks(source.body, settings), [
+  const checkout = process.env.MERCADOPAGO_PLAN_ID
+    ? "/membresia/suscribirme"
+    : settings.membership_purchase_url || `${settings.whatsapp_url}?text=${encodeURIComponent("Hola Maricel, quiero sumarme a Bienvenidas a bordo")}`;
+  let body = applyReplacements(withContactLinks(source.body, settings), [
     ["REEMPLAZAR-LINK-MERCADOPAGO", escapeHtml(checkout)],
     ["$70.000", escapeHtml(settings.membership_price_regular)],
     ["$51.999", escapeHtml(settings.membership_price_sale)],
   ]);
+  if (checkout.startsWith("/")) {
+    body = body.replaceAll(`href="${escapeHtml(checkout)}" target="_blank" rel="noopener"`, `href="${escapeHtml(checkout)}"`);
+  }
+  return body;
 }
 
 export function renderSessions(source: LegacySource, settings: SiteSettings) {
@@ -117,7 +123,7 @@ export function renderMember(source: LegacySource, settings: SiteSettings, resou
   let body = withContactLinks(source.body, settings);
   body = body.replace(
     /(<div class="nav-links">[\s\S]*?)(<\/div>\s*<\/nav>)/,
-    (_, links: string, closing: string) => `${links}<form action="/auth/signout" method="post"><button class="legacy-nav-button" type="submit">Salir</button></form>${closing}`,
+    (_, links: string, closing: string) => `${links}<a href="/mi-espacio/membresia">Mi membresía</a><form action="/auth/signout" method="post"><button class="legacy-nav-button" type="submit">Salir</button></form>${closing}`,
   );
   body = body.replace(/<h2>Reconstruir mi[\s\S]*?<\/h2>/, () => `<h2>${emphasizeLastWord(settings.current_theme)}</h2>`);
   body = body.replace(
