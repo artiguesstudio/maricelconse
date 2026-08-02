@@ -525,3 +525,82 @@ h3 { font-size: clamp(1.5rem, 2.2vw, 2rem); }
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* Bienvenida posterior al pago */
+.subscription-card--welcome { width: min(1220px, 96vw); padding: clamp(1.25rem, 3vw, 2.5rem); }
+.welcome-pass__intro { max-width: 720px; margin: 0 auto 1.8rem; }
+.welcome-pass__intro h1 { margin-bottom: .5rem; }
+.welcome-pass__intro > p:last-child { margin: 0; color: var(--muted); }
+.welcome-pass__scroll { overflow-x: auto; border-radius: 18px; box-shadow: 0 18px 45px rgba(35,78,72,.14); }
+.welcome-pass__canvas { position: relative; width: 100%; min-width: 760px; aspect-ratio: 16 / 9; overflow: hidden; background: #f5f1e7; }
+.welcome-pass__canvas img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.welcome-pass__canvas input { position: absolute; z-index: 2; border: 0; border-bottom: 1px solid rgba(92,72,53,.42); border-radius: 0; padding: 0 .35em; background: rgba(250,247,239,.78); color: #242019; font-family: var(--font-archivo), sans-serif; font-size: clamp(.7rem, 1.25vw, 1.05rem); font-weight: 750; letter-spacing: .04em; text-transform: uppercase; }
+.welcome-pass__canvas input:focus { outline: 2px solid rgba(23,110,109,.38); outline-offset: 2px; }
+.welcome-pass__name { top: 48.2%; left: 46.2%; width: 25.3%; height: 5.5%; }
+.welcome-pass__date { top: 68.8%; left: 51.3%; width: 20.2%; height: 5.2%; }
+.welcome-pass__mobile-fields { display: none; }
+.welcome-pass__actions { display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; margin-top: 1.7rem; }
+.subscription-card--welcome > .login-back { display: inline-block; margin-top: 1.5rem; }
+
+/* Perfil privado */
+.profile-card { width: min(920px, 92vw); }
+.profile-card > p:not(.eyebrow) { color: var(--muted); }
+.profile-form { margin-top: 2rem; }
+.profile-form__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.25rem; }
+.profile-form label { display: grid; gap: .4rem; text-align: left; }
+.profile-form label > span { font-size: .7rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.profile-form input, .profile-form select { width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: .82rem .9rem; background: #fbfcf8; color: var(--ink); }
+.profile-form input:focus, .profile-form select:focus { border-color: var(--forest); outline: 2px solid rgba(47,121,109,.13); }
+.profile-form input:disabled { color: var(--muted); cursor: not-allowed; }
+
+/* Herramientas administradas dentro de los HTML originales */
+.legacy-page .member-managed-tools { padding: 5rem 1.5rem; background: #f5f6ef; color: #183f39; }
+.legacy-page .member-managed-tools__inner { width: min(1120px, 100%); margin: 0 auto; }
+.legacy-page .member-profile-prompt { display: flex; align-items: center; justify-content: space-between; gap: 2rem; border-radius: 18px; margin-bottom: 3.5rem; padding: 1.7rem 2rem; background: #1d574f; color: #fff; box-shadow: 0 18px 38px rgba(23,57,52,.13); }
+.legacy-page .member-profile-prompt span, .legacy-page .member-library-heading > span, .legacy-page .member-ebook-card span { display: block; font-family: var(--font-archivo), sans-serif; font-size: .66rem; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+.legacy-page .member-profile-prompt h2 { margin: .35rem 0; color: inherit; font-family: var(--font-archivo), sans-serif; font-size: clamp(1.35rem, 3vw, 2rem); }
+.legacy-page .member-profile-prompt p { margin: 0; color: rgba(255,255,255,.8); }
+.legacy-page .member-profile-prompt a { flex: none; border-radius: 999px; padding: .85rem 1.15rem; background: #f8f4ea; color: #1d574f; font-family: var(--font-archivo), sans-serif; font-size: .72rem; font-weight: 900; text-decoration: none; text-transform: uppercase; }
+.legacy-page .member-library-heading { max-width: 680px; margin-bottom: 1.8rem; }
+.legacy-page .member-library-heading > span { color: #489d8e; }
+.legacy-page .member-library-heading h2 { margin: .5rem 0; color: #183f39; font-family: var(--font-archivo), sans-serif; font-size: clamp(2rem, 4vw, 3.5rem); }
+.legacy-page .member-library-heading p { margin: 0; color: #5d7872; }
+.legacy-page .member-ebook-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
+.legacy-page .member-ebook-card { overflow: hidden; border: 1px solid rgba(24,63,57,.12); border-radius: 14px; background: #fff; box-shadow: 0 10px 28px rgba(23,57,52,.07); }
+.legacy-page .member-ebook-card > img { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; }
+.legacy-page .member-ebook-card > div { padding: 1.1rem; }
+.legacy-page .member-ebook-card span { color: #489d8e; }
+.legacy-page .member-ebook-card h3 { margin: .45rem 0 .3rem; color: #183f39; font-family: var(--font-archivo), sans-serif; font-size: 1.15rem; }
+.legacy-page .member-ebook-card p { min-height: 2.8em; margin: 0 0 .9rem; color: #69807b; font-size: .78rem; }
+.legacy-page .member-ebook-card a, .legacy-page .member-ebook-card small { color: #1d6f64; font-family: var(--font-archivo), sans-serif; font-size: .7rem; font-weight: 900; text-decoration: none; text-transform: uppercase; }
+
+@media (max-width: 900px) {
+  .legacy-page .member-ebook-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  .welcome-pass__scroll { box-shadow: none; }
+  .welcome-pass__canvas { min-width: 0; }
+  .welcome-pass__canvas input { display: none; }
+  .welcome-pass__mobile-fields { display: grid; grid-template-columns: 1fr; gap: .8rem; margin-top: 1.2rem; }
+  .welcome-pass__mobile-fields label { display: grid; gap: .35rem; text-align: left; }
+  .welcome-pass__mobile-fields span { font-size: .68rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+  .welcome-pass__mobile-fields input { width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: .8rem; }
+  .profile-form__grid { grid-template-columns: 1fr; }
+  .legacy-page .member-profile-prompt { align-items: flex-start; flex-direction: column; }
+}
+
+@media (max-width: 480px) {
+  .legacy-page .member-managed-tools { padding: 4rem 1rem; }
+  .legacy-page .member-ebook-grid { grid-template-columns: 1fr; }
+  .legacy-page .member-ebook-card { display: grid; grid-template-columns: 110px 1fr; }
+  .legacy-page .member-ebook-card > img { height: 100%; aspect-ratio: auto; }
+}
+
+@media print {
+  @page { size: landscape; margin: 8mm; }
+  body * { visibility: hidden !important; }
+  .welcome-pass__canvas, .welcome-pass__canvas * { visibility: visible !important; }
+  .welcome-pass__canvas { position: fixed; inset: 0; width: 100vw; min-width: 0; box-shadow: none; }
+  .welcome-pass__canvas input { display: block !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}

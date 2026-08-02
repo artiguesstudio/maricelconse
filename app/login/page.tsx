@@ -19,7 +19,7 @@ export default async function LoginPage({
       <section className="login-card">
         <Link className="brand" href="/"><span>MARICEL</span><em>Conse</em></Link>
         <p className="eyebrow">Tu espacio privado</p>
-        <h1>Ingresá sin contraseña.</h1>
+        <h1>Ingresa sin contraseña.</h1>
         <p>Escribí tu email y vas a recibir un enlace seguro para entrar.</p>
         {params.error && <p className="login-message error">El enlace venció o ya fue utilizado. Pedí uno nuevo.</p>}
         <LoginForm nextPath={safeNextPath(params.next)} />

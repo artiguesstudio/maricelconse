@@ -119,12 +119,21 @@ function insertResources(body: string, heading: string, resources: ResourceRecor
   return `${body.slice(0, insertion)}${html}${body.slice(insertion)}`;
 }
 
-export function renderMember(source: LegacySource, settings: SiteSettings, resources: ResourceRecord[]) {
+function renderMemberLibrary(ebooks: EbookRecord[], profileCompleted: boolean) {
+  const cards = ebooks.filter((ebook) => ebook.isPublished).map((ebook) => {
+    const available = Boolean(ebook.memberFilePath || ebook.memberUrl);
+    return `<article class="member-ebook-card"><img src="${escapeHtml(ebook.coverImage || "/images/ebooks-tablet.jpg")}" alt="Portada de ${escapeHtml(ebook.title)}"><div><span>Incluido en tu membresía</span><h3>${escapeHtml(ebook.title)}</h3><p>${escapeHtml(ebook.subtitle)}</p>${available ? `<a href="/api/member/ebooks/${ebook.id}" target="_blank" rel="noopener">Abrir ebook →</a>` : `<small>Disponible próximamente</small>`}</div></article>`;
+  }).join("");
+  return `<section class="member-managed-tools"><div class="member-managed-tools__inner">${profileCompleted ? "" : `<aside class="member-profile-prompt"><div><span>Antes de continuar</span><h2>Completá tu perfil de pasajera.</h2><p>Contanos tus datos para poder acompañarte mejor.</p></div><a href="/mi-espacio/perfil">Completar perfil →</a></aside>`}<div class="member-ebook-library"><div class="member-library-heading"><span>Biblioteca de a bordo</span><h2>Tus ebooks, sin costo extra.</h2><p>Todos los ebooks publicados están incluidos mientras tu membresía esté activa.</p></div><div class="member-ebook-grid">${cards || "<p>Muy pronto vas a encontrar tus ebooks acá.</p>"}</div></div></div></section>`;
+}
+
+export function renderMember(source: LegacySource, settings: SiteSettings, resources: ResourceRecord[], ebooks: EbookRecord[], profileCompleted: boolean) {
   let body = withContactLinks(source.body, settings);
   body = body.replace(
     /(<div class="nav-links">[\s\S]*?)(<\/div>\s*<\/nav>)/,
     (_, links: string, closing: string) => `${links}<a href="/mi-espacio/membresia">Mi membresía</a><form action="/auth/signout" method="post"><button class="legacy-nav-button" type="submit">Salir</button></form>${closing}`,
   );
+  body = body.replace("</nav>", `</nav>${renderMemberLibrary(ebooks, profileCompleted)}`);
   body = body.replace(/<h2>Reconstruir mi[\s\S]*?<\/h2>/, () => `<h2>${emphasizeLastWord(settings.current_theme)}</h2>`);
   body = body.replace(
     /<p>Un mes para reconocer lo que vales[\s\S]*?<\/p>/,

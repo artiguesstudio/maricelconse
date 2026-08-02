@@ -4,13 +4,14 @@ import { getMemberSession } from "../admin-auth";
 import memberDocument from "../legacy/generated/member.json";
 import { LegacyDocument, type LegacySource } from "../legacy/LegacyDocument";
 import { renderMember } from "../legacy/render";
+import { getMemberProfile } from "../../db/profile";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Mi espacio · Bienvenida a bordo" };
 
 export default async function MemberAreaPage() {
-  const { active } = await getMemberSession();
-  const { settings, resources } = await getContentBundle();
+  const { active, user } = await getMemberSession();
+  const [{ settings, resources, ebooks }, profile] = await Promise.all([getContentBundle(), getMemberProfile(user.id)]);
 
   if (!active) {
     return (
@@ -30,5 +31,5 @@ export default async function MemberAreaPage() {
   }
 
   const document = memberDocument as LegacySource;
-  return <LegacyDocument document={document} pageKey="member" body={renderMember(document, settings, resources)} />;
+  return <LegacyDocument document={document} pageKey="member" body={renderMember(document, settings, resources, ebooks, Boolean(profile.profileCompletedAt))} />;
 }

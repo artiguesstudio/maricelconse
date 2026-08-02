@@ -40,17 +40,17 @@ export default async function SubscribePage({
           </>
         ) : (
           <>
-            <h1>Confirmá tu embarque.</h1>
+            <h1>Confirma tu embarque.</h1>
             <p>La suscripción se cobrará en la cuenta de Mercado Pago de Maricel y se renovará automáticamente cada mes.</p>
             <div className="subscription-summary">
               <span>Plan mensual</span>
               <strong>$51.999 ARS</strong>
-              <small>Sin permanencia · podés cancelar cuando quieras</small>
+              <small>Sin permanencia · podes cancelar cuando quieras</small>
             </div>
             <dl className="subscription-details">
               <div><dt>Cuenta</dt><dd>{session.email}</dd></div>
               <div><dt>Vigencia</dt><dd>Un mes desde cada pago acreditado</dd></div>
-              <div><dt>Al cancelar</dt><dd>Conservás el acceso hasta terminar el período abonado</dd></div>
+              <div><dt>Al cancelar</dt><dd>Conservas el acceso hasta terminar el período abonado</dd></div>
             </dl>
             {params.error && (
               <p className="subscription-error" role="alert">Todavía no pudimos abrir Mercado Pago. Intentá nuevamente o escribile a Maricel.</p>

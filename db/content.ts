@@ -35,6 +35,8 @@ export type EbookRecord = {
   regularPrice: string;
   salePrice: string;
   purchaseUrl: string;
+  memberUrl: string;
+  memberFilePath: string;
   coverImage: string;
   sortOrder: number;
   isPublished: boolean;
@@ -67,6 +69,8 @@ const DEFAULT_EBOOKS: Omit<EbookRecord, "id">[] = [
     regularPrice: "$24.999",
     salePrice: "$15.999",
     purchaseUrl: "",
+    memberUrl: "",
+    memberFilePath: "",
     coverImage: "/images/ebook-equipaje-liviano.jpg",
     sortOrder: 1,
     isPublished: true,
@@ -80,6 +84,8 @@ const DEFAULT_EBOOKS: Omit<EbookRecord, "id">[] = [
     regularPrice: "$24.999",
     salePrice: "$15.999",
     purchaseUrl: "",
+    memberUrl: "",
+    memberFilePath: "",
     coverImage: "/images/ebook-el-destino-sos-vos.jpg",
     sortOrder: 2,
     isPublished: true,
@@ -93,6 +99,8 @@ const DEFAULT_EBOOKS: Omit<EbookRecord, "id">[] = [
     regularPrice: "$24.999",
     salePrice: "$15.999",
     purchaseUrl: "",
+    memberUrl: "",
+    memberFilePath: "",
     coverImage: "/images/ebook-sin-turbulencias.jpg",
     sortOrder: 3,
     isPublished: true,
@@ -106,6 +114,8 @@ const DEFAULT_EBOOKS: Omit<EbookRecord, "id">[] = [
     regularPrice: "$24.999",
     salePrice: "$15.999",
     purchaseUrl: "",
+    memberUrl: "",
+    memberFilePath: "",
     coverImage: "/images/ebook-el-cielo-no-es-el-limite.jpg",
     sortOrder: 4,
     isPublished: true,
@@ -169,6 +179,8 @@ function mapEbookRow(row: Record<string, unknown>): EbookRecord {
     regularPrice: String(row.regular_price ?? ""),
     salePrice: String(row.sale_price ?? ""),
     purchaseUrl: String(row.purchase_url ?? ""),
+    memberUrl: String(row.member_url ?? ""),
+    memberFilePath: String(row.member_file_path ?? ""),
     coverImage: String(row.cover_image ?? ""),
     sortOrder: Number(row.sort_order ?? 0),
     isPublished: Boolean(row.is_published),
@@ -209,6 +221,8 @@ export async function upsertEbook(input: Partial<EbookRecord>) {
     regular_price: String(input.regularPrice || "").trim(),
     sale_price: String(input.salePrice || "").trim(),
     purchase_url: safeUrl(input.purchaseUrl),
+    member_url: safeUrl(input.memberUrl),
+    member_file_path: String(input.memberFilePath || "").trim(),
     cover_image: safeAssetPath(input.coverImage),
     sort_order: Number(input.sortOrder || 0),
     is_published: Boolean(input.isPublished),

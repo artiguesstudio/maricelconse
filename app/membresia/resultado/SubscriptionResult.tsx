@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { BoardingPassWelcome } from "./BoardingPassWelcome";
 
-export function SubscriptionResult() {
+export function SubscriptionResult({ initialName, initialDepartureDate }: { initialName: string; initialDepartureDate: string }) {
   const [active, setActive] = useState(false);
   const [checking, setChecking] = useState(true);
 
@@ -31,19 +32,13 @@ export function SubscriptionResult() {
   }, []);
 
   if (active) {
-    return (
-      <>
-        <h1>¡Ya estás a bordo!</h1>
-        <p>Mercado Pago confirmó tu suscripción y tu espacio ya está habilitado.</p>
-        <Link className="button button--dark" href="/mi-espacio">Entrar a mi espacio →</Link>
-      </>
-    );
+    return <BoardingPassWelcome initialName={initialName} initialDepartureDate={initialDepartureDate} />;
   }
 
   return (
     <>
       <h1>Estamos confirmando tu pago.</h1>
-      <p>{checking ? "Esto suele demorar solo unos segundos. Podés dejar esta pantalla abierta." : "Mercado Pago todavía no confirmó la acreditación. No hace falta volver a pagar."}</p>
+      <p>{checking ? "Esto suele demorar solo unos segundos. Podes dejar esta pantalla abierta." : "Mercado Pago todavía no confirmó la acreditación. No hace falta volver a pagar."}</p>
       <div className="subscription-actions">
         <button className="button button--outline" type="button" onClick={() => window.location.reload()}>Volver a comprobar</button>
         {!checking && <Link className="text-link" href="/mi-espacio/membresia">Ver estado de mi membresía</Link>}
