@@ -575,7 +575,13 @@ h3 { font-size: clamp(1.5rem, 2.2vw, 2rem); }
 .legacy-page--mini-guide .legacy-access-nav .legacy-space-link { border-radius: 7px; padding: 9px 18px; background: #3b8375; color: #fff; font-family: var(--font-archivo), sans-serif; font-size: .74rem; font-weight: 700; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; }
 .legacy-page--home .servicios-secundarios .feature-title { margin-top: 0; }
 .legacy-page--travel-guide .bp6 { background: linear-gradient(104deg, #e8f1e9, #fdfcf8 70%); }
-.legacy-page--member nav .nav-links { gap: 1rem; }
+.legacy-page--member nav .nav-links { align-items: center; gap: 1rem; }
+.legacy-page--member nav .nav-links > a,
+.legacy-page--member nav .nav-links > form,
+.legacy-page--member nav .nav-links > .legacy-profile-menu { display: flex; align-items: center; min-height: 36px; margin: 0; }
+.legacy-page--member nav .nav-links > a,
+.legacy-page--member nav .legacy-nav-button,
+.legacy-page--member nav .legacy-profile-menu > summary { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; line-height: 1; }
 .legacy-page .legacy-profile-menu { position: relative; }
 .legacy-page .legacy-profile-menu > summary { list-style: none; border: 1px solid rgba(35,78,72,.32); border-radius: 999px; padding: 8px 13px; color: #234e48; cursor: pointer; font-family: var(--font-archivo), sans-serif; font-size: .68rem; font-weight: 800; letter-spacing: .08em; line-height: 1.15; text-transform: uppercase; transition: background .2s ease, color .2s ease; }
 .legacy-page .legacy-profile-menu > summary::-webkit-details-marker { display: none; }
