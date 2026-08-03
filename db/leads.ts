@@ -19,7 +19,6 @@ export async function getAdminLeads(): Promise<AdminLeadRecord[]> {
   const { data, error } = await supabase
     .from("profiles")
     .select("id,display_name,email,phone,birth_date,country,province,city,journey_arrival,membership_goal,profile_completed_at,updated_at")
-    .eq("role", "member")
     .order("updated_at", { ascending: false });
   if (error) throw error;
 

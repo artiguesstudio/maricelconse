@@ -501,6 +501,7 @@ h3 { font-size: clamp(1.5rem, 2.2vw, 2rem); }
 .admin-lead-card > header span { color: var(--forest); font-size: .62rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
 .admin-lead-card > header h2 { margin: .4rem 0 .15rem; font-size: 1.45rem; }
 .admin-lead-card > header p, .admin-lead-card > header small { margin: 0; color: var(--muted); font-size: .78rem; }
+.admin-lead-card > header a { color: inherit; text-underline-offset: .18em; }
 .admin-lead-answers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; padding-top: 1rem; }
 .admin-lead-answers > div { border-radius: 12px; padding: 1.1rem; background: #f4f7f1; }
 .admin-lead-answers h3 { margin-bottom: .55rem; color: var(--forest); font-family: var(--font-sans), sans-serif; font-size: .72rem; letter-spacing: .04em; line-height: 1.4; text-transform: uppercase; }
