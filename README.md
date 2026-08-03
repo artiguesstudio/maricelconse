@@ -17,7 +17,7 @@ En equipos donde PowerShell bloquea `npm.ps1`, usar `npm.cmd` evita cambiar la p
 ## Direcciones principales
 
 - Web pública: `http://localhost:3000`
-- Ingreso por enlace mágico: `http://localhost:3000/login`
+- Ingreso por código de un solo uso: `http://localhost:3000/login`
 - Área de socias: `http://localhost:3000/mi-espacio`
 - Backoffice: `http://localhost:3000/admin`
 

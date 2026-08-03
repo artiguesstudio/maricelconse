@@ -1,67 +1,166 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { createClient } from "../../lib/supabase/client";
 
-function authErrorMessage(error: unknown) {
+type Step = "email" | "code";
+type Status = "idle" | "sending" | "verifying";
+
+function authErrorMessage(error: unknown, step: Step) {
   const technicalMessage = error instanceof Error ? error.message : "";
   const normalizedMessage = technicalMessage.toLowerCase();
 
-  if (normalizedMessage.includes("rate limit")) {
-    return "Se alcanzó el límite temporal de correos. Espera hasta una hora antes de pedir otro enlace y usa siempre el más reciente.";
+  if (normalizedMessage.includes("rate limit") || normalizedMessage.includes("security purposes")) {
+    return "Pediste varios códigos seguidos. Espera 60 segundos y solicita uno nuevo.";
+  }
+
+  if (
+    normalizedMessage.includes("expired") ||
+    normalizedMessage.includes("invalid") ||
+    normalizedMessage.includes("token")
+  ) {
+    return "El código es incorrecto o venció. Revisa el último correo recibido o solicita uno nuevo.";
   }
 
   if (normalizedMessage.includes("not authorized")) {
-    return "Este correo todavía no está autorizado para recibir el enlace de acceso.";
+    return "Este correo todavía no está autorizado para ingresar.";
   }
 
-  return "No pudimos enviar el enlace. Espera unos minutos y volve a intentar.";
+  return step === "code"
+    ? "No pudimos comprobar el código. Revisa los ocho números y vuelve a intentar."
+    : "No pudimos enviar el código. Espera unos minutos y vuelve a intentar.";
 }
 
 export function LoginForm({ nextPath }: { nextPath: string }) {
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "sending" | "sent">("idle");
+  const [code, setCode] = useState("");
+  const [step, setStep] = useState<Step>("email");
+  const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
+  const [messageKind, setMessageKind] = useState<"success" | "error" | null>(null);
+  const normalizedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function requestCode() {
     setStatus("sending");
     setMessage("");
+    setMessageKind(null);
 
     try {
       const supabase = createClient();
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
       const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim().toLowerCase(),
-        options: { emailRedirectTo: redirectTo, shouldCreateUser: true },
+        email: normalizedEmail,
+        options: { shouldCreateUser: true },
       });
       if (error) throw error;
-      setStatus("sent");
-      setMessage("Te enviamos un enlace. Revisa tu correo y abrilo desde este dispositivo.");
+
+      setCode("");
+      setStep("code");
+      setMessage("Te enviamos un código de ocho dígitos. Copialo aquí para ingresar.");
+      setMessageKind("success");
     } catch (error) {
+      setMessage(authErrorMessage(error, "email"));
+      setMessageKind("error");
+    } finally {
       setStatus("idle");
-      setMessage(authErrorMessage(error));
     }
   }
 
+  async function verifyCode() {
+    setStatus("verifying");
+    setMessage("");
+    setMessageKind(null);
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.verifyOtp({
+        email: normalizedEmail,
+        token: code,
+        type: "email",
+      });
+      if (error) throw error;
+
+      window.location.replace(nextPath);
+    } catch (error) {
+      setMessage(authErrorMessage(error, "code"));
+      setMessageKind("error");
+      setStatus("idle");
+    }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (step === "email") await requestCode();
+    else await verifyCode();
+  }
+
+  function changeEmail() {
+    setStep("email");
+    setCode("");
+    setMessage("");
+    setMessageKind(null);
+  }
+
+  const busy = status !== "idle";
+
   return (
     <form className="login-form" onSubmit={handleSubmit}>
-      <label htmlFor="login-email">Tu email</label>
-      <input
-        id="login-email"
-        name="email"
-        type="email"
-        autoComplete="email"
-        placeholder="nombre@email.com"
-        value={email}
-        onChange={(event) => setEmail(event.target.value)}
-        disabled={status !== "idle"}
-        required
-      />
-      <button className="button button--dark" disabled={status !== "idle"}>
-        {status === "sending" ? "Enviando…" : status === "sent" ? "Enlace enviado" : "Recibir enlace mágico"}
-      </button>
-      {message && <p className={status === "sent" ? "login-message success" : "login-message error"} role="status">{message}</p>}
+      {step === "email" ? (
+        <>
+          <label htmlFor="login-email">Tu email</label>
+          <input
+            id="login-email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            inputMode="email"
+            placeholder="nombre@email.com"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            disabled={busy}
+            required
+          />
+          <button className="button button--dark" disabled={busy}>
+            {status === "sending" ? "Enviando…" : "Recibir código de acceso"}
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="login-code-heading">
+            <label htmlFor="login-code">Código de acceso</label>
+            <button type="button" className="login-inline-action" onClick={changeEmail} disabled={busy}>
+              Cambiar email
+            </button>
+          </div>
+          <p className="login-email-confirmation">Enviado a <strong>{normalizedEmail}</strong></p>
+          <input
+            id="login-code"
+            name="code"
+            className="login-code-input"
+            type="text"
+            autoComplete="one-time-code"
+            inputMode="numeric"
+            pattern="[0-9]{8}"
+            maxLength={8}
+            placeholder="00000000"
+            value={code}
+            onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 8))}
+            disabled={busy}
+            autoFocus
+            required
+          />
+          <button className="button button--dark" disabled={busy || code.length !== 8}>
+            {status === "verifying" ? "Comprobando…" : "Ingresar a mi espacio"}
+          </button>
+          <button type="button" className="login-resend" onClick={requestCode} disabled={busy}>
+            No recibí el código · Enviar otro
+          </button>
+        </>
+      )}
+      {message && (
+        <p className={`login-message ${messageKind || "error"}`} role="status">
+          {message}
+        </p>
+      )}
     </form>
   );
 }

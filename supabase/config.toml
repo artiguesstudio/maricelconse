@@ -21,7 +21,7 @@ subject = "Confirma tu acceso a Maricel Conse"
 content_path = "./supabase/templates/confirmation.html"
 
 [auth.email.template.magic_link]
-subject = "Tu enlace seguro para ingresar a Maricel Conse"
+subject = "Tu código de acceso a Maricel Conse"
 content_path = "./supabase/templates/magic_link.html"
 
 [auth.mfa.totp]
