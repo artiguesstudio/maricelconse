@@ -119,12 +119,17 @@ function insertResources(body: string, heading: string, resources: ResourceRecor
   return `${body.slice(0, insertion)}${html}${body.slice(insertion)}`;
 }
 
-function renderMemberLibrary(ebooks: EbookRecord[], profileCompleted: boolean) {
+function renderMemberProfilePrompt(profileCompleted: boolean) {
+  if (profileCompleted) return "";
+  return `<section class="member-profile-tools"><div class="member-managed-tools__inner"><aside class="member-profile-prompt"><div><span>Antes de continuar</span><h2>Completa tu perfil de pasajera.</h2><p>Contanos tus datos para poder acompañarte mejor.</p></div><a href="/mi-espacio/perfil">Completar perfil →</a></aside></div></section>`;
+}
+
+function renderMemberLibrary(ebooks: EbookRecord[]) {
   const cards = ebooks.filter((ebook) => ebook.isPublished).map((ebook) => {
     const available = Boolean(ebook.memberFilePath || ebook.memberUrl);
-    return `<article class="member-ebook-card"><img src="${escapeHtml(ebook.coverImage || "/images/ebooks-tablet.jpg")}" alt="Portada de ${escapeHtml(ebook.title)}"><div><span>Incluido en tu membresía</span><h3>${escapeHtml(ebook.title)}</h3><p>${escapeHtml(ebook.subtitle)}</p>${available ? `<a href="/api/member/ebooks/${ebook.id}" target="_blank" rel="noopener">Abrir ebook →</a>` : `<small>Disponible próximamente</small>`}</div></article>`;
+    return `<article class="member-ebook-card"><img src="${escapeHtml(ebook.coverImage || "/images/ebooks-tablet.jpg")}" alt="Portada de ${escapeHtml(ebook.title)}"><div><span>Incluido en tu membresía</span><h3>${escapeHtml(ebook.title)}</h3><p>${escapeHtml(ebook.subtitle)}</p>${available ? `<a href="/api/member/ebooks/${ebook.id}" target="_blank" rel="noopener">Descargar ebook ↓</a>` : `<small>Disponible próximamente</small>`}</div></article>`;
   }).join("");
-  return `<section class="member-managed-tools"><div class="member-managed-tools__inner">${profileCompleted ? "" : `<aside class="member-profile-prompt"><div><span>Antes de continuar</span><h2>Completa tu perfil de pasajera.</h2><p>Contanos tus datos para poder acompañarte mejor.</p></div><a href="/mi-espacio/perfil">Completar perfil →</a></aside>`}<div class="member-ebook-library"><div class="member-library-heading"><span>Biblioteca de a bordo</span><h2>Tus ebooks, sin costo extra.</h2><p>Todos los ebooks publicados están incluidos mientras tu membresía esté activa.</p></div><div class="member-ebook-grid">${cards || "<p>Muy pronto vas a encontrar tus ebooks acá.</p>"}</div></div></div></section>`;
+  return `<section class="member-managed-tools"><div class="member-managed-tools__inner"><details class="member-ebook-library"><summary><div class="member-library-heading"><span>Biblioteca de a bordo</span><h2>Tus ebooks, sin costo extra.</h2></div><span class="member-library-toggle" aria-hidden="true">+</span></summary><div class="member-library-content"><p>Todos los ebooks publicados están incluidos mientras tu membresía esté activa.</p><div class="member-ebook-grid">${cards || "<p>Muy pronto vas a encontrar tus ebooks acá.</p>"}</div></div></details></div></section>`;
 }
 
 export function renderMember(source: LegacySource, settings: SiteSettings, resources: ResourceRecord[], ebooks: EbookRecord[], profileCompleted: boolean) {
@@ -133,7 +138,7 @@ export function renderMember(source: LegacySource, settings: SiteSettings, resou
     /(<div class="nav-links">[\s\S]*?)(<\/div>\s*<\/nav>)/,
     (_, links: string, closing: string) => `${links}<a href="/mi-espacio/membresia">Mi membresía</a><form action="/auth/signout" method="post"><button class="legacy-nav-button" type="submit">Salir</button></form>${closing}`,
   );
-  body = body.replace("</nav>", `</nav>${renderMemberLibrary(ebooks, profileCompleted)}`);
+  body = body.replace("</nav>", `</nav>${renderMemberProfilePrompt(profileCompleted)}`);
   body = body.replace(/<h2>Reconstruir mi[\s\S]*?<\/h2>/, () => `<h2>${emphasizeLastWord(settings.current_theme)}</h2>`);
   body = body.replace(
     /<p>Un mes para reconocer lo que vales[\s\S]*?<\/p>/,
@@ -149,5 +154,7 @@ export function renderMember(source: LegacySource, settings: SiteSettings, resou
   body = insertResources(body, "Actividades", resources.filter((resource) => resource.kind === "activity"));
   body = insertResources(body, "Audios de reprogramación", resources.filter((resource) => resource.kind === "audio"));
   body = insertResources(body, "Recursos", resources.filter((resource) => resource.kind === "guide" || resource.kind === "resource"));
+  const library = renderMemberLibrary(ebooks);
+  body = body.includes("<footer>") ? body.replace("<footer>", `${library}<footer>`) : `${body}${library}`;
   return body;
 }

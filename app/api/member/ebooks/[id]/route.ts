@@ -20,15 +20,21 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const admin = createAdminClient();
   const { data: ebook, error } = await admin
     .from("ebooks")
-    .select("member_file_path,member_url,is_published")
+    .select("title,member_file_path,member_url,is_published")
     .eq("id", ebookId)
     .single();
   if (error || !ebook?.is_published) return Response.json({ error: "Ebook no disponible." }, { status: 404 });
 
   if (ebook.member_file_path) {
+    const downloadName = `${String(ebook.title || "ebook")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9 -]+/g, "")
+      .trim()
+      .replace(/\s+/g, "-") || "ebook"}.pdf`;
     const { data, error: signedError } = await admin.storage
       .from("member-ebooks")
-      .createSignedUrl(ebook.member_file_path, 300);
+      .createSignedUrl(ebook.member_file_path, 300, { download: downloadName });
     if (signedError || !data?.signedUrl) return Response.json({ error: "No pudimos abrir el PDF." }, { status: 502 });
     return Response.redirect(data.signedUrl, 302);
   }
