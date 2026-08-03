@@ -85,6 +85,15 @@ function replaceBundledFonts(styles) {
     .replaceAll("'Caveat'", "var(--font-caveat)");
 }
 
+function applyProjectAdjustments(key, body) {
+  if (key !== "member") return body;
+
+  return body
+    .split("\n")
+    .filter((line) => !line.includes("<b>Guía de bienvenida</b>"))
+    .join("\n");
+}
+
 for (const [key, filename] of Object.entries(pages)) {
   const raw = extractAssets(readFileSync(join(sourceDir, filename), "utf8"));
   const styleMatch = raw.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
@@ -92,7 +101,10 @@ for (const [key, filename] of Object.entries(pages)) {
   if (!styleMatch || !bodyMatch) throw new Error(`No se pudo interpretar ${filename}`);
 
   const scripts = [...bodyMatch[1].matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)].map((match) => match[1].trim());
-  const body = rewriteInternalLinks(bodyMatch[1].replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "").trim());
+  const body = applyProjectAdjustments(
+    key,
+    rewriteInternalLinks(bodyMatch[1].replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "").trim()),
+  );
   const output = {
     source: basename(filename),
     styles: `${replaceBundledFonts(styleMatch[1].trim())}${key === "miniGuide" ? "\n@media(max-width:480px){.cover{margin-left:-18px;margin-right:-18px;padding-inline:18px}}" : ""}`,
