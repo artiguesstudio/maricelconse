@@ -12,7 +12,7 @@ export function SiteHeader({ compact = false }: { compact?: boolean }) {
         <Link href="/sesiones">Sesiones</Link>
         <Link href="/ebooks">Ebooks</Link>
         <Link href="/membresia">Membresía</Link>
-        <Link className="nav-login" href="/mi-espacio">Ingresar</Link>
+        <Link className="nav-login" href="/mi-espacio">Ingresar a mi espacio</Link>
       </nav>
       <details className="mobile-nav">
         <summary aria-label="Abrir menú">Menú</summary>
@@ -21,7 +21,7 @@ export function SiteHeader({ compact = false }: { compact?: boolean }) {
           <Link href="/sesiones">Sesiones</Link>
           <Link href="/ebooks">Ebooks</Link>
           <Link href="/membresia">Membresía</Link>
-          <Link href="/mi-espacio">Ingresar</Link>
+          <Link href="/mi-espacio">Ingresar a mi espacio</Link>
         </div>
       </details>
     </header>

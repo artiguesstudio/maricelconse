@@ -15,9 +15,26 @@ function withContactLinks(body: string, settings: SiteSettings) {
   ]);
 }
 
+function withPrivateAccess(body: string) {
+  if (body.includes("legacy-space-link")) return body;
+  const accessLink = '<a href="/mi-espacio" class="nav-cta legacy-space-link"><span class="legacy-space-link__desktop">Ingresar a mi espacio</span><span class="legacy-space-link__mobile">Mi espacio</span></a>';
+  if (body.includes('<div class="nav-links">')) {
+    return body.replace(
+      /(<div class="nav-links">[\s\S]*?)(<\/div>\s*<\/nav>)/,
+      (_, links: string, closing: string) => `${links}${accessLink}${closing}`,
+    );
+  }
+  return `<nav class="legacy-access-nav"><a href="/" class="logo">MARICEL <em>Conse</em></a><div class="nav-links">${accessLink}</div></nav>${body}`;
+}
+
+function withPublicHeader(body: string, settings: SiteSettings) {
+  return withPrivateAccess(withContactLinks(body, settings));
+}
+
 export function renderHome(source: LegacySource, settings: SiteSettings) {
   let body = withContactLinks(source.body, settings);
   body = body.replace(/\s*<a href="#empezar" class="nav-cta">Empeza hoy<\/a>/i, "");
+  body = withPrivateAccess(body);
   body = body.replaceAll('loading="lazy"', 'loading="eager"');
   body = body.replace(/<div class="welcome">[\s\S]*?<\/div>/, () => `<div class="welcome">${escapeHtml(settings.hero_eyebrow)}</div>`);
   if (settings.hero_title.trim().toLowerCase() !== "sali a comerte el mundo") {
@@ -42,7 +59,7 @@ export function renderMembership(source: LegacySource, settings: SiteSettings) {
   const checkout = process.env.MERCADOPAGO_PLAN_ID
     ? "/membresia/suscribirme"
     : settings.membership_purchase_url || `${settings.whatsapp_url}?text=${encodeURIComponent("Hola Maricel, quiero sumarme a Bienvenidas a bordo")}`;
-  let body = applyReplacements(withContactLinks(source.body, settings), [
+  let body = applyReplacements(withPublicHeader(source.body, settings), [
     ["REEMPLAZAR-LINK-MERCADOPAGO", escapeHtml(checkout)],
     ["$70.000", escapeHtml(settings.membership_price_regular)],
     ["$51.999", escapeHtml(settings.membership_price_sale)],
@@ -54,11 +71,11 @@ export function renderMembership(source: LegacySource, settings: SiteSettings) {
 }
 
 export function renderSessions(source: LegacySource, settings: SiteSettings) {
-  return withContactLinks(source.body, settings);
+  return withPublicHeader(source.body, settings);
 }
 
 export function renderMiniGuide(source: LegacySource, settings: SiteSettings) {
-  return withContactLinks(source.body, settings);
+  return withPublicHeader(source.body, settings);
 }
 
 export function renderEbooks(source: LegacySource, settings: SiteSettings, ebooks: EbookRecord[]) {
@@ -79,7 +96,7 @@ export function renderEbooks(source: LegacySource, settings: SiteSettings, ebook
         </article>`;
   }).join("");
 
-  let body = withContactLinks(source.body, settings);
+  let body = withPublicHeader(source.body, settings);
   body = body.replace(
     /(<div class="carousel-track">)[\s\S]*?(<\/div>\s*<div class="carousel-ctrl">)/,
     (_, opening: string, closing: string) => `${opening}${cards}\n      ${closing}`,
@@ -129,7 +146,18 @@ function renderMemberLibrary(ebooks: EbookRecord[]) {
     const available = Boolean(ebook.memberFilePath || ebook.memberUrl);
     return `<article class="member-ebook-card"><img src="${escapeHtml(ebook.coverImage || "/images/ebooks-tablet.jpg")}" alt="Portada de ${escapeHtml(ebook.title)}"><div><span>Incluido en tu membresía</span><h3>${escapeHtml(ebook.title)}</h3><p>${escapeHtml(ebook.subtitle)}</p>${available ? `<a href="/api/member/ebooks/${ebook.id}" target="_blank" rel="noopener">Descargar ebook ↓</a>` : `<small>Disponible próximamente</small>`}</div></article>`;
   }).join("");
-  return `<section class="member-managed-tools"><div class="member-managed-tools__inner"><details class="member-ebook-library"><summary><div class="member-library-heading"><span>Biblioteca de a bordo</span><h2>Tus ebooks, sin costo extra.</h2></div><span class="member-library-toggle" aria-hidden="true">+</span></summary><div class="member-library-content"><p>Todos los ebooks publicados están incluidos mientras tu membresía esté activa.</p><div class="member-ebook-grid">${cards || "<p>Muy pronto vas a encontrar tus ebooks acá.</p>"}</div></div></details></div></section>`;
+  return `<details class="carpeta ancha member-ebook-library">
+        <span class="c-tag">Incluidos</span>
+        <summary>
+          <span class="c-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3.5h11a1.6 1.6 0 0 1 1.6 1.6v13.8a1.6 1.6 0 0 1-1.6 1.6h-11A1.6 1.6 0 0 1 5 18.9V5.1a1.6 1.6 0 0 1 1.5-1.6z"/><path d="M8.6 3.5v17"/><path d="M11.6 8.4h4.4M11.6 11.8h4.4"/></svg></span>
+          <span class="c-txt"><b>E-books</b><span>Tu biblioteca completa, incluida sin costo extra en la membresía.</span></span>
+          <span class="c-cta">Ver e-books <span class="signo">+</span></span>
+        </summary>
+        <div class="c-cuerpo"><div><div class="c-inner">
+          <p class="member-library-intro">Puedes descargar todos los e-books publicados mientras tu membresía esté activa.</p>
+          <div class="member-ebook-grid">${cards || "<p>Muy pronto vas a encontrar tus e-books acá.</p>"}</div>
+        </div></div></div>
+      </details>`;
 }
 
 export function renderMember(source: LegacySource, settings: SiteSettings, resources: ResourceRecord[], ebooks: EbookRecord[], profileCompleted: boolean) {
@@ -155,6 +183,9 @@ export function renderMember(source: LegacySource, settings: SiteSettings, resou
   body = insertResources(body, "Audios de reprogramación", resources.filter((resource) => resource.kind === "audio"));
   body = insertResources(body, "Recursos", resources.filter((resource) => resource.kind === "guide" || resource.kind === "resource"));
   const library = renderMemberLibrary(ebooks);
-  body = body.includes("<footer>") ? body.replace("<footer>", `${library}<footer>`) : `${body}${library}`;
+  const helpMarker = '    </div>\n\n    <section class="ayuda">';
+  body = body.includes(helpMarker)
+    ? body.replace(helpMarker, `      ${library}\n    </div>\n\n    <section class="ayuda">`)
+    : body.replace('<section class="ayuda">', `${library}<section class="ayuda">`);
   return body;
 }

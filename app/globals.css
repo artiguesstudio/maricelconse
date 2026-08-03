@@ -554,27 +554,22 @@ h3 { font-size: clamp(1.5rem, 2.2vw, 2rem); }
 .profile-form input:disabled { color: var(--muted); cursor: not-allowed; }
 
 /* Herramientas administradas dentro de los HTML originales */
+.legacy-page nav .legacy-space-link { display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; }
+.legacy-page nav .legacy-space-link__mobile { display: none; }
+.legacy-page--mini-guide .legacy-access-nav { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 1rem clamp(1.3rem, 5vw, 3.4rem); border-bottom: 1px solid rgba(35,78,72,.16); background: rgba(253,251,244,.92); backdrop-filter: blur(10px); }
+.legacy-page--mini-guide .legacy-access-nav .logo { font-family: var(--font-archivo), sans-serif; font-size: 1.05rem; font-weight: 800; letter-spacing: .02em; text-transform: uppercase; }
+.legacy-page--mini-guide .legacy-access-nav .logo em { color: #3b8375; font-family: Georgia, serif; font-weight: 400; text-transform: none; }
+.legacy-page--mini-guide .legacy-access-nav .nav-links { display: flex; align-items: center; }
+.legacy-page--mini-guide .legacy-access-nav .legacy-space-link { border-radius: 7px; padding: 9px 18px; background: #3b8375; color: #fff; font-family: var(--font-archivo), sans-serif; font-size: .74rem; font-weight: 700; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; }
 .legacy-page .member-profile-tools { padding: 2rem 1.5rem; background: #f5f6ef; color: #183f39; }
-.legacy-page .member-managed-tools { padding: 5rem 1.5rem; background: #f5f6ef; color: #183f39; }
 .legacy-page .member-managed-tools__inner { width: min(1120px, 100%); margin: 0 auto; }
 .legacy-page .member-profile-prompt { display: flex; align-items: center; justify-content: space-between; gap: 2rem; border-radius: 18px; margin-bottom: 3.5rem; padding: 1.7rem 2rem; background: #1d574f; color: #fff; box-shadow: 0 18px 38px rgba(23,57,52,.13); }
 .legacy-page .member-profile-tools .member-profile-prompt { margin-bottom: 0; }
-.legacy-page .member-profile-prompt span, .legacy-page .member-library-heading > span, .legacy-page .member-ebook-card span { display: block; font-family: var(--font-archivo), sans-serif; font-size: .66rem; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+.legacy-page .member-profile-prompt span, .legacy-page .member-ebook-card span { display: block; font-family: var(--font-archivo), sans-serif; font-size: .66rem; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
 .legacy-page .member-profile-prompt h2 { margin: .35rem 0; color: inherit; font-family: var(--font-archivo), sans-serif; font-size: clamp(1.35rem, 3vw, 2rem); }
 .legacy-page .member-profile-prompt p { margin: 0; color: rgba(255,255,255,.8); }
 .legacy-page .member-profile-prompt a { flex: none; border-radius: 999px; padding: .85rem 1.15rem; background: #f8f4ea; color: #1d574f; font-family: var(--font-archivo), sans-serif; font-size: .72rem; font-weight: 900; text-decoration: none; text-transform: uppercase; }
-.legacy-page .member-ebook-library { overflow: hidden; border: 1px solid rgba(24,63,57,.14); border-radius: 18px; background: #eef3eb; box-shadow: 0 14px 36px rgba(23,57,52,.08); }
-.legacy-page .member-ebook-library > summary { display: flex; align-items: center; justify-content: space-between; gap: 2rem; padding: 1.6rem 1.8rem; cursor: pointer; list-style: none; }
-.legacy-page .member-ebook-library > summary::-webkit-details-marker { display: none; }
-.legacy-page .member-library-heading { max-width: 680px; margin-bottom: 1.8rem; }
-.legacy-page .member-ebook-library > summary .member-library-heading { margin-bottom: 0; }
-.legacy-page .member-library-heading > span { color: #489d8e; }
-.legacy-page .member-library-heading h2 { margin: .5rem 0; color: #183f39; font-family: var(--font-archivo), sans-serif; font-size: clamp(2rem, 4vw, 3.5rem); }
-.legacy-page .member-library-heading p { margin: 0; color: #5d7872; }
-.legacy-page .member-library-toggle { display: grid; flex: none; width: 42px; height: 42px; place-items: center; border: 1px solid rgba(24,63,57,.22); border-radius: 50%; color: #1d6f64; font-family: var(--font-archivo), sans-serif; font-size: 1.6rem; line-height: 1; transition: transform .2s ease, background .2s ease; }
-.legacy-page .member-ebook-library[open] .member-library-toggle { transform: rotate(45deg); background: #dce9e1; }
-.legacy-page .member-library-content { border-top: 1px solid rgba(24,63,57,.12); padding: 1.6rem 1.8rem 1.8rem; }
-.legacy-page .member-library-content > p { margin: 0 0 1.4rem; color: #5d7872; }
+.legacy-page .member-ebook-library .member-library-intro { margin: 0 0 1rem; color: #5d7872; font-size: .88rem; }
 .legacy-page .member-ebook-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
 .legacy-page .member-ebook-card { overflow: hidden; border: 1px solid rgba(24,63,57,.12); border-radius: 14px; background: #fff; box-shadow: 0 10px 28px rgba(23,57,52,.07); }
 .legacy-page .member-ebook-card > img { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; }
@@ -588,6 +583,13 @@ h3 { font-size: clamp(1.5rem, 2.2vw, 2rem); }
   .legacy-page .member-ebook-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+@media (max-width: 840px) {
+  .legacy-page nav .legacy-space-link { display: inline-flex !important; padding: 8px 12px; }
+  .legacy-page nav .legacy-space-link__desktop { display: none; }
+  .legacy-page nav .legacy-space-link__mobile { display: inline; }
+  .legacy-page--sessions nav .nav-cta:not(.legacy-space-link) { display: none; }
+}
+
 @media (max-width: 700px) {
   .welcome-pass__scroll { box-shadow: none; }
   .welcome-pass__canvas { min-width: 0; }
@@ -598,13 +600,10 @@ h3 { font-size: clamp(1.5rem, 2.2vw, 2rem); }
   .welcome-pass__mobile-fields input { width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: .8rem; }
   .profile-form__grid { grid-template-columns: 1fr; }
   .legacy-page .member-profile-prompt { align-items: flex-start; flex-direction: column; }
-  .legacy-page .member-ebook-library > summary { align-items: flex-start; padding: 1.35rem; }
-  .legacy-page .member-library-heading h2 { font-size: clamp(1.55rem, 8vw, 2.2rem); }
-  .legacy-page .member-library-content { padding: 1.25rem; }
+  .legacy-page .member-ebook-library .c-cta { padding-inline: 12px; }
 }
 
 @media (max-width: 480px) {
-  .legacy-page .member-managed-tools { padding: 4rem 1rem; }
   .legacy-page .member-ebook-grid { grid-template-columns: 1fr; }
   .legacy-page .member-ebook-card { display: grid; grid-template-columns: 110px 1fr; }
   .legacy-page .member-ebook-card > img { height: 100%; aspect-ratio: auto; }
