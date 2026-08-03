@@ -163,6 +163,25 @@ export function LegacyEnhancements({ pageKey }: { pageKey: string }) {
       cleanups.push(() => folder.removeEventListener("toggle", onToggle));
     });
 
+    const profileMenu = root.querySelector<HTMLDetailsElement>("details.legacy-profile-menu");
+    if (profileMenu) {
+      const summary = profileMenu.querySelector<HTMLElement>("summary");
+      const closeOnOutsideClick = (event: PointerEvent) => {
+        if (profileMenu.open && !profileMenu.contains(event.target as Node)) profileMenu.open = false;
+      };
+      const closeOnEscape = (event: KeyboardEvent) => {
+        if (event.key !== "Escape" || !profileMenu.open) return;
+        profileMenu.open = false;
+        summary?.focus();
+      };
+      document.addEventListener("pointerdown", closeOnOutsideClick);
+      document.addEventListener("keydown", closeOnEscape);
+      cleanups.push(() => {
+        document.removeEventListener("pointerdown", closeOnOutsideClick);
+        document.removeEventListener("keydown", closeOnEscape);
+      });
+    }
+
     root.querySelectorAll<HTMLElement>("[data-fqc]").forEach((button) => {
       const onClick = () => {
         const carousel = root.querySelector<HTMLElement>("#fqc");

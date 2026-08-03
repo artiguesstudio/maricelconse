@@ -555,20 +555,24 @@ h3 { font-size: clamp(1.5rem, 2.2vw, 2rem); }
 
 /* Herramientas administradas dentro de los HTML originales */
 .legacy-page nav .legacy-space-link { display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; }
-.legacy-page nav .legacy-space-link__mobile { display: none; }
 .legacy-page--mini-guide .legacy-access-nav { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 1rem clamp(1.3rem, 5vw, 3.4rem); border-bottom: 1px solid rgba(35,78,72,.16); background: rgba(253,251,244,.92); backdrop-filter: blur(10px); }
 .legacy-page--mini-guide .legacy-access-nav .logo { font-family: var(--font-archivo), sans-serif; font-size: 1.05rem; font-weight: 800; letter-spacing: .02em; text-transform: uppercase; }
 .legacy-page--mini-guide .legacy-access-nav .logo em { color: #3b8375; font-family: Georgia, serif; font-weight: 400; text-transform: none; }
 .legacy-page--mini-guide .legacy-access-nav .nav-links { display: flex; align-items: center; }
 .legacy-page--mini-guide .legacy-access-nav .legacy-space-link { border-radius: 7px; padding: 9px 18px; background: #3b8375; color: #fff; font-family: var(--font-archivo), sans-serif; font-size: .74rem; font-weight: 700; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; }
-.legacy-page .member-profile-tools { padding: 2rem 1.5rem; background: #f5f6ef; color: #183f39; }
-.legacy-page .member-managed-tools__inner { width: min(1120px, 100%); margin: 0 auto; }
-.legacy-page .member-profile-prompt { display: flex; align-items: center; justify-content: space-between; gap: 2rem; border-radius: 18px; margin-bottom: 3.5rem; padding: 1.7rem 2rem; background: #1d574f; color: #fff; box-shadow: 0 18px 38px rgba(23,57,52,.13); }
-.legacy-page .member-profile-tools .member-profile-prompt { margin-bottom: 0; }
-.legacy-page .member-profile-prompt span, .legacy-page .member-ebook-card span { display: block; font-family: var(--font-archivo), sans-serif; font-size: .66rem; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
-.legacy-page .member-profile-prompt h2 { margin: .35rem 0; color: inherit; font-family: var(--font-archivo), sans-serif; font-size: clamp(1.35rem, 3vw, 2rem); }
-.legacy-page .member-profile-prompt p { margin: 0; color: rgba(255,255,255,.8); }
-.legacy-page .member-profile-prompt a { flex: none; border-radius: 999px; padding: .85rem 1.15rem; background: #f8f4ea; color: #1d574f; font-family: var(--font-archivo), sans-serif; font-size: .72rem; font-weight: 900; text-decoration: none; text-transform: uppercase; }
+.legacy-page--home .servicios-secundarios .feature-title { margin-top: 0; }
+.legacy-page--member nav .nav-links { gap: 1rem; }
+.legacy-page .legacy-profile-menu { position: relative; }
+.legacy-page .legacy-profile-menu > summary { list-style: none; border: 1px solid rgba(35,78,72,.32); border-radius: 999px; padding: 8px 13px; color: #234e48; cursor: pointer; font-family: var(--font-archivo), sans-serif; font-size: .68rem; font-weight: 800; letter-spacing: .08em; line-height: 1.15; text-transform: uppercase; transition: background .2s ease, color .2s ease; }
+.legacy-page .legacy-profile-menu > summary::-webkit-details-marker { display: none; }
+.legacy-page .legacy-profile-menu[open] > summary, .legacy-page .legacy-profile-menu > summary:hover { background: #234e48; color: #fff; }
+.legacy-page .legacy-profile-menu__mobile { display: none; }
+.legacy-page .legacy-profile-popover { position: absolute; top: calc(100% + .75rem); right: 0; width: min(330px, calc(100vw - 2rem)); border: 1px solid rgba(35,78,72,.18); border-radius: 15px; padding: 1.2rem; background: #fbfcf8; color: #234e48; box-shadow: 0 18px 44px rgba(23,57,52,.18); text-align: left; }
+.legacy-page .legacy-profile-popover > span { display: block; margin-bottom: .45rem; color: #4f9e8e; font-family: var(--font-archivo), sans-serif; font-size: .6rem; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; }
+.legacy-page .legacy-profile-popover strong { display: block; font-family: var(--font-display), Georgia, serif; font-size: 1.25rem; line-height: 1.15; }
+.legacy-page .legacy-profile-popover p { margin: .65rem 0 1rem; color: #5c7c75; font-size: .8rem; line-height: 1.5; }
+.legacy-page .legacy-profile-popover a { display: inline-flex !important; border-radius: 999px; padding: .72rem .9rem; background: #4f9e8e; color: #fff !important; font-size: .65rem !important; font-weight: 900 !important; letter-spacing: .06em !important; text-transform: uppercase; }
+.legacy-page .member-ebook-card span { display: block; font-family: var(--font-archivo), sans-serif; font-size: .66rem; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
 .legacy-page .member-ebook-library .member-library-intro { margin: 0 0 1rem; color: #5d7872; font-size: .88rem; }
 .legacy-page .member-ebook-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
 .legacy-page .member-ebook-card { overflow: hidden; border: 1px solid rgba(24,63,57,.12); border-radius: 14px; background: #fff; box-shadow: 0 10px 28px rgba(23,57,52,.07); }
@@ -584,10 +588,14 @@ h3 { font-size: clamp(1.5rem, 2.2vw, 2rem); }
 }
 
 @media (max-width: 840px) {
-  .legacy-page nav .legacy-space-link { display: inline-flex !important; padding: 8px 12px; }
-  .legacy-page nav .legacy-space-link__desktop { display: none; }
-  .legacy-page nav .legacy-space-link__mobile { display: inline; }
+  .legacy-page nav .legacy-space-link { display: inline-flex !important; max-width: 142px; padding: 7px 10px; white-space: normal; text-align: center; line-height: 1.15; }
   .legacy-page--sessions nav .nav-cta:not(.legacy-space-link) { display: none; }
+  .legacy-page--home .hero-photo { width: min(78vw, 340px); margin-inline: auto; }
+  .legacy-page--home .hero-photo .photo-real { width: 100%; height: auto; min-height: 0; max-height: 440px; object-fit: contain; }
+  .legacy-page--member nav .nav-links { gap: .55rem; }
+  .legacy-page .legacy-profile-menu__desktop { display: none; }
+  .legacy-page .legacy-profile-menu__mobile { display: inline; }
+  .legacy-page .legacy-profile-menu > summary { padding: 8px 11px; }
 }
 
 @media (max-width: 700px) {
@@ -599,7 +607,6 @@ h3 { font-size: clamp(1.5rem, 2.2vw, 2rem); }
   .welcome-pass__mobile-fields span { font-size: .68rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
   .welcome-pass__mobile-fields input { width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: .8rem; }
   .profile-form__grid { grid-template-columns: 1fr; }
-  .legacy-page .member-profile-prompt { align-items: flex-start; flex-direction: column; }
   .legacy-page .member-ebook-library .c-cta { padding-inline: 12px; }
 }
 

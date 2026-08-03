@@ -17,7 +17,7 @@ function withContactLinks(body: string, settings: SiteSettings) {
 
 function withPrivateAccess(body: string) {
   if (body.includes("legacy-space-link")) return body;
-  const accessLink = '<a href="/mi-espacio" class="nav-cta legacy-space-link"><span class="legacy-space-link__desktop">Ingresar a mi espacio</span><span class="legacy-space-link__mobile">Mi espacio</span></a>';
+  const accessLink = '<a href="/mi-espacio" class="nav-cta legacy-space-link">Ingresa a tu membresía</a>';
   if (body.includes('<div class="nav-links">')) {
     return body.replace(
       /(<div class="nav-links">[\s\S]*?)(<\/div>\s*<\/nav>)/,
@@ -29,6 +29,27 @@ function withPrivateAccess(body: string) {
 
 function withPublicHeader(body: string, settings: SiteSettings) {
   return withPrivateAccess(withContactLinks(body, settings));
+}
+
+function reorderHomeMembership(body: string) {
+  const membershipTag = '<section class="membresia sec" id="membresia">';
+  const membershipTagIndex = body.indexOf(membershipTag);
+  const featureMarker = '<h3 class="feature-title reveal">';
+  if (membershipTagIndex < 0 || !body.includes(featureMarker)) return body;
+
+  const commentIndex = body.lastIndexOf("<!-- MEMBRESIA -->", membershipTagIndex);
+  const membershipStart = commentIndex >= 0 && membershipTagIndex - commentIndex < 80 ? commentIndex : membershipTagIndex;
+  const membershipEndTag = "</section>";
+  const membershipEnd = body.indexOf(membershipEndTag, membershipTagIndex);
+  if (membershipEnd < 0) return body;
+
+  const membership = body.slice(membershipStart, membershipEnd + membershipEndTag.length).trim();
+  const withoutMembership = `${body.slice(0, membershipStart)}${body.slice(membershipEnd + membershipEndTag.length)}`;
+  const featureIndex = withoutMembership.indexOf(featureMarker);
+  if (featureIndex < 0) return body;
+
+  const secondServices = `<\/div>\n<\/section>\n\n${membership}\n\n<section class="servicios servicios-secundarios sec">\n  <div class="wrap">\n    `;
+  return `${withoutMembership.slice(0, featureIndex)}${secondServices}${withoutMembership.slice(featureIndex)}`;
 }
 
 export function renderHome(source: LegacySource, settings: SiteSettings) {
@@ -52,7 +73,7 @@ export function renderHome(source: LegacySource, settings: SiteSettings) {
   );
   body = body.replace(/<h2 class="memb-title">[\s\S]*?<\/h2>/, () => `<h2 class="memb-title">${escapeHtml(settings.membership_title)}</h2>`);
   body = body.replace(/(<div class="memb-desc">\s*)<p>[\s\S]*?<\/p>/, (_, prefix: string) => `${prefix}<p>${escapeHtml(settings.membership_body)}</p>`);
-  return body;
+  return reorderHomeMembership(body);
 }
 
 export function renderMembership(source: LegacySource, settings: SiteSettings) {
@@ -136,9 +157,16 @@ function insertResources(body: string, heading: string, resources: ResourceRecor
   return `${body.slice(0, insertion)}${html}${body.slice(insertion)}`;
 }
 
-function renderMemberProfilePrompt(profileCompleted: boolean) {
-  if (profileCompleted) return "";
-  return `<section class="member-profile-tools"><div class="member-managed-tools__inner"><aside class="member-profile-prompt"><div><span>Antes de continuar</span><h2>Completa tu perfil de pasajera.</h2><p>Contanos tus datos para poder acompañarte mejor.</p></div><a href="/mi-espacio/perfil">Completar perfil →</a></aside></div></section>`;
+function renderMemberProfileMenu(profileCompleted: boolean) {
+  const title = profileCompleted ? "Tu perfil está completo." : "Completa tu perfil de pasajera.";
+  const description = profileCompleted
+    ? "Puedes revisar o actualizar tus datos personales cuando lo necesites."
+    : "Contanos tus datos para poder acompañarte mejor dentro de la academia.";
+  const action = profileCompleted ? "Ver o editar perfil" : "Completar ahora";
+  return `<details class="legacy-profile-menu">
+    <summary><span class="legacy-profile-menu__desktop">${profileCompleted ? "Mi perfil" : "Completa tu perfil"}</span><span class="legacy-profile-menu__mobile">Perfil</span></summary>
+    <div class="legacy-profile-popover"><span>Tu ficha de pasajera</span><strong>${title}</strong><p>${description}</p><a href="/mi-espacio/perfil">${action} →</a></div>
+  </details>`;
 }
 
 function renderMemberLibrary(ebooks: EbookRecord[]) {
@@ -164,9 +192,8 @@ export function renderMember(source: LegacySource, settings: SiteSettings, resou
   let body = withContactLinks(source.body, settings);
   body = body.replace(
     /(<div class="nav-links">[\s\S]*?)(<\/div>\s*<\/nav>)/,
-    (_, links: string, closing: string) => `${links}<a href="/mi-espacio/membresia">Mi membresía</a><form action="/auth/signout" method="post"><button class="legacy-nav-button" type="submit">Salir</button></form>${closing}`,
+    (_, links: string, closing: string) => `${links}${renderMemberProfileMenu(profileCompleted)}<a href="/mi-espacio/membresia">Mi membresía</a><form action="/auth/signout" method="post"><button class="legacy-nav-button" type="submit">Salir</button></form>${closing}`,
   );
-  body = body.replace("</nav>", `</nav>${renderMemberProfilePrompt(profileCompleted)}`);
   body = body.replace(/<h2>Reconstruir mi[\s\S]*?<\/h2>/, () => `<h2>${emphasizeLastWord(settings.current_theme)}</h2>`);
   body = body.replace(
     /<p>Un mes para reconocer lo que vales[\s\S]*?<\/p>/,
