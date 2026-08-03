@@ -9,7 +9,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const supabase = await createClient();
   const { data: active, error: accessError } = await supabase.rpc("has_active_membership");
   if (accessError) throw accessError;
-  if (!active) return Response.json({ error: "Necesitás una membresía vigente para acceder." }, { status: 403 });
+  if (!active) return Response.json({ error: "Necesitas una membresía vigente para acceder." }, { status: 403 });
 
   const { id } = await context.params;
   const ebookId = Number(id);

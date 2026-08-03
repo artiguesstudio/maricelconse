@@ -7,9 +7,9 @@ import { renderHome } from "./legacy/render";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Salí a comerte el mundo",
+  title: "Sali a comerte el mundo",
   description:
-    "Coaching para mujeres que están cansadas de esperar. Dejá de postergarte y andá por todo. Sesiones online 1:1.",
+    "Coaching para mujeres que están cansadas de esperar. Deja de postergarte y anda por todo. Sesiones online 1:1.",
 };
 
 export default async function Home() {

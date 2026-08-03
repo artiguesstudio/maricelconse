@@ -1,11 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 
 export function BoardingPassWelcome({ initialName, initialDepartureDate }: { initialName: string; initialDepartureDate: string }) {
-  const router = useRouter();
   const [displayName, setDisplayName] = useState(initialName);
   const [departureDate, setDepartureDate] = useState(initialDepartureDate || new Date().toISOString().slice(0, 10));
   const [saving, setSaving] = useState(false);
@@ -14,19 +12,25 @@ export function BoardingPassWelcome({ initialName, initialDepartureDate }: { ini
   async function beginJourney() {
     setSaving(true);
     setError("");
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15_000);
     try {
       const response = await fetch("/api/profile", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ mode: "welcome", displayName, departureDate }),
+        signal: controller.signal,
       });
       const body = await response.json() as { error?: string };
       if (!response.ok) throw new Error(body.error || "No se pudo guardar la tarjeta.");
-      router.push("/mi-espacio");
-      router.refresh();
+      window.location.assign("/mi-espacio");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo guardar la tarjeta.");
+      setError(caught instanceof DOMException && caught.name === "AbortError"
+        ? "El guardado demoró demasiado. Intenta nuevamente."
+        : caught instanceof Error ? caught.message : "No se pudo guardar la tarjeta.");
       setSaving(false);
+    } finally {
+      window.clearTimeout(timeout);
     }
   }
 
@@ -35,7 +39,7 @@ export function BoardingPassWelcome({ initialName, initialDepartureDate }: { ini
       <div className="welcome-pass__intro">
         <p className="eyebrow">Pago confirmado</p>
         <h1>¡Ya estás a bordo!</h1>
-        <p>Personalizá tu tarjeta de bienvenida, guardala o imprimila y empezá tu viaje.</p>
+        <p>Personaliza tu tarjeta de bienvenida, guardala o imprimila y empeza tu viaje.</p>
       </div>
       <div className="welcome-pass__scroll">
         <div className="welcome-pass__canvas">

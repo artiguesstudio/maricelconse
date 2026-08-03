@@ -20,7 +20,7 @@ export function renderHome(source: LegacySource, settings: SiteSettings) {
   body = body.replace(/\s*<a href="#empezar" class="nav-cta">Empeza hoy<\/a>/i, "");
   body = body.replaceAll('loading="lazy"', 'loading="eager"');
   body = body.replace(/<div class="welcome">[\s\S]*?<\/div>/, () => `<div class="welcome">${escapeHtml(settings.hero_eyebrow)}</div>`);
-  if (settings.hero_title.trim().toLowerCase() !== "salí a comerte el mundo") {
+  if (settings.hero_title.trim().toLowerCase() !== "sali a comerte el mundo") {
     body = body.replace(/<h1>[\s\S]*?<\/h1>/, () => `<h1>${escapeHtml(settings.hero_title)}</h1>`);
   }
   const subtitleParts = settings.hero_subtitle.split(/(?<=\.)\s+/, 2);
@@ -124,7 +124,7 @@ function renderMemberLibrary(ebooks: EbookRecord[], profileCompleted: boolean) {
     const available = Boolean(ebook.memberFilePath || ebook.memberUrl);
     return `<article class="member-ebook-card"><img src="${escapeHtml(ebook.coverImage || "/images/ebooks-tablet.jpg")}" alt="Portada de ${escapeHtml(ebook.title)}"><div><span>Incluido en tu membresía</span><h3>${escapeHtml(ebook.title)}</h3><p>${escapeHtml(ebook.subtitle)}</p>${available ? `<a href="/api/member/ebooks/${ebook.id}" target="_blank" rel="noopener">Abrir ebook →</a>` : `<small>Disponible próximamente</small>`}</div></article>`;
   }).join("");
-  return `<section class="member-managed-tools"><div class="member-managed-tools__inner">${profileCompleted ? "" : `<aside class="member-profile-prompt"><div><span>Antes de continuar</span><h2>Completá tu perfil de pasajera.</h2><p>Contanos tus datos para poder acompañarte mejor.</p></div><a href="/mi-espacio/perfil">Completar perfil →</a></aside>`}<div class="member-ebook-library"><div class="member-library-heading"><span>Biblioteca de a bordo</span><h2>Tus ebooks, sin costo extra.</h2><p>Todos los ebooks publicados están incluidos mientras tu membresía esté activa.</p></div><div class="member-ebook-grid">${cards || "<p>Muy pronto vas a encontrar tus ebooks acá.</p>"}</div></div></div></section>`;
+  return `<section class="member-managed-tools"><div class="member-managed-tools__inner">${profileCompleted ? "" : `<aside class="member-profile-prompt"><div><span>Antes de continuar</span><h2>Completa tu perfil de pasajera.</h2><p>Contanos tus datos para poder acompañarte mejor.</p></div><a href="/mi-espacio/perfil">Completar perfil →</a></aside>`}<div class="member-ebook-library"><div class="member-library-heading"><span>Biblioteca de a bordo</span><h2>Tus ebooks, sin costo extra.</h2><p>Todos los ebooks publicados están incluidos mientras tu membresía esté activa.</p></div><div class="member-ebook-grid">${cards || "<p>Muy pronto vas a encontrar tus ebooks acá.</p>"}</div></div></div></section>`;
 }
 
 export function renderMember(source: LegacySource, settings: SiteSettings, resources: ResourceRecord[], ebooks: EbookRecord[], profileCompleted: boolean) {

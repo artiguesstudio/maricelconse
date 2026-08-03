@@ -32,7 +32,7 @@ export default async function SubscribePage({
         {active ? (
           <>
             <h1>Tu membresía ya está vigente.</h1>
-            <p>Tenés acceso hasta el {formatDate(subscription!.accessUntil)}.</p>
+            <p>Tenes acceso hasta el {formatDate(subscription!.accessUntil)}.</p>
             <div className="subscription-actions">
               <Link className="button button--dark" href="/mi-espacio">Entrar a mi espacio</Link>
               <Link className="text-link" href="/mi-espacio/membresia">Administrar membresía</Link>
@@ -53,7 +53,7 @@ export default async function SubscribePage({
               <div><dt>Al cancelar</dt><dd>Conservas el acceso hasta terminar el período abonado</dd></div>
             </dl>
             {params.error && (
-              <p className="subscription-error" role="alert">Todavía no pudimos abrir Mercado Pago. Intentá nuevamente o escribile a Maricel.</p>
+              <p className="subscription-error" role="alert">Todavía no pudimos abrir Mercado Pago. Intenta nuevamente o escribile a Maricel.</p>
             )}
             <form action="/api/subscriptions/checkout" method="post">
               <button className="button button--dark subscription-submit" type="submit">Continuar a Mercado Pago →</button>

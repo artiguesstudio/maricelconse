@@ -52,7 +52,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("No se pudo cancelar la suscripción", error);
     return Response.json(
-      { error: "No pudimos completar la baja. Intentá nuevamente o escribile a Maricel." },
+      { error: "No pudimos completar la baja. Intenta nuevamente o escribile a Maricel." },
       { status: 502 },
     );
   }

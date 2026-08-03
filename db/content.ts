@@ -2,7 +2,7 @@ import { createClient } from "../lib/supabase/server";
 
 export const DEFAULT_SETTINGS = {
   hero_eyebrow: "Se acabó esperar el “momento perfecto”",
-  hero_title: "Salí a comerte el mundo",
+  hero_title: "Sali a comerte el mundo",
   hero_subtitle:
     "No sos lo que te pasó. Sos lo que vas a hacer con todo eso.",
   story_title: "Toqué fondo y elegí levantarme.",
@@ -16,7 +16,7 @@ export const DEFAULT_SETTINGS = {
   membership_purchase_url: "",
   current_theme: "Reconstruir mi valor",
   current_theme_description:
-    "Un mes para reconocer lo que valés y sostenerlo, aunque nadie te lo confirme.",
+    "Un mes para reconocer lo que vales y sostenerlo, aunque nadie te lo confirme.",
   next_session_label: "Sábado · 19:00 h",
   next_session_url: "",
   whatsapp_url: "https://wa.me/5492964406552",

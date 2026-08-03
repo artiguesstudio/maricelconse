@@ -17,7 +17,7 @@ export default async function ProfilePage() {
       <SiteHeader compact />
       <section className="subscription-card profile-card">
         <p className="eyebrow">Tu ficha de pasajera</p>
-        <h1>Completá tu perfil.</h1>
+        <h1>Completa tu perfil.</h1>
         <p>Estos datos son privados y nos ayudan a acompañarte mejor dentro de la academia.</p>
         <ProfileForm profile={profile} />
       </section>

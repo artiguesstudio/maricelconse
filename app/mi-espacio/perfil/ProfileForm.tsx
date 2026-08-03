@@ -40,7 +40,7 @@ export function ProfileForm({ profile }: { profile: MemberProfile }) {
         <label><span>Email</span><input value={form.email} disabled /></label>
         <label><span>Teléfono</span><input required type="tel" value={form.phone} onChange={(event) => set("phone", event.target.value)} /></label>
         <label><span>Fecha de nacimiento</span><input required type="date" value={form.birthDate} onChange={(event) => set("birthDate", event.target.value)} /></label>
-        <label><span>Tipo de documento</span><select required value={form.documentType} onChange={(event) => set("documentType", event.target.value)}><option value="">Elegí una opción</option><option>DNI</option><option>Pasaporte</option><option>Otro</option></select></label>
+        <label><span>Tipo de documento</span><select required value={form.documentType} onChange={(event) => set("documentType", event.target.value)}><option value="">Elegi una opción</option><option>DNI</option><option>Pasaporte</option><option>Otro</option></select></label>
         <label><span>Número de documento</span><input required value={form.documentNumber} onChange={(event) => set("documentNumber", event.target.value)} /></label>
         <label><span>País</span><input required value={form.country} onChange={(event) => set("country", event.target.value)} /></label>
         <label><span>Provincia / Estado</span><input required value={form.province} onChange={(event) => set("province", event.target.value)} /></label>
@@ -55,4 +55,3 @@ export function ProfileForm({ profile }: { profile: MemberProfile }) {
     </form>
   );
 }
-

@@ -35,7 +35,7 @@ export function CancelSubscriptionButton() {
 
   return (
     <div>
-      {state === "error" && <p className="subscription-error">No pudimos completar la baja. Intentá nuevamente o escribile a Maricel.</p>}
+      {state === "error" && <p className="subscription-error">No pudimos completar la baja. Intenta nuevamente o escribile a Maricel.</p>}
       <button className="button button--outline button--small" disabled={state === "saving"} type="button" onClick={() => setState("confirm")}>Cancelar renovación</button>
     </div>
   );

@@ -1,5 +1,5 @@
 import { authorizeUserRequest } from "../../admin-auth";
-import { createClient } from "../../../lib/supabase/server";
+import { createAdminClient } from "../../../lib/supabase/admin";
 
 function clean(value: unknown, max = 160) {
   return String(value || "").trim().slice(0, max);
@@ -21,19 +21,19 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json() as Record<string, unknown>;
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     if (body.mode === "welcome") {
       const displayName = clean(body.displayName);
       const departureDate = dateOrNull(body.departureDate);
       if (!displayName || !departureDate) {
-        return Response.json({ error: "Completá tu nombre y la fecha de partida." }, { status: 400 });
+        return Response.json({ error: "Completa tu nombre y la fecha de partida." }, { status: 400 });
       }
       const { error } = await supabase.from("profiles").update({
         display_name: displayName,
         departure_date: departureDate,
         welcome_completed_at: new Date().toISOString(),
-      }).eq("id", user.id);
+      }).eq("id", user.id).select("id").single();
       if (error) throw error;
       return Response.json({ ok: true });
     }
@@ -50,17 +50,16 @@ export async function PATCH(request: Request) {
       address: clean(body.address, 180),
     };
     if (Object.values(values).some((value) => !value)) {
-      return Response.json({ error: "Completá todos los datos personales antes de guardar." }, { status: 400 });
+      return Response.json({ error: "Completa todos los datos personales antes de guardar." }, { status: 400 });
     }
     const { error } = await supabase.from("profiles").update({
       ...values,
       profile_completed_at: new Date().toISOString(),
-    }).eq("id", user.id);
+    }).eq("id", user.id).select("id").single();
     if (error) throw error;
     return Response.json({ ok: true });
   } catch (error) {
     console.error("No se pudo guardar el perfil", error);
-    return Response.json({ error: "No pudimos guardar tus datos. Intentá nuevamente." }, { status: 500 });
+    return Response.json({ error: "No pudimos guardar tus datos. Intenta nuevamente." }, { status: 500 });
   }
 }
-

@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     const ebookId = Number(form.get("ebookId"));
     const file = form.get("file");
     if (!Number.isInteger(ebookId) || ebookId <= 0 || !(file instanceof File)) {
-      return Response.json({ error: "Primero guardá el ebook y elegí un PDF." }, { status: 400 });
+      return Response.json({ error: "Primero guarda el ebook y elegi un PDF." }, { status: 400 });
     }
     if (file.type !== "application/pdf" || !file.name.toLowerCase().endsWith(".pdf")) {
       return Response.json({ error: "El archivo debe ser un PDF." }, { status: 400 });
@@ -57,7 +57,6 @@ export async function POST(request: Request) {
     return Response.json(await getContentBundle());
   } catch (error) {
     console.error("No se pudo subir el ebook", error);
-    return Response.json({ error: "No pudimos subir el PDF. Intentá nuevamente." }, { status: 500 });
+    return Response.json({ error: "No pudimos subir el PDF. Intenta nuevamente." }, { status: 500 });
   }
 }
-
