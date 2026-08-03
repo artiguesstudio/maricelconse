@@ -8,6 +8,14 @@ function emphasizeLastWord(value: string) {
   return `${escapeHtml(match[1])}<em>${escapeHtml(match[2])}</em>${escapeHtml(match[3])}`;
 }
 
+function normalizeEditableText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
 function withContactLinks(body: string, settings: SiteSettings) {
   return applyReplacements(body, [
     ["https://instagram.com/maricelconse", escapeHtml(settings.instagram_url)],
@@ -58,8 +66,10 @@ export function renderHome(source: LegacySource, settings: SiteSettings) {
   body = withPrivateAccess(body);
   body = body.replaceAll('loading="lazy"', 'loading="eager"');
   body = body.replace(/<div class="welcome">[\s\S]*?<\/div>/, () => `<div class="welcome">${escapeHtml(settings.hero_eyebrow)}</div>`);
-  if (settings.hero_title.trim().toLowerCase() !== "sali a comerte el mundo") {
+  if (normalizeEditableText(settings.hero_title) !== "sali a comerte el mundo") {
     body = body.replace(/<h1>[\s\S]*?<\/h1>/, () => `<h1>${escapeHtml(settings.hero_title)}</h1>`);
+  } else {
+    body = body.replace(/<h1>Sali a /, "<h1>Salí a ");
   }
   const subtitleParts = settings.hero_subtitle.split(/(?<=\.)\s+/, 2);
   const subtitleHtml = subtitleParts.length > 1
@@ -73,6 +83,8 @@ export function renderHome(source: LegacySource, settings: SiteSettings) {
   );
   body = body.replace(/<h2 class="memb-title">[\s\S]*?<\/h2>/, () => `<h2 class="memb-title">${escapeHtml(settings.membership_title)}</h2>`);
   body = body.replace(/(<div class="memb-desc">\s*)<p>[\s\S]*?<\/p>/, (_, prefix: string) => `${prefix}<p>${escapeHtml(settings.membership_body)}</p>`);
+  body = body.replace("De a poco y sin apuro", "Hacelo a tu ritmo");
+  body = body.replace("Quiero recibir la guía", "Acceder a la guía");
   return reorderHomeMembership(body);
 }
 
@@ -88,6 +100,14 @@ export function renderMembership(source: LegacySource, settings: SiteSettings) {
   if (checkout.startsWith("/")) {
     body = body.replaceAll(`href="${escapeHtml(checkout)}" target="_blank" rel="noopener"`, `href="${escapeHtml(checkout)}"`);
   }
+  body = body.replace(
+    /<ol class="lg-steps">[\s\S]*?<\/ol>/,
+    `<ol class="lg-steps">
+          <li class="lg-m m1"><h3>Inicias sesión y confirmas tu suscripción.</h3><p>Ingresas con tu email y completas el pago mensual de forma segura en Mercado Pago.</p></li>
+          <li class="lg-m m2"><h3>Personalizas tu bienvenida y perfil.</h3><p>Completas tu tarjeta de embarque, la podes imprimir y nos contas cómo llegas a este viaje.</p></li>
+          <li class="lg-m m3"><h3>Entras a la comunidad.</h3><p>Conoces el espacio, exploras el contenido y empezas a disfrutar de todo lo que preparamos para vos.</p></li>
+        </ol>`,
+  );
   return body;
 }
 
