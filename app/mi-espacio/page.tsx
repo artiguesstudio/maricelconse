@@ -31,5 +31,6 @@ export default async function MemberAreaPage() {
   }
 
   const document = memberDocument as LegacySource;
-  return <LegacyDocument document={document} pageKey="member" body={renderMember(document, settings, resources, ebooks, Boolean(profile.profileCompletedAt))} />;
+  const profileCompleted = Boolean(profile.profileCompletedAt && profile.journeyArrival && profile.membershipGoal);
+  return <LegacyDocument document={document} pageKey="member" body={renderMember(document, settings, resources, ebooks, profileCompleted)} />;
 }

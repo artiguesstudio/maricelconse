@@ -487,6 +487,16 @@ h3 { font-size: clamp(1.5rem, 2.2vw, 2rem); }
 .subscription-cancel-confirm p { margin-top: 0; }
 .subscription-cancel-confirm .link-button { margin-left: 1rem; }
 .admin-subscriptions { display: grid; gap: 1rem; }
+.admin-leads { display: grid; gap: 1rem; }
+.admin-lead-card { border: 1px solid var(--line); border-radius: 16px; padding: 1.5rem; background: white; box-shadow: 0 8px 24px rgba(23,57,52,.04); }
+.admin-lead-card > header { display: flex; align-items: start; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--line); padding-bottom: 1rem; }
+.admin-lead-card > header span { color: var(--forest); font-size: .62rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.admin-lead-card > header h2 { margin: .4rem 0 .15rem; font-size: 1.45rem; }
+.admin-lead-card > header p, .admin-lead-card > header small { margin: 0; color: var(--muted); font-size: .78rem; }
+.admin-lead-answers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; padding-top: 1rem; }
+.admin-lead-answers > div { border-radius: 12px; padding: 1.1rem; background: #f4f7f1; }
+.admin-lead-answers h3 { margin-bottom: .55rem; color: var(--forest); font-family: var(--font-sans), sans-serif; font-size: .72rem; letter-spacing: .04em; line-height: 1.4; text-transform: uppercase; }
+.admin-lead-answers p { margin: 0; color: var(--ink); font-size: .88rem; line-height: 1.65; white-space: pre-wrap; }
 .admin-subscription-row { display: grid; grid-template-columns: minmax(220px, 1fr) 1.4fr; gap: 2rem; align-items: center; border: 1px solid var(--line); border-radius: 16px; padding: 1.5rem; background: white; box-shadow: 0 8px 24px rgba(23,57,52,.04); }
 .admin-subscription-row h2 { margin: .55rem 0 .2rem; font-size: 1.35rem; }
 .admin-subscription-row p { margin: 0; color: var(--muted); font-size: .82rem; }
@@ -505,6 +515,8 @@ h3 { font-size: clamp(1.5rem, 2.2vw, 2rem); }
   .subscription-details div { grid-template-columns: 1fr; gap: .25rem; }
   .admin-subscription-row { grid-template-columns: 1fr; gap: 1.2rem; }
   .admin-subscription-row dl { grid-template-columns: 1fr; }
+  .admin-lead-card > header { flex-direction: column; }
+  .admin-lead-answers { grid-template-columns: 1fr; }
 }
 
 /* Compatibilidad móvil de los HTML originales. */
@@ -549,9 +561,10 @@ h3 { font-size: clamp(1.5rem, 2.2vw, 2rem); }
 .profile-form__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.25rem; }
 .profile-form label { display: grid; gap: .4rem; text-align: left; }
 .profile-form label > span { font-size: .7rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
-.profile-form input, .profile-form select { width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: .82rem .9rem; background: #fbfcf8; color: var(--ink); }
-.profile-form input:focus, .profile-form select:focus { border-color: var(--forest); outline: 2px solid rgba(47,121,109,.13); }
+.profile-form input, .profile-form select, .profile-form textarea { width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: .82rem .9rem; background: #fbfcf8; color: var(--ink); resize: vertical; }
+.profile-form input:focus, .profile-form select:focus, .profile-form textarea:focus { border-color: var(--forest); outline: 2px solid rgba(47,121,109,.13); }
 .profile-form input:disabled { color: var(--muted); cursor: not-allowed; }
+.profile-form__wide { grid-column: 1 / -1; }
 
 /* Herramientas administradas dentro de los HTML originales */
 .legacy-page nav .legacy-space-link { display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; }

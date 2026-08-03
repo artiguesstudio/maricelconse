@@ -42,15 +42,14 @@ export async function PATCH(request: Request) {
       display_name: clean(body.displayName),
       phone: clean(body.phone, 50),
       birth_date: dateOrNull(body.birthDate),
-      document_type: clean(body.documentType, 40),
-      document_number: clean(body.documentNumber, 50),
       country: clean(body.country, 80),
       province: clean(body.province, 80),
       city: clean(body.city, 80),
-      address: clean(body.address, 180),
+      journey_arrival: clean(body.journeyArrival, 1500),
+      membership_goal: clean(body.membershipGoal, 1500),
     };
     if (Object.values(values).some((value) => !value)) {
-      return Response.json({ error: "Completa todos los datos personales antes de guardar." }, { status: 400 });
+      return Response.json({ error: "Completa todos los datos y las dos preguntas antes de guardar." }, { status: 400 });
     }
     const { error } = await supabase.from("profiles").update({
       ...values,
