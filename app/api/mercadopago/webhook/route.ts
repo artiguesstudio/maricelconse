@@ -86,6 +86,12 @@ export async function POST(request: Request) {
   const requestId = request.headers.get("x-request-id") || "";
   const signature = request.headers.get("x-signature") || "";
   if (!resourceId || !topic || !requestId || !signature) {
+    console.warn("Webhook de Mercado Pago incompleto", {
+      topic,
+      hasResourceId: Boolean(resourceId),
+      hasRequestId: Boolean(requestId),
+      hasSignature: Boolean(signature),
+    });
     return Response.json({ error: "Notificación incompleta." }, { status: 400 });
   }
 
@@ -97,7 +103,10 @@ export async function POST(request: Request) {
       signature,
       secret: webhookSecret,
     });
-    if (!valid) return Response.json({ error: "Firma inválida." }, { status: 401 });
+    if (!valid) {
+      console.warn("Firma inválida en webhook de Mercado Pago", { topic, resourceId });
+      return Response.json({ error: "Firma inválida." }, { status: 401 });
+    }
 
     admin = createAdminClient();
     eventKey = `${topic}:${body.id || requestId}:${body.action || "update"}`;
