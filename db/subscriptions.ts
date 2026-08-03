@@ -20,7 +20,7 @@ export type AdminSubscriptionRecord = SubscriptionRecord & {
 };
 
 const SUBSCRIPTION_COLUMNS = "id,profile_id,provider_subscription_id,provider_plan_id,payer_email,status,payment_status,access_until,next_payment_date,cancel_at_period_end,canceled_at,created_at" as const;
-const ADMIN_SUBSCRIPTION_COLUMNS = "id,profile_id,provider_subscription_id,provider_plan_id,payer_email,status,payment_status,access_until,next_payment_date,cancel_at_period_end,canceled_at,created_at,profiles(display_name)" as const;
+const ADMIN_SUBSCRIPTION_COLUMNS = "id,profile_id,provider_subscription_id,provider_plan_id,payer_email,status,payment_status,access_until,next_payment_date,cancel_at_period_end,canceled_at,created_at,profiles(display_name,email)" as const;
 
 function mapSubscription(row: Record<string, unknown>): SubscriptionRecord {
   return {
@@ -63,10 +63,18 @@ export async function getAdminSubscriptions() {
   if (error) throw error;
   return (data || []).map((row) => {
     const source = row as unknown as Record<string, unknown>;
-    const profile = source.profiles as { display_name?: string } | { display_name?: string }[] | null;
+    const profile = source.profiles as { display_name?: string; email?: string } | { display_name?: string; email?: string }[] | null;
     const displayName = Array.isArray(profile)
       ? String(profile[0]?.display_name || "")
       : String(profile?.display_name || "");
-    return { ...mapSubscription(source), displayName } satisfies AdminSubscriptionRecord;
+    const profileEmail = Array.isArray(profile)
+      ? String(profile[0]?.email || "")
+      : String(profile?.email || "");
+    const subscription = mapSubscription(source);
+    return {
+      ...subscription,
+      payerEmail: subscription.payerEmail || profileEmail,
+      displayName,
+    } satisfies AdminSubscriptionRecord;
   });
 }
