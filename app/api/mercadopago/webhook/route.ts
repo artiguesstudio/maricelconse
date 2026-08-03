@@ -2,9 +2,9 @@ import {
   getAuthorizedPayment,
   getPayment,
   getSubscription,
-  type MercadoPagoPreapproval,
 } from "../../../../lib/mercadopago/api";
 import { getMercadoPagoConfig } from "../../../../lib/mercadopago/config";
+import { syncPreapproval, syncProfileStatus } from "../../../../lib/mercadopago/sync";
 import { addOneMonth, validateMercadoPagoSignature } from "../../../../lib/mercadopago/webhook";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 
@@ -15,70 +15,6 @@ type WebhookBody = {
   live_mode?: boolean;
   data?: { id?: string | number };
 };
-
-function isFuture(value: string | null | undefined) {
-  return Boolean(value && new Date(value).getTime() > Date.now());
-}
-
-async function syncProfileStatus(profileId: string, accessUntil: string | null) {
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from("profiles")
-    .update({ membership_status: isFuture(accessUntil) ? "active" : "inactive" })
-    .eq("id", profileId)
-    .neq("role", "admin");
-  if (error) throw error;
-}
-
-async function syncPreapproval(
-  preapproval: MercadoPagoPreapproval,
-  paymentStatus?: string | null,
-  approvedAccessUntil?: string | null,
-) {
-  const admin = createAdminClient();
-  const { data: existing, error: existingError } = await admin
-    .from("subscriptions")
-    .select("id,profile_id,access_until,payment_status,payer_email")
-    .eq("provider_subscription_id", preapproval.id)
-    .maybeSingle();
-
-  if (existingError) throw existingError;
-  const profileId = preapproval.external_reference || existing?.profile_id;
-  if (!profileId) throw new Error("La suscripción no tiene una alumna asociada.");
-
-  const providerNextPayment = preapproval.next_payment_date || null;
-  let accessUntil = existing?.access_until || null;
-  if (approvedAccessUntil) accessUntil = approvedAccessUntil;
-  else if (preapproval.status === "authorized" && isFuture(providerNextPayment)) {
-    accessUntil = providerNextPayment;
-  }
-
-  const inferredPaymentStatus = paymentStatus
-    || (preapproval.status === "authorized" && isFuture(accessUntil) ? "approved" : existing?.payment_status)
-    || "pending";
-  const update = {
-    profile_id: profileId,
-    provider: "mercadopago",
-    provider_subscription_id: preapproval.id,
-    provider_plan_id: preapproval.preapproval_plan_id || null,
-    external_reference: String(profileId),
-    payer_email: preapproval.payer_email || existing?.payer_email || "",
-    checkout_url: preapproval.init_point || null,
-    status: preapproval.status || "pending",
-    payment_status: inferredPaymentStatus,
-    access_until: accessUntil,
-    next_payment_date: providerNextPayment,
-    cancel_at_period_end: preapproval.status === "canceled",
-    canceled_at: preapproval.status === "canceled" ? new Date().toISOString() : null,
-    last_provider_update_at: preapproval.last_modified || new Date().toISOString(),
-  };
-
-  const { error: saveError } = await admin
-    .from("subscriptions")
-    .upsert(update, { onConflict: "provider_subscription_id" });
-  if (saveError) throw saveError;
-  await syncProfileStatus(String(profileId), accessUntil);
-}
 
 async function processNotification(topic: string, resourceId: string) {
   if (topic === "subscription_preapproval") {
@@ -93,7 +29,7 @@ async function processNotification(topic: string, resourceId: string) {
     const accessUntil = paymentStatus === "approved"
       ? preapproval.next_payment_date || addOneMonth(invoice.debit_date || new Date())
       : null;
-    await syncPreapproval(preapproval, paymentStatus, accessUntil);
+    await syncPreapproval(preapproval, null, paymentStatus, accessUntil);
     return;
   }
 

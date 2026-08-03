@@ -42,6 +42,10 @@ export type MercadoPagoPayment = {
   date_approved?: string | null;
 };
 
+type MercadoPagoPreapprovalSearch = {
+  results?: MercadoPagoPreapproval[];
+};
+
 async function mercadoPagoRequest<T>(
   path: string,
   init: RequestInit = {},
@@ -92,6 +96,18 @@ export function getSubscription(providerSubscriptionId: string) {
   return mercadoPagoRequest<MercadoPagoPreapproval>(
     `/preapproval/${encodeURIComponent(providerSubscriptionId)}`,
   );
+}
+
+export async function searchSubscriptions(payerEmail: string, planId: string) {
+  const params = new URLSearchParams({
+    payer_email: payerEmail,
+    preapproval_plan_id: planId,
+    limit: "20",
+  });
+  const result = await mercadoPagoRequest<MercadoPagoPreapprovalSearch>(`/preapproval/search?${params}`);
+  return (result.results || [])
+    .filter((subscription) => subscription.preapproval_plan_id === planId)
+    .sort((left, right) => new Date(right.date_created || 0).getTime() - new Date(left.date_created || 0).getTime());
 }
 
 export function cancelSubscription(providerSubscriptionId: string) {

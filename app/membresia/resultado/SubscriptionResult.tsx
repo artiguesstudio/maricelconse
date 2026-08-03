@@ -14,7 +14,12 @@ export function SubscriptionResult({ initialName, initialDepartureDate }: { init
     async function check() {
       attempts += 1;
       try {
-        const response = await fetch("/api/subscriptions/status", { cache: "no-store" });
+        const callback = new URLSearchParams(window.location.search);
+        const preapprovalId = callback.get("preapproval_id") || callback.get("preapprovalId") || callback.get("subscription_id");
+        const statusUrl = preapprovalId
+          ? `/api/subscriptions/status?preapproval_id=${encodeURIComponent(preapprovalId)}`
+          : "/api/subscriptions/status";
+        const response = await fetch(statusUrl, { cache: "no-store" });
         const body = await response.json() as { active?: boolean };
         if (body.active) {
           setActive(true);
