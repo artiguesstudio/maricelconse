@@ -35,16 +35,17 @@ export async function notifySubscriptionActivated(input: {
   const admin = createAdminClient();
   const { data: profile, error } = await admin
     .from("profiles")
-    .select("display_name,email")
+    .select("display_name,email,phone")
     .eq("id", input.profileId)
     .single();
   if (error) throw error;
 
   const memberEmail = String(profile.email || input.payerEmail).trim().toLowerCase();
   const name = String(profile.display_name || "Nueva pasajera").trim();
+  const phone = String(profile.phone || "").trim();
   const periodKey = new Date(input.accessUntil).toISOString().slice(0, 10);
   const origin = getAppOrigin();
-  const adminBody = `<p style="font-size:16px;line-height:1.65">Se confirmó un pago mensual y la alumna ya tiene acceso a la plataforma.</p><table role="presentation" width="100%" cellspacing="0" cellpadding="8" style="margin:18px 0;background:#f3f7f2;border-radius:12px"><tr><td><strong>Pasajera</strong></td><td>${escapeHtml(name)}</td></tr><tr><td><strong>Email</strong></td><td>${escapeHtml(memberEmail)}</td></tr><tr><td><strong>Importe</strong></td><td>${escapeHtml(money(MEMBERSHIP_AMOUNT_ARS))}</td></tr><tr><td><strong>Acceso hasta</strong></td><td>${escapeHtml(formatDate(input.accessUntil))}</td></tr></table>`;
+  const adminBody = `<p style="font-size:16px;line-height:1.65">Se confirmó un pago mensual y la alumna ya tiene acceso a la plataforma.</p><table role="presentation" width="100%" cellspacing="0" cellpadding="8" style="margin:18px 0;background:#f3f7f2;border-radius:12px"><tr><td><strong>Pasajera</strong></td><td>${escapeHtml(name)}</td></tr><tr><td><strong>Email</strong></td><td>${escapeHtml(memberEmail)}</td></tr><tr><td><strong>Celular</strong></td><td>${escapeHtml(phone || "No informado")}</td></tr><tr><td><strong>Importe</strong></td><td>${escapeHtml(money(MEMBERSHIP_AMOUNT_ARS))}</td></tr><tr><td><strong>Acceso hasta</strong></td><td>${escapeHtml(formatDate(input.accessUntil))}</td></tr></table>`;
   const memberBody = `<p style="font-size:16px;line-height:1.65">Tu pago fue confirmado y tu lugar en la membresía ya está activo.</p><p style="font-size:16px;line-height:1.65">Vas a poder ingresar a las clases, recursos y ebooks hasta el <strong>${escapeHtml(formatDate(input.accessUntil))}</strong>. La membresía se renovará mensualmente mientras permanezca activa.</p>`;
 
   await Promise.allSettled([
@@ -54,7 +55,7 @@ export async function notifySubscriptionActivated(input: {
       to: getAdminNotificationRecipients(),
       subject: `Nueva suscripción confirmada · ${name || memberEmail}`,
       html: emailShell("Nueva pasajera a bordo.", adminBody, "Ver suscripciones", `${origin}/admin`),
-      text: `Nueva suscripción confirmada\nPasajera: ${name}\nEmail: ${memberEmail}\nImporte: ${money(MEMBERSHIP_AMOUNT_ARS)}\nAcceso hasta: ${formatDate(input.accessUntil)}\n\n${origin}/admin`,
+      text: `Nueva suscripción confirmada\nPasajera: ${name}\nEmail: ${memberEmail}\nCelular: ${phone || "No informado"}\nImporte: ${money(MEMBERSHIP_AMOUNT_ARS)}\nAcceso hasta: ${formatDate(input.accessUntil)}\n\n${origin}/admin`,
     }),
     sendTrackedEmail({
       eventKey: `subscription-approved-member/${input.providerSubscriptionId}/${periodKey}`,

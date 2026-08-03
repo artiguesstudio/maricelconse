@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getMemberProfile } from "../../../db/profile";
 import { getCurrentSubscription } from "../../../db/subscriptions";
 import { getSignedInSession } from "../../admin-auth";
 import { SiteHeader } from "../../components/SiteHeader";
@@ -21,7 +22,10 @@ export default async function SubscribePage({
     getSignedInSession("/membresia/suscribirme"),
     searchParams,
   ]);
-  const subscription = await getCurrentSubscription(session.id);
+  const [subscription, profile] = await Promise.all([
+    getCurrentSubscription(session.id),
+    getMemberProfile(session.id),
+  ]);
   const active = Boolean(subscription?.accessUntil && new Date(subscription.accessUntil) > new Date());
 
   return (
@@ -53,9 +57,20 @@ export default async function SubscribePage({
               <div><dt>Al cancelar</dt><dd>Conservas el acceso hasta terminar el período abonado</dd></div>
             </dl>
             {params.error && (
-              <p className="subscription-error" role="alert">Todavía no pudimos abrir Mercado Pago. Intenta nuevamente o escribile a Maricel.</p>
+              <p className="subscription-error" role="alert">{params.error === "contacto" ? "Revisa tu nombre y celular. Inclui el código de país, por ejemplo +54 para Argentina." : "Todavía no pudimos abrir Mercado Pago. Intenta nuevamente o escribile a Maricel."}</p>
             )}
             <form action="/api/subscriptions/checkout" method="post">
+              <div className="subscription-contact-fields">
+                <label>
+                  <span>Nombre y apellido</span>
+                  <input name="displayName" defaultValue={profile.displayName} autoComplete="name" maxLength={120} required />
+                </label>
+                <label>
+                  <span>Celular para WhatsApp</span>
+                  <input name="phone" defaultValue={profile.phone} type="tel" inputMode="tel" autoComplete="tel" placeholder="+54 9 11 1234 5678" pattern="\+[0-9 ()-]{9,24}" maxLength={25} required />
+                  <small>Inclui código de país y área. Maricel usará este número para las comunicaciones de la membresía.</small>
+                </label>
+              </div>
               <button className="button button--dark subscription-submit" type="submit">Continuar a Mercado Pago →</button>
             </form>
             <p className="subscription-fineprint">El medio de pago se carga de forma segura en Mercado Pago. Maricel Conse no recibe ni almacena los datos de tu tarjeta.</p>
