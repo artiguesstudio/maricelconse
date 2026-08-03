@@ -24,6 +24,8 @@ export type MercadoPagoAuthorizedPayment = {
   id: number;
   preapproval_id: string;
   external_reference?: string | null;
+  date_created?: string | null;
+  last_modified?: string | null;
   debit_date?: string | null;
   status?: string | null;
   summarized?: string | null;
@@ -32,6 +34,10 @@ export type MercadoPagoAuthorizedPayment = {
     status?: string | null;
     status_detail?: string | null;
   } | null;
+};
+
+type MercadoPagoAuthorizedPaymentSearch = {
+  results?: MercadoPagoAuthorizedPayment[];
 };
 
 export type MercadoPagoPayment = {
@@ -120,6 +126,25 @@ export function cancelSubscription(providerSubscriptionId: string) {
 export function getAuthorizedPayment(providerPaymentId: string) {
   return mercadoPagoRequest<MercadoPagoAuthorizedPayment>(
     `/authorized_payments/${encodeURIComponent(providerPaymentId)}`,
+  );
+}
+
+export async function searchAuthorizedPayments(providerSubscriptionId: string) {
+  return searchAuthorizedPaymentsBy({ preapproval_id: providerSubscriptionId });
+}
+
+export async function searchAuthorizedPaymentsByPaymentId(providerPaymentId: string) {
+  return searchAuthorizedPaymentsBy({ payment_id: providerPaymentId });
+}
+
+async function searchAuthorizedPaymentsBy(filters: Record<string, string>) {
+  const params = new URLSearchParams(filters);
+  const result = await mercadoPagoRequest<MercadoPagoAuthorizedPaymentSearch>(
+    `/authorized_payments/search?${params}`,
+  );
+  return (result.results || []).sort((left, right) =>
+    new Date(right.last_modified || right.debit_date || right.date_created || 0).getTime()
+    - new Date(left.last_modified || left.debit_date || left.date_created || 0).getTime(),
   );
 }
 

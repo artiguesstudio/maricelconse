@@ -1,4 +1,5 @@
 import { authorizeUserRequest } from "../../admin-auth";
+import { notifyLeadCompleted } from "../../../lib/email/notifications";
 import { createAdminClient } from "../../../lib/supabase/admin";
 
 function clean(value: unknown, max = 160) {
@@ -56,6 +57,20 @@ export async function PATCH(request: Request) {
       profile_completed_at: new Date().toISOString(),
     }).eq("id", user.id).select("id").single();
     if (error) throw error;
+
+    await notifyLeadCompleted({
+      profileId: user.id,
+      displayName: values.display_name,
+      email: user.email,
+      phone: values.phone,
+      city: values.city,
+      province: values.province,
+      country: values.country,
+      journeyArrival: values.journey_arrival,
+      membershipGoal: values.membership_goal,
+    }).catch((notificationError) => {
+      console.error("El perfil se guardó, pero no se pudo notificar el nuevo lead", notificationError);
+    });
     return Response.json({ ok: true });
   } catch (error) {
     console.error("No se pudo guardar el perfil", error);

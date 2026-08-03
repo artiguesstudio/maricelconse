@@ -2,8 +2,10 @@ import {
   getAuthorizedPayment,
   getPayment,
   getSubscription,
+  searchAuthorizedPaymentsByPaymentId,
 } from "../../../../lib/mercadopago/api";
 import { getMercadoPagoConfig } from "../../../../lib/mercadopago/config";
+import { reconcilePreapproval } from "../../../../lib/mercadopago/reconcile";
 import { syncPreapproval, syncProfileStatus } from "../../../../lib/mercadopago/sync";
 import { addOneMonth, validateMercadoPagoSignature } from "../../../../lib/mercadopago/webhook";
 import { createAdminClient } from "../../../../lib/supabase/admin";
@@ -18,7 +20,7 @@ type WebhookBody = {
 
 async function processNotification(topic: string, resourceId: string) {
   if (topic === "subscription_preapproval") {
-    await syncPreapproval(await getSubscription(resourceId));
+    await reconcilePreapproval(await getSubscription(resourceId));
     return;
   }
 
@@ -29,12 +31,22 @@ async function processNotification(topic: string, resourceId: string) {
     const accessUntil = paymentStatus === "approved"
       ? preapproval.next_payment_date || addOneMonth(invoice.debit_date || new Date())
       : null;
-    await syncPreapproval(preapproval, null, paymentStatus, accessUntil);
+    await syncPreapproval(preapproval, null, paymentStatus, accessUntil, String(invoice.id));
     return;
   }
 
   if (topic === "payment") {
     const payment = await getPayment(resourceId);
+    const [invoice] = await searchAuthorizedPaymentsByPaymentId(resourceId);
+    if (invoice?.preapproval_id) {
+      const preapproval = await getSubscription(invoice.preapproval_id);
+      const paymentStatus = payment.status || invoice.payment?.status || invoice.summarized || invoice.status || "pending";
+      const accessUntil = paymentStatus === "approved"
+        ? preapproval.next_payment_date || addOneMonth(payment.date_approved || invoice.debit_date || new Date())
+        : null;
+      await syncPreapproval(preapproval, null, paymentStatus, accessUntil, String(invoice.id));
+      return;
+    }
     if (!payment.external_reference || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payment.external_reference)) return;
     const admin = createAdminClient();
     const { data: latest, error } = await admin
@@ -60,6 +72,8 @@ async function processNotification(topic: string, resourceId: string) {
 
 export async function POST(request: Request) {
   let body: WebhookBody;
+  let eventKey = "";
+  let admin: ReturnType<typeof createAdminClient> | null = null;
   try {
     body = await request.json() as WebhookBody;
   } catch {
@@ -85,8 +99,8 @@ export async function POST(request: Request) {
     });
     if (!valid) return Response.json({ error: "Firma inválida." }, { status: 401 });
 
-    const admin = createAdminClient();
-    const eventKey = `${topic}:${body.id || requestId}:${body.action || "update"}`;
+    admin = createAdminClient();
+    eventKey = `${topic}:${body.id || requestId}:${body.action || "update"}`;
     const { data: existing } = await admin
       .from("subscription_events")
       .select("processed_at")
@@ -111,6 +125,17 @@ export async function POST(request: Request) {
       .eq("provider_event_key", eventKey);
     return Response.json({ ok: true });
   } catch (error) {
+    if (admin && eventKey) {
+      const message = error instanceof Error ? error.message : "Error desconocido.";
+      try {
+        await admin
+          .from("subscription_events")
+          .update({ error_message: message.slice(0, 1000) })
+          .eq("provider_event_key", eventKey);
+      } catch {
+        // El error original se conserva en los registros del Worker.
+      }
+    }
     console.error("No se pudo procesar el webhook de Mercado Pago", error);
     return Response.json({ error: "No se pudo procesar la notificación." }, { status: 500 });
   }

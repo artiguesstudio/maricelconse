@@ -52,6 +52,8 @@ El Worker se llama `maricelconse` y está configurado en `wrangler.jsonc`. En Cl
 
 `.env.production` contiene solamente la URL y la clave pública del navegador para que Cloudflare pueda compilar desde GitHub. Nunca agregar una clave `service_role` al repositorio. Si la clave pública se rota, también se puede reemplazar mediante las variables de build `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 
+Los secretos de producción `SUPABASE_SERVICE_ROLE_KEY`, `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_PLAN_ID`, `MERCADOPAGO_WEBHOOK_SECRET` y `RESEND_API_KEY` se guardan únicamente como secretos del Worker. El cron configurado en `wrangler.jsonc` concilia pagos cada diez minutos y reintenta notificaciones fallidas.
+
 ## Estructura
 
 - `app/`: páginas, estilos, autenticación y backoffice.
@@ -70,4 +72,4 @@ El Worker se llama `maricelconse` y está configurado en `wrangler.jsonc`. En Cl
 - `npm.cmd run preview`: vista previa en el runtime de Cloudflare.
 - `npm.cmd run deploy`: compila y publica con Vinext/Wrangler.
 
-Mercado Pago todavía no está conectado. La siguiente etapa podrá actualizar `membership_status` según el estado de cada suscripción.
+Mercado Pago está conectado mediante webhooks y conciliación periódica. Un pago aprobado habilita el acceso hasta el fin del período, registra la suscripción, avisa a Maricel y envía la bienvenida a la alumna. Cuando una alumna completa su perfil, sus respuestas aparecen en Leads y se notifica a Maricel mediante Resend.

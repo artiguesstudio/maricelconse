@@ -2,7 +2,7 @@ import { authorizeUserRequest } from "../../../admin-auth";
 import { getCurrentSubscription } from "../../../../db/subscriptions";
 import { getSubscription, searchSubscriptions } from "../../../../lib/mercadopago/api";
 import { getMercadoPagoAccessConfig } from "../../../../lib/mercadopago/config";
-import { syncPreapproval } from "../../../../lib/mercadopago/sync";
+import { reconcilePreapproval } from "../../../../lib/mercadopago/reconcile";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { cookies } from "next/headers";
 
@@ -41,7 +41,13 @@ export async function GET(request: Request) {
         && (validIntent || candidate.payer_email?.toLowerCase() === user.email.toLowerCase()),
       );
       if (match) {
-        await syncPreapproval(match, user.id);
+        await reconcilePreapproval(match, user.id);
+        if (intentId && validIntent) {
+          await createAdminClient().from("subscription_checkout_intents")
+            .update({ consumed_at: new Date().toISOString() })
+            .eq("id", intentId)
+            .eq("profile_id", user.id);
+        }
         subscription = await getCurrentSubscription(user.id);
         active = Boolean(subscription?.accessUntil && new Date(subscription.accessUntil).getTime() > Date.now());
       }

@@ -1,4 +1,5 @@
 import { createAdminClient } from "../supabase/admin";
+import { notifySubscriptionActivated, notifySubscriptionPaymentIssue } from "../email/notifications";
 import type { MercadoPagoPreapproval } from "./api";
 
 function isFuture(value: string | null | undefined) {
@@ -24,6 +25,7 @@ export async function syncPreapproval(
   profileIdHint?: string | null,
   paymentStatus?: string | null,
   approvedAccessUntil?: string | null,
+  paymentReference?: string | null,
 ) {
   const admin = createAdminClient();
   const { data: existing, error: existingError } = await admin
@@ -76,13 +78,22 @@ export async function syncPreapproval(
 
   const providerNextPayment = preapproval.next_payment_date || null;
   let accessUntil = existing?.access_until || null;
-  if (approvedAccessUntil) accessUntil = approvedAccessUntil;
-  else if (preapproval.status === "authorized" && isFuture(providerNextPayment)) {
+  if (paymentReference && ["refunded", "charged_back"].includes(paymentStatus || "")) {
+    accessUntil = null;
+  }
+  const explicitApprovedPayment = paymentStatus === "approved";
+  const previouslyApprovedPayment = !paymentStatus && existing?.payment_status === "approved";
+  if (explicitApprovedPayment && approvedAccessUntil) accessUntil = approvedAccessUntil;
+  else if (
+    (explicitApprovedPayment || previouslyApprovedPayment)
+    && preapproval.status === "authorized"
+    && isFuture(providerNextPayment)
+  ) {
     accessUntil = providerNextPayment;
   }
 
   const inferredPaymentStatus = paymentStatus
-    || (preapproval.status === "authorized" && isFuture(accessUntil) ? "approved" : existing?.payment_status)
+    || existing?.payment_status
     || "pending";
   const { error: saveError } = await admin.from("subscriptions").upsert({
     profile_id: profileId,
@@ -107,4 +118,23 @@ export async function syncPreapproval(
       .eq("id", checkoutIntentId);
   }
   await syncProfileStatus(String(profileId), accessUntil);
+
+  if (inferredPaymentStatus === "approved" && isFuture(accessUntil)) {
+    await notifySubscriptionActivated({
+      profileId: String(profileId),
+      providerSubscriptionId: preapproval.id,
+      payerEmail: preapproval.payer_email || existing?.payer_email || "",
+      accessUntil: String(accessUntil),
+    });
+  } else if (
+    paymentReference
+    && ["rejected", "refunded", "cancelled", "canceled", "charged_back"].includes(inferredPaymentStatus)
+  ) {
+    await notifySubscriptionPaymentIssue({
+      providerSubscriptionId: preapproval.id,
+      payerEmail: preapproval.payer_email || existing?.payer_email || "Sin email informado",
+      paymentStatus: inferredPaymentStatus,
+      reference: paymentReference,
+    }).catch((error) => console.error("No se pudo notificar el problema de cobro", error));
+  }
 }
