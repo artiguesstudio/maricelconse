@@ -135,6 +135,8 @@ export async function searchPlanSubscriptions(planId: string) {
   const params = new URLSearchParams({
     preapproval_plan_id: planId,
     limit: "100",
+    sort: "date_created",
+    criteria: "desc",
   });
   const result = await mercadoPagoRequest<MercadoPagoPreapprovalSearch>(`/preapproval/search?${params}`);
   return (result.results || [])
@@ -146,6 +148,8 @@ export async function searchAuthorizedSubscriptions() {
   const params = new URLSearchParams({
     status: "authorized",
     limit: "100",
+    sort: "date_created",
+    criteria: "desc",
   });
   const result = await mercadoPagoRequest<MercadoPagoPreapprovalSearch>(`/preapproval/search?${params}`);
   return (result.results || [])
