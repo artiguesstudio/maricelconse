@@ -24,7 +24,7 @@ function parseRecipients(value: string) {
 
 export function getAdminNotificationRecipients() {
   return parseRecipients(
-    process.env.ADMIN_NOTIFICATION_EMAILS || "maricellourdestomas@gmail.com",
+    process.env.ADMIN_NOTIFICATION_EMAILS || "maricellourdestomas@gmail.com,maricelconse@gmail.com",
   );
 }
 
