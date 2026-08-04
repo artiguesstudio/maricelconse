@@ -54,11 +54,11 @@ export async function syncPreapproval(
     if (!profileId) {
       const { data: intent, error: intentError } = await admin
         .from("subscription_checkout_intents")
-        .select("id,profile_id,expires_at")
+        .select("id,profile_id")
         .eq("id", reference)
         .maybeSingle();
       if (intentError) throw intentError;
-      if (intent && new Date(intent.expires_at).getTime() > Date.now()) {
+      if (intent) {
         checkoutIntentId = intent.id;
         profileId = intent.profile_id;
       }

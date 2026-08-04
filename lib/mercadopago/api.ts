@@ -52,6 +52,10 @@ type MercadoPagoPreapprovalSearch = {
   results?: MercadoPagoPreapproval[];
 };
 
+function subscriptionDate(subscription: MercadoPagoPreapproval) {
+  return new Date(subscription.date_created || 0).getTime();
+}
+
 async function mercadoPagoRequest<T>(
   path: string,
   init: RequestInit = {},
@@ -104,16 +108,38 @@ export function getSubscription(providerSubscriptionId: string) {
   );
 }
 
+async function hydrateSubscriptions(results: MercadoPagoPreapproval[]) {
+  const unique = [...new Map(results.filter((item) => item.id).map((item) => [item.id, item])).values()];
+  const hydrated = await Promise.allSettled(unique.map((item) =>
+    item.preapproval_plan_id && item.payer_email && item.date_created
+      ? Promise.resolve(item)
+      : getSubscription(item.id),
+  ));
+  return hydrated.map((result, index) => result.status === "fulfilled" ? result.value : unique[index]);
+}
+
 export async function searchSubscriptions(payerEmail: string, planId: string) {
   const params = new URLSearchParams({
     payer_email: payerEmail,
-    preapproval_plan_id: planId,
-    limit: "20",
+    limit: "100",
   });
   const result = await mercadoPagoRequest<MercadoPagoPreapprovalSearch>(`/preapproval/search?${params}`);
-  return (result.results || [])
+  const subscriptions = await hydrateSubscriptions(result.results || []);
+  return subscriptions
     .filter((subscription) => subscription.preapproval_plan_id === planId)
-    .sort((left, right) => new Date(right.date_created || 0).getTime() - new Date(left.date_created || 0).getTime());
+    .sort((left, right) => subscriptionDate(right) - subscriptionDate(left));
+}
+
+export async function searchPlanSubscriptions(planId: string) {
+  const params = new URLSearchParams({
+    preapproval_plan_id: planId,
+    limit: "100",
+  });
+  const result = await mercadoPagoRequest<MercadoPagoPreapprovalSearch>(`/preapproval/search?${params}`);
+  const subscriptions = await hydrateSubscriptions(result.results || []);
+  return subscriptions
+    .filter((subscription) => subscription.preapproval_plan_id === planId)
+    .sort((left, right) => subscriptionDate(right) - subscriptionDate(left));
 }
 
 export function cancelSubscription(providerSubscriptionId: string) {

@@ -3,6 +3,7 @@ import { createAdminClient } from "../supabase/admin";
 import {
   getSubscription,
   searchAuthorizedPayments,
+  searchPlanSubscriptions,
   searchSubscriptions,
   type MercadoPagoPreapproval,
 } from "./api";
@@ -68,7 +69,15 @@ export async function reconcileMercadoPagoState() {
     }
   }
 
-  const oldestIntent = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  let planCandidates: MercadoPagoPreapproval[] = [];
+  try {
+    planCandidates = await searchPlanSubscriptions(planId);
+  } catch (error) {
+    summary.errors += 1;
+    console.error("No se pudo obtener el listado del plan de Mercado Pago", error);
+  }
+
+  const oldestIntent = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const { data: intents, error: intentsError } = await admin
     .from("subscription_checkout_intents")
     .select("id,profile_id,email,created_at,expires_at,consumed_at")
@@ -81,17 +90,31 @@ export async function reconcileMercadoPagoState() {
   for (const intent of intents || []) {
     summary.intentsChecked += 1;
     try {
-      const candidates = await searchSubscriptions(String(intent.email).toLowerCase(), planId);
+      const normalizedEmail = String(intent.email).trim().toLowerCase();
+      const emailCandidates = await searchSubscriptions(normalizedEmail, planId);
+      const candidates = [...new Map([...emailCandidates, ...planCandidates]
+        .map((candidate) => [candidate.id, candidate])).values()];
       const createdAt = new Date(intent.created_at).getTime();
       const expiresAt = new Date(intent.expires_at).getTime();
-      const match = candidates.find((candidate) => {
+      const eligible = candidates.filter((candidate) => {
         if (reconciled.has(candidate.id)) return false;
-        if (candidate.preapproval_plan_id !== planId) return false;
-        if (candidate.external_reference === intent.id) return true;
+        return candidate.preapproval_plan_id === planId;
+      });
+      const matchesWindow = (candidate: MercadoPagoPreapproval) => {
         const candidateDate = new Date(candidate.date_created || 0).getTime();
         return candidateDate >= createdAt - 5 * 60 * 1000
           && candidateDate <= expiresAt + 24 * 60 * 60 * 1000;
-      });
+      };
+      const referenceMatch = eligible.find((candidate) =>
+        candidate.external_reference === intent.id
+        || candidate.external_reference === intent.profile_id,
+      );
+      const emailMatches = eligible.filter((candidate) =>
+        candidate.payer_email?.trim().toLowerCase() === normalizedEmail,
+      );
+      const match = referenceMatch
+        || emailMatches.find(matchesWindow)
+        || (emailMatches.length === 1 ? emailMatches[0] : undefined);
       if (!match) continue;
 
       const result = await reconcilePreapproval(match, String(intent.profile_id));

@@ -69,6 +69,19 @@ export function AdminPanel({ initialContent, initialSubscriptions, initialLeads 
     } finally { setSaving(false); }
   }
 
+  async function refreshSubscriptions() {
+    setSaving(true); setNotice("");
+    try {
+      const response = await fetch("/api/admin/subscriptions/reconcile", { method: "POST" });
+      const body = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(body.error || "No se pudieron actualizar las suscripciones.");
+      setNotice("Suscripciones y leads actualizados con Mercado Pago.");
+      router.refresh();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No se pudieron actualizar las suscripciones.");
+    } finally { setSaving(false); }
+  }
+
   function updateSetting(key: SettingKey, value: string) {
     setContent((current) => ({ ...current, settings: { ...current.settings, [key]: value } }));
   }
@@ -120,7 +133,7 @@ export function AdminPanel({ initialContent, initialSubscriptions, initialLeads 
         <div className="admin-future"><strong>Mercado Pago</strong><p>Las altas, renovaciones y bajas aparecerán en Suscripciones.</p><span>Sincronización automática</span></div>
       </aside>
       <section className="admin-content">
-        <div className="admin-heading"><div><p className="eyebrow">Backoffice</p><h1>{tabContent[tab].title}</h1><p>{tabContent[tab].description}</p></div>{(tab === "inicio" || tab === "membresia") && <button className="button button--dark" disabled={saving} onClick={() => persist({ type: "settings", values: content.settings })}>{saving ? "Guardando…" : "Guardar cambios"}</button>}{(tab === "suscripciones" || tab === "leads") && <button className="button button--outline" onClick={() => router.refresh()}>Actualizar datos</button>}{tab === "ebooks" && <button className="button button--outline" onClick={addEbook}>+ Agregar ebook</button>}{tab === "recursos" && <button className="button button--outline" onClick={addResource}>+ Agregar recurso</button>}</div>
+        <div className="admin-heading"><div><p className="eyebrow">Backoffice</p><h1>{tabContent[tab].title}</h1><p>{tabContent[tab].description}</p></div>{(tab === "inicio" || tab === "membresia") && <button className="button button--dark" disabled={saving} onClick={() => persist({ type: "settings", values: content.settings })}>{saving ? "Guardando…" : "Guardar cambios"}</button>}{(tab === "suscripciones" || tab === "leads") && <button className="button button--outline" disabled={saving} onClick={refreshSubscriptions}>{saving ? "Actualizando…" : "Actualizar con Mercado Pago"}</button>}{tab === "ebooks" && <button className="button button--outline" onClick={addEbook}>+ Agregar ebook</button>}{tab === "recursos" && <button className="button button--outline" onClick={addResource}>+ Agregar recurso</button>}</div>
         {notice && <div className={`admin-notice ${notice.startsWith("Cambios") ? "success" : "error"}`} role="status">{notice}</div>}
         {(tab === "inicio" || tab === "membresia") && <div className="admin-form-card">{visibleFields.map((field) => <label key={field.key}><span>{field.label}</span>{field.multiline ? <textarea rows={4} value={content.settings[field.key]} onChange={(event) => updateSetting(field.key, event.target.value)} /> : <input value={content.settings[field.key]} onChange={(event) => updateSetting(field.key, event.target.value)} />}{field.hint && <small>{field.hint}</small>}</label>)}</div>}
         {tab === "suscripciones" && <div className="admin-subscriptions">{initialSubscriptions.length === 0 ? <div className="admin-empty"><h2>Todavía no hay suscripciones</h2><p>Las alumnas aparecerán aquí después de iniciar su pago en Mercado Pago.</p></div> : initialSubscriptions.map((subscription) => <article className="admin-subscription-row" key={subscription.id}><div><span className={`admin-status admin-status--${subscriptionLabel(subscription).toLowerCase().replaceAll(" ", "-")}`}>{subscriptionLabel(subscription)}</span><h2>{subscription.displayName || subscription.payerEmail || "Alumna sin identificar"}</h2><p>{subscription.payerEmail && <a href={`mailto:${subscription.payerEmail}`}>{subscription.payerEmail}</a>}{subscription.phone ? <> · <a href={`tel:${subscription.phone}`}>{subscription.phone}</a></> : " · Celular pendiente"}</p></div><dl><div><dt>Pago</dt><dd>{subscription.paymentStatus}</dd></div><div><dt>Acceso hasta</dt><dd>{formatDate(subscription.accessUntil)}</dd></div><div><dt>Próximo cobro</dt><dd>{subscription.cancelAtPeriodEnd ? "Cancelado" : formatDate(subscription.nextPaymentDate)}</dd></div></dl></article>)}</div>}
