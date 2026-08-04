@@ -136,9 +136,8 @@ export async function searchPlanSubscriptions(planId: string) {
     limit: "100",
   });
   const result = await mercadoPagoRequest<MercadoPagoPreapprovalSearch>(`/preapproval/search?${params}`);
-  const subscriptions = await hydrateSubscriptions(result.results || []);
-  return subscriptions
-    .filter((subscription) => subscription.preapproval_plan_id === planId)
+  return (result.results || [])
+    .filter((subscription) => !subscription.preapproval_plan_id || subscription.preapproval_plan_id === planId)
     .sort((left, right) => subscriptionDate(right) - subscriptionDate(left));
 }
 

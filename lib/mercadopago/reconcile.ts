@@ -50,24 +50,15 @@ export async function reconcileMercadoPagoState() {
 
   const { data: subscriptions, error: subscriptionsError } = await admin
     .from("subscriptions")
-    .select("provider_subscription_id,profile_id")
+    .select("provider_subscription_id,profile_id,updated_at")
     .eq("provider", "mercadopago")
-    .order("updated_at", { ascending: false })
+    .order("updated_at", { ascending: true })
     .limit(250);
   if (subscriptionsError) throw subscriptionsError;
-
-  for (const row of subscriptions || []) {
-    try {
-      const providerId = String(row.provider_subscription_id || "");
-      if (!providerId) continue;
-      await reconcilePreapproval(await getSubscription(providerId), String(row.profile_id));
-      reconciled.add(providerId);
-      summary.subscriptionsChecked += 1;
-    } catch (error) {
-      summary.errors += 1;
-      console.error("No se pudo reconciliar una suscripción existente", row.provider_subscription_id, error);
-    }
-  }
+  const linkedSubscriptions = new Map((subscriptions || []).map((row) => [
+    String(row.provider_subscription_id || ""),
+    String(row.profile_id || ""),
+  ]));
 
   let planCandidates: MercadoPagoPreapproval[] = [];
   try {
@@ -84,38 +75,50 @@ export async function reconcileMercadoPagoState() {
     .is("consumed_at", null)
     .gte("created_at", oldestIntent)
     .order("created_at", { ascending: true })
-    .limit(250);
+    .limit(25);
   if (intentsError) throw intentsError;
 
   for (const intent of intents || []) {
     summary.intentsChecked += 1;
     try {
       const normalizedEmail = String(intent.email).trim().toLowerCase();
-      const emailCandidates = await searchSubscriptions(normalizedEmail, planId);
-      const candidates = [...new Map([...emailCandidates, ...planCandidates]
-        .map((candidate) => [candidate.id, candidate])).values()];
       const createdAt = new Date(intent.created_at).getTime();
       const expiresAt = new Date(intent.expires_at).getTime();
-      const eligible = candidates.filter((candidate) => {
-        if (reconciled.has(candidate.id)) return false;
-        return candidate.preapproval_plan_id === planId;
-      });
       const matchesWindow = (candidate: MercadoPagoPreapproval) => {
         const candidateDate = new Date(candidate.date_created || 0).getTime();
         return candidateDate >= createdAt - 5 * 60 * 1000
           && candidateDate <= expiresAt + 24 * 60 * 60 * 1000;
       };
-      const referenceMatch = eligible.find((candidate) =>
+      const canUse = (candidate: MercadoPagoPreapproval) => {
+        if (reconciled.has(candidate.id)) return false;
+        const linkedProfileId = linkedSubscriptions.get(candidate.id);
+        return !linkedProfileId || linkedProfileId === String(intent.profile_id);
+      };
+      let candidates = planCandidates.filter(canUse);
+      let referenceMatch = candidates.find((candidate) =>
         candidate.external_reference === intent.id
         || candidate.external_reference === intent.profile_id,
       );
-      const emailMatches = eligible.filter((candidate) =>
+      let emailMatches = candidates.filter((candidate) =>
         candidate.payer_email?.trim().toLowerCase() === normalizedEmail,
       );
-      const match = referenceMatch
+      if (!referenceMatch && emailMatches.length === 0) {
+        candidates = (await searchSubscriptions(normalizedEmail, planId)).filter(canUse);
+        referenceMatch = candidates.find((candidate) =>
+          candidate.external_reference === intent.id
+          || candidate.external_reference === intent.profile_id,
+        );
+        emailMatches = candidates.filter((candidate) =>
+          candidate.payer_email?.trim().toLowerCase() === normalizedEmail,
+        );
+      }
+      const matchSummary = referenceMatch
         || emailMatches.find(matchesWindow)
         || (emailMatches.length === 1 ? emailMatches[0] : undefined);
-      if (!match) continue;
+      if (!matchSummary) continue;
+
+      const match = await getSubscription(matchSummary.id);
+      if (match.preapproval_plan_id !== planId) continue;
 
       const result = await reconcilePreapproval(match, String(intent.profile_id));
       reconciled.add(match.id);
@@ -130,12 +133,31 @@ export async function reconcileMercadoPagoState() {
         if (error) throw error;
       }
       summary.intentsMatched += 1;
+      // Cada alta puede requerir varias consultas y dos emails. Procesar una
+      // por ejecución mantiene el Worker dentro del límite de subconsultas.
+      break;
     } catch (error) {
       summary.errors += 1;
       console.error("No se pudo reconciliar un intento de checkout", intent.id, error);
     }
   }
 
-  summary.emailRetries = await retryFailedEmails();
+  if (summary.intentsMatched === 0) {
+    const oldestSubscription = (subscriptions || []).find((row) =>
+      row.provider_subscription_id && !reconciled.has(String(row.provider_subscription_id)),
+    );
+    if (oldestSubscription) {
+      try {
+        const providerId = String(oldestSubscription.provider_subscription_id);
+        await reconcilePreapproval(await getSubscription(providerId), String(oldestSubscription.profile_id));
+        summary.subscriptionsChecked += 1;
+      } catch (error) {
+        summary.errors += 1;
+        console.error("No se pudo reconciliar una suscripción existente", oldestSubscription.provider_subscription_id, error);
+      }
+    }
+  }
+
+  summary.emailRetries = await retryFailedEmails(1);
   return summary;
 }
