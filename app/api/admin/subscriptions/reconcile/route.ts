@@ -23,7 +23,12 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("No se pudo actualizar Mercado Pago desde el backoffice", error);
     return Response.json(
-      { error: "No se pudieron actualizar las suscripciones. Intenta nuevamente en unos minutos." },
+      {
+        error: "No se pudieron actualizar las suscripciones. Intenta nuevamente en unos minutos.",
+        ...(maintenanceAccess && {
+          diagnostic: error instanceof Error ? error.message : "Error interno sin detalle.",
+        }),
+      },
       { status: 500 },
     );
   }
