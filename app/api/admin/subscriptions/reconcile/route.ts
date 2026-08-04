@@ -1,4 +1,6 @@
 import { authorizeAdminRequest } from "../../../../admin-auth";
+import { inspectSubscriptionSearch } from "../../../../../lib/mercadopago/api";
+import { getMercadoPagoAccessConfig } from "../../../../../lib/mercadopago/config";
 import { reconcileMercadoPagoState } from "../../../../../lib/mercadopago/reconcile";
 
 function tokensMatch(provided: string, expected: string) {
@@ -29,6 +31,17 @@ export async function POST(request: Request) {
   if (!user) return Response.json({ error: "Acceso no autorizado." }, { status: 401 });
 
   try {
+    const diagnosticEmail = new URL(request.url).searchParams.get("email")?.trim().toLowerCase() || "";
+    if (diagnosticEmail) {
+      if (!maintenanceAccess || !/^\S+@\S+\.\S+$/.test(diagnosticEmail)) {
+        return Response.json({ error: "Diagnóstico no autorizado." }, { status: 403 });
+      }
+      const { planId } = getMercadoPagoAccessConfig();
+      return Response.json(
+        { searches: await inspectSubscriptionSearch(diagnosticEmail, planId) },
+        { headers: { "cache-control": "no-store" } },
+      );
+    }
     const summary = await reconcileMercadoPagoState();
     return Response.json(summary, { headers: { "cache-control": "no-store" } });
   } catch (error) {

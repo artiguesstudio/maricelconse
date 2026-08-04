@@ -50,6 +50,7 @@ export type MercadoPagoPayment = {
 
 type MercadoPagoPreapprovalSearch = {
   results?: MercadoPagoPreapproval[];
+  paging?: { total?: number; offset?: number; limit?: number };
 };
 
 function subscriptionDate(subscription: MercadoPagoPreapproval) {
@@ -149,6 +150,47 @@ export async function searchAuthorizedSubscriptions() {
   const result = await mercadoPagoRequest<MercadoPagoPreapprovalSearch>(`/preapproval/search?${params}`);
   return (result.results || [])
     .sort((left, right) => subscriptionDate(right) - subscriptionDate(left));
+}
+
+export async function inspectSubscriptionSearch(payerEmail: string, planId: string) {
+  const normalizedEmail = payerEmail.trim().toLowerCase();
+  const searches = [
+    ["email", new URLSearchParams({ payer_email: normalizedEmail, limit: "100" })],
+    ["query", new URLSearchParams({ q: normalizedEmail, limit: "100" })],
+    ["recent", new URLSearchParams({ limit: "100", sort: "date_created", criteria: "desc" })],
+    ["authorized", new URLSearchParams({ status: "authorized", limit: "100", sort: "date_created", criteria: "desc" })],
+    ["plan", new URLSearchParams({ preapproval_plan_id: planId, limit: "100", sort: "date_created", criteria: "desc" })],
+  ] as const;
+
+  const diagnostics = [];
+  for (const [name, params] of searches) {
+    try {
+      const result = await mercadoPagoRequest<MercadoPagoPreapprovalSearch>(`/preapproval/search?${params}`);
+      const matches = (result.results || []).filter((subscription) =>
+        subscription.payer_email?.trim().toLowerCase() === normalizedEmail,
+      );
+      diagnostics.push({
+        name,
+        returned: result.results?.length || 0,
+        total: result.paging?.total || 0,
+        matches: matches.map((subscription) => ({
+          id: subscription.id,
+          status: subscription.status,
+          payerEmail: subscription.payer_email || null,
+          dateCreated: subscription.date_created || null,
+          planMatches: subscription.preapproval_plan_id === planId,
+          hasPlan: Boolean(subscription.preapproval_plan_id),
+          externalReference: subscription.external_reference || null,
+        })),
+      });
+    } catch (error) {
+      diagnostics.push({
+        name,
+        error: error instanceof Error ? error.message : "Error sin detalle.",
+      });
+    }
+  }
+  return diagnostics;
 }
 
 export function cancelSubscription(providerSubscriptionId: string) {
