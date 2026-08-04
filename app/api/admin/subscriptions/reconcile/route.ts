@@ -10,6 +10,17 @@ function tokensMatch(provided: string, expected: string) {
   return difference === 0;
 }
 
+function diagnosticMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    return [record.code, record.message, record.details, record.hint]
+      .filter((value) => typeof value === "string" && value)
+      .join(" · ") || "Error interno sin detalle.";
+  }
+  return String(error || "Error interno sin detalle.");
+}
+
 export async function POST(request: Request) {
   const maintenanceToken = process.env.RECONCILE_API_TOKEN?.trim() || "";
   const providedToken = request.headers.get("x-reconcile-token") || "";
@@ -26,7 +37,7 @@ export async function POST(request: Request) {
       {
         error: "No se pudieron actualizar las suscripciones. Intenta nuevamente en unos minutos.",
         ...(maintenanceAccess && {
-          diagnostic: error instanceof Error ? error.message : "Error interno sin detalle.",
+          diagnostic: diagnosticMessage(error),
         }),
       },
       { status: 500 },
