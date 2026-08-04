@@ -2,6 +2,7 @@ import { retryFailedEmails } from "../email/resend";
 import { createAdminClient } from "../supabase/admin";
 import {
   getSubscription,
+  searchAuthorizedSubscriptions,
   searchAuthorizedPayments,
   searchPlanSubscriptions,
   searchSubscriptions,
@@ -66,6 +67,14 @@ export async function reconcileMercadoPagoState() {
   } catch (error) {
     summary.errors += 1;
     console.error("No se pudo obtener el listado del plan de Mercado Pago", error);
+  }
+  try {
+    const authorizedCandidates = await searchAuthorizedSubscriptions();
+    planCandidates = [...new Map([...planCandidates, ...authorizedCandidates]
+      .map((candidate) => [candidate.id, candidate])).values()];
+  } catch (error) {
+    summary.errors += 1;
+    console.error("No se pudo obtener el listado de suscripciones autorizadas", error);
   }
 
   const oldestIntent = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();

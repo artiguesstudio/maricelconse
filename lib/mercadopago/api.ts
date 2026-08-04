@@ -141,6 +141,16 @@ export async function searchPlanSubscriptions(planId: string) {
     .sort((left, right) => subscriptionDate(right) - subscriptionDate(left));
 }
 
+export async function searchAuthorizedSubscriptions() {
+  const params = new URLSearchParams({
+    status: "authorized",
+    limit: "100",
+  });
+  const result = await mercadoPagoRequest<MercadoPagoPreapprovalSearch>(`/preapproval/search?${params}`);
+  return (result.results || [])
+    .sort((left, right) => subscriptionDate(right) - subscriptionDate(left));
+}
+
 export function cancelSubscription(providerSubscriptionId: string) {
   return mercadoPagoRequest<MercadoPagoPreapproval>(
     `/preapproval/${encodeURIComponent(providerSubscriptionId)}`,
