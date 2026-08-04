@@ -135,8 +135,6 @@ export async function searchPlanSubscriptions(planId: string) {
   const params = new URLSearchParams({
     preapproval_plan_id: planId,
     limit: "100",
-    sort: "date_created",
-    criteria: "desc",
   });
   const result = await mercadoPagoRequest<MercadoPagoPreapprovalSearch>(`/preapproval/search?${params}`);
   return (result.results || [])
@@ -148,8 +146,6 @@ export async function searchAuthorizedSubscriptions() {
   const params = new URLSearchParams({
     status: "authorized",
     limit: "100",
-    sort: "date_created",
-    criteria: "desc",
   });
   const result = await mercadoPagoRequest<MercadoPagoPreapprovalSearch>(`/preapproval/search?${params}`);
   return (result.results || [])
@@ -161,22 +157,32 @@ export async function inspectSubscriptionSearch(payerEmail: string, planId: stri
   const searches = [
     ["email", new URLSearchParams({ payer_email: normalizedEmail, limit: "100" })],
     ["query", new URLSearchParams({ q: normalizedEmail, limit: "100" })],
-    ["recent", new URLSearchParams({ limit: "100", sort: "date_created", criteria: "desc" })],
-    ["authorized", new URLSearchParams({ status: "authorized", limit: "100", sort: "date_created", criteria: "desc" })],
-    ["plan", new URLSearchParams({ preapproval_plan_id: planId, limit: "100", sort: "date_created", criteria: "desc" })],
+    ["recent", new URLSearchParams({ limit: "100" })],
+    ["authorized", new URLSearchParams({ status: "authorized", limit: "100" })],
+    ["plan", new URLSearchParams({ preapproval_plan_id: planId, limit: "100" })],
   ] as const;
 
   const diagnostics = [];
   for (const [name, params] of searches) {
     try {
       const result = await mercadoPagoRequest<MercadoPagoPreapprovalSearch>(`/preapproval/search?${params}`);
-      const matches = (result.results || []).filter((subscription) =>
+      const candidates = await hydrateSubscriptions((result.results || []).slice(0, 5));
+      const matches = candidates.filter((subscription) =>
         subscription.payer_email?.trim().toLowerCase() === normalizedEmail,
       );
       diagnostics.push({
         name,
         returned: result.results?.length || 0,
         total: result.paging?.total || 0,
+        candidates: candidates.map((subscription) => ({
+          id: subscription.id,
+          status: subscription.status,
+          payerEmail: subscription.payer_email || null,
+          dateCreated: subscription.date_created || null,
+          planMatches: subscription.preapproval_plan_id === planId,
+          hasPlan: Boolean(subscription.preapproval_plan_id),
+          externalReference: subscription.external_reference || null,
+        })),
         matches: matches.map((subscription) => ({
           id: subscription.id,
           status: subscription.status,
