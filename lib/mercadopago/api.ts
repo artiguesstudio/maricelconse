@@ -120,14 +120,22 @@ async function hydrateSubscriptions(results: MercadoPagoPreapproval[]) {
 }
 
 export async function searchSubscriptions(payerEmail: string, planId: string) {
+  const normalizedEmail = payerEmail.trim().toLowerCase();
   const params = new URLSearchParams({
-    payer_email: payerEmail,
+    payer_email: normalizedEmail,
     limit: "100",
   });
   const result = await mercadoPagoRequest<MercadoPagoPreapprovalSearch>(`/preapproval/search?${params}`);
   const subscriptions = await hydrateSubscriptions(result.results || []);
   return subscriptions
     .filter((subscription) => subscription.preapproval_plan_id === planId)
+    // Mercado Pago puede omitir payer_email incluso en el detalle. Si la
+    // búsqueda filtrada por email devolvió la suscripción, conservamos ese
+    // filtro como identidad verificada para poder asociarla al perfil.
+    .map((subscription) => ({
+      ...subscription,
+      payer_email: subscription.payer_email || normalizedEmail,
+    }))
     .sort((left, right) => subscriptionDate(right) - subscriptionDate(left));
 }
 
