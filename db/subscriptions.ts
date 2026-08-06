@@ -47,11 +47,13 @@ export async function getCurrentSubscription(profileId: string) {
     .select(SUBSCRIPTION_COLUMNS)
     .eq("profile_id", profileId)
     .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(25);
 
   if (error) throw error;
-  return data ? mapSubscription(data as unknown as Record<string, unknown>) : null;
+  const current = (data || []).find((row) =>
+    row.access_until && new Date(row.access_until).getTime() > Date.now(),
+  ) || data?.[0];
+  return current ? mapSubscription(current as unknown as Record<string, unknown>) : null;
 }
 
 export async function getAdminSubscriptions() {

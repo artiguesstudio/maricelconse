@@ -44,9 +44,23 @@ async function findUniqueCheckoutIntent(
 
 export async function syncProfileStatus(profileId: string, accessUntil: string | null) {
   const admin = createAdminClient();
+  let active = isFuture(accessUntil);
+  if (!active) {
+    const { data: currentAccess, error: accessError } = await admin
+      .from("subscriptions")
+      .select("id")
+      .eq("profile_id", profileId)
+      .gt("access_until", new Date().toISOString())
+      .limit(1)
+      .maybeSingle();
+    if (accessError) throw accessError;
+    active = Boolean(currentAccess);
+  }
   const { error } = await admin
     .from("profiles")
-    .update({ membership_status: isFuture(accessUntil) ? "active" : "inactive" })
+    // Un cobro rechazado anterior no puede quitar el acceso concedido por
+    // otra suscripción vigente de la misma alumna.
+    .update({ membership_status: active ? "active" : "inactive" })
     .eq("id", profileId)
     .neq("role", "admin");
   if (error) throw error;
