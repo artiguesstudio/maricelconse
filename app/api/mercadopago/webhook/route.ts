@@ -27,9 +27,17 @@ async function processNotification(topic: string, resourceId: string) {
   if (topic === "subscription_authorized_payment") {
     const invoice = await getAuthorizedPayment(resourceId);
     const preapproval = await getSubscription(invoice.preapproval_id);
-    const paymentStatus = invoice.payment?.status || invoice.summarized || invoice.status || "pending";
+    let payment = null;
+    if (invoice.payment?.id) {
+      try {
+        payment = await getPayment(String(invoice.payment.id));
+      } catch (error) {
+        console.error("No se pudo consultar el pago de la factura autorizada", invoice.payment.id, error);
+      }
+    }
+    const paymentStatus = payment?.status || invoice.payment?.status || invoice.summarized || invoice.status || "pending";
     const accessUntil = paymentStatus === "approved"
-      ? preapproval.next_payment_date || addOneMonth(invoice.debit_date || new Date())
+      ? preapproval.next_payment_date || addOneMonth(payment?.date_approved || invoice.debit_date || new Date())
       : null;
     await syncPreapproval(preapproval, null, paymentStatus, accessUntil, String(invoice.id));
     return;

@@ -1,7 +1,8 @@
 import { authorizeAdminRequest } from "../../../../admin-auth";
-import { inspectSubscriptionSearch } from "../../../../../lib/mercadopago/api";
+import { getSubscription, inspectSubscriptionSearch } from "../../../../../lib/mercadopago/api";
 import { getMercadoPagoAccessConfig } from "../../../../../lib/mercadopago/config";
-import { reconcileMercadoPagoState } from "../../../../../lib/mercadopago/reconcile";
+import { reconcileMercadoPagoState, reconcilePreapproval } from "../../../../../lib/mercadopago/reconcile";
+import { createAdminClient } from "../../../../../lib/supabase/admin";
 
 function tokensMatch(provided: string, expected: string) {
   if (!provided || !expected || provided.length !== expected.length) return false;
@@ -31,7 +32,32 @@ export async function POST(request: Request) {
   if (!user) return Response.json({ error: "Acceso no autorizado." }, { status: 401 });
 
   try {
-    const diagnosticEmail = new URL(request.url).searchParams.get("email")?.trim().toLowerCase() || "";
+    const url = new URL(request.url);
+    const providerSubscriptionId = url.searchParams.get("subscription_id")?.trim() || "";
+    if (providerSubscriptionId) {
+      if (!maintenanceAccess || !/^[a-zA-Z0-9_-]{10,80}$/.test(providerSubscriptionId)) {
+        return Response.json({ error: "Conciliación puntual no autorizada." }, { status: 403 });
+      }
+      const admin = createAdminClient();
+      const { data: subscription, error } = await admin
+        .from("subscriptions")
+        .select("profile_id")
+        .eq("provider_subscription_id", providerSubscriptionId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!subscription?.profile_id) {
+        return Response.json({ error: "Suscripción no encontrada." }, { status: 404 });
+      }
+      return Response.json(
+        await reconcilePreapproval(
+          await getSubscription(providerSubscriptionId),
+          String(subscription.profile_id),
+        ),
+        { headers: { "cache-control": "no-store" } },
+      );
+    }
+
+    const diagnosticEmail = url.searchParams.get("email")?.trim().toLowerCase() || "";
     if (diagnosticEmail) {
       if (!maintenanceAccess || !/^\S+@\S+\.\S+$/.test(diagnosticEmail)) {
         return Response.json({ error: "Diagnóstico no autorizado." }, { status: 403 });

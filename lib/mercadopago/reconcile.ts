@@ -1,6 +1,7 @@
 import { retryFailedEmails } from "../email/resend";
 import { createAdminClient } from "../supabase/admin";
 import {
+  getPayment,
   getSubscription,
   searchAuthorizedSubscriptions,
   searchAuthorizedPayments,
@@ -26,11 +27,21 @@ export async function reconcilePreapproval(
 ) {
   const invoices = await searchAuthorizedPayments(preapproval.id);
   const invoice = invoices[0] || null;
-  const paymentStatus = invoice
-    ? invoice.payment?.status || invoice.summarized || invoice.status || "pending"
-    : null;
+  let payment = null;
+  if (invoice?.payment?.id) {
+    try {
+      payment = await getPayment(String(invoice.payment.id));
+    } catch (error) {
+      console.error("No se pudo consultar el pago asociado a la suscripción", invoice.payment.id, error);
+    }
+  }
+  const paymentStatus = payment?.status
+    || invoice?.payment?.status
+    || invoice?.summarized
+    || invoice?.status
+    || null;
   const accessUntil = paymentStatus === "approved"
-    ? preapproval.next_payment_date || addOneMonth(invoice?.debit_date || new Date())
+    ? preapproval.next_payment_date || addOneMonth(payment?.date_approved || invoice?.debit_date || new Date())
     : null;
 
   await syncPreapproval(
