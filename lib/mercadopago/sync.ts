@@ -1,6 +1,7 @@
 import { createAdminClient } from "../supabase/admin";
 import { notifySubscriptionActivated, notifySubscriptionPaymentIssue } from "../email/notifications";
 import type { MercadoPagoPreapproval } from "./api";
+import { getMercadoPagoAccessConfig } from "./config";
 
 function isFuture(value: string | null | undefined) {
   return Boolean(value && new Date(value).getTime() > Date.now());
@@ -8,6 +9,37 @@ function isFuture(value: string | null | undefined) {
 
 function isUuid(value: string | null | undefined) {
   return Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
+}
+
+async function findUniqueCheckoutIntent(
+  admin: ReturnType<typeof createAdminClient>,
+  preapproval: MercadoPagoPreapproval,
+) {
+  const { planId } = getMercadoPagoAccessConfig();
+  if (
+    preapproval.status !== "authorized"
+    || preapproval.preapproval_plan_id !== planId
+    || !preapproval.date_created
+  ) return null;
+
+  const subscriptionCreatedAt = new Date(preapproval.date_created).getTime();
+  if (!Number.isFinite(subscriptionCreatedAt)) return null;
+
+  // El checkout alojado de Mercado Pago puede omitir payer_email y
+  // external_reference. En ese caso solo asociamos cuando existe un único
+  // intento abierto que encaja en la hora exacta de creación del alta.
+  const latestIntentCreatedAt = new Date(subscriptionCreatedAt + 5 * 60 * 1000).toISOString();
+  const earliestIntentExpiry = new Date(subscriptionCreatedAt - 30 * 60 * 1000).toISOString();
+  const { data: intents, error } = await admin
+    .from("subscription_checkout_intents")
+    .select("id,profile_id")
+    .is("consumed_at", null)
+    .lte("created_at", latestIntentCreatedAt)
+    .gte("expires_at", earliestIntentExpiry)
+    .order("created_at", { ascending: false })
+    .limit(2);
+  if (error) throw error;
+  return intents?.length === 1 ? intents[0] : null;
 }
 
 export async function syncProfileStatus(profileId: string, accessUntil: string | null) {
@@ -73,6 +105,13 @@ export async function syncPreapproval(
       .maybeSingle();
     if (profileError) throw profileError;
     profileId = profile?.id || null;
+  }
+  if (!profileId) {
+    const intent = await findUniqueCheckoutIntent(admin, preapproval);
+    if (intent) {
+      checkoutIntentId = String(intent.id);
+      profileId = String(intent.profile_id);
+    }
   }
   if (!profileId) throw new Error("La suscripción no tiene una alumna asociada.");
 

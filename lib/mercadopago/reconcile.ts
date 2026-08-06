@@ -79,9 +79,10 @@ export async function reconcileMercadoPagoState() {
     summary.errors += 1;
     console.error("No se pudo obtener el listado del plan de Mercado Pago", error);
   }
+  let allCandidates = [...planCandidates];
   try {
     const authorizedCandidates = await searchAuthorizedSubscriptions();
-    planCandidates = [...new Map([...planCandidates, ...authorizedCandidates]
+    allCandidates = [...new Map([...planCandidates, ...authorizedCandidates]
       .map((candidate) => [candidate.id, candidate])).values()];
   } catch (error) {
     summary.errors += 1;
@@ -94,7 +95,9 @@ export async function reconcileMercadoPagoState() {
     .select("id,profile_id,email,created_at,expires_at,consumed_at")
     .is("consumed_at", null)
     .gte("created_at", oldestIntent)
-    .order("created_at", { ascending: true })
+    // Priorizamos las altas recientes para que una prueba vieja abandonada no
+    // retrase el acceso de una alumna que acaba de pagar.
+    .order("created_at", { ascending: false })
     .limit(25);
   if (intentsError) throw intentsError;
 
@@ -109,12 +112,18 @@ export async function reconcileMercadoPagoState() {
         return candidateDate >= createdAt - 5 * 60 * 1000
           && candidateDate <= expiresAt + 24 * 60 * 60 * 1000;
       };
+      const matchesRecoveryWindow = (candidate: MercadoPagoPreapproval) => {
+        const candidateDate = new Date(candidate.date_created || 0).getTime();
+        return candidate.status === "authorized"
+          && candidateDate >= createdAt - 5 * 60 * 1000
+          && candidateDate <= expiresAt + 30 * 60 * 1000;
+      };
       const canUse = (candidate: MercadoPagoPreapproval) => {
         if (reconciled.has(candidate.id)) return false;
         const linkedProfileId = linkedSubscriptions.get(candidate.id);
         return !linkedProfileId || linkedProfileId === String(intent.profile_id);
       };
-      let candidates = planCandidates.filter(canUse);
+      let candidates = allCandidates.filter(canUse);
       let referenceMatch = candidates.find((candidate) =>
         candidate.external_reference === intent.id
         || candidate.external_reference === intent.profile_id,
@@ -123,18 +132,26 @@ export async function reconcileMercadoPagoState() {
         candidate.payer_email?.trim().toLowerCase() === normalizedEmail,
       );
       if (!referenceMatch && emailMatches.length === 0) {
-        candidates = (await searchSubscriptions(normalizedEmail, planId)).filter(canUse);
-        referenceMatch = candidates.find((candidate) =>
-          candidate.external_reference === intent.id
-          || candidate.external_reference === intent.profile_id,
-        );
-        emailMatches = candidates.filter((candidate) =>
-          candidate.payer_email?.trim().toLowerCase() === normalizedEmail,
-        );
+        try {
+          candidates = (await searchSubscriptions(normalizedEmail, planId)).filter(canUse);
+          referenceMatch = candidates.find((candidate) =>
+            candidate.external_reference === intent.id
+            || candidate.external_reference === intent.profile_id,
+          );
+          emailMatches = candidates.filter((candidate) =>
+            candidate.payer_email?.trim().toLowerCase() === normalizedEmail,
+          );
+        } catch (error) {
+          summary.errors += 1;
+          console.error("No se pudo buscar la suscripción por email", normalizedEmail, error);
+        }
       }
-      const matchSummary = referenceMatch
+      const identityMatch = referenceMatch
         || emailMatches.find(matchesWindow)
         || (emailMatches.length === 1 ? emailMatches[0] : undefined);
+      const timeMatches = planCandidates.filter((candidate) => canUse(candidate) && matchesRecoveryWindow(candidate));
+      const timeMatch = !identityMatch && timeMatches.length === 1 ? timeMatches[0] : undefined;
+      const matchSummary = identityMatch || timeMatch;
       if (!matchSummary) continue;
 
       const match = await getSubscription(matchSummary.id);
@@ -142,10 +159,12 @@ export async function reconcileMercadoPagoState() {
 
       const result = await reconcilePreapproval(match, String(intent.profile_id));
       reconciled.add(match.id);
-      const shouldConsume = match.status !== "pending"
-        || result.paymentStatus === "approved"
-        || isFinalPaymentIssue(result.paymentStatus)
-        || isUuid(match.external_reference);
+      const shouldConsume = timeMatch
+        ? result.paymentStatus === "approved" || isFinalPaymentIssue(result.paymentStatus)
+        : match.status !== "pending"
+          || result.paymentStatus === "approved"
+          || isFinalPaymentIssue(result.paymentStatus)
+          || isUuid(match.external_reference);
       if (shouldConsume) {
         const { error } = await admin.from("subscription_checkout_intents")
           .update({ consumed_at: new Date().toISOString() })
